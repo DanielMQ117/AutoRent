@@ -1,0 +1,53 @@
+"""Paquete de dominio con modelos de entidades y enumeraciones."""
+
+from src.domain.enums import (
+    ClientStatus,
+    ClientType,
+    ContractStatus,
+    DamageSeverity,
+    DamageType,
+    MaintenanceStatus,
+    MaintenanceType,
+    PaymentMethod,
+    PaymentType,
+    ReservationStatus,
+    SettlementStatus,
+    UserRole,
+    VehicleStatus,
+)
+from src.domain.models import (
+    Brand,
+    Client,
+    DriverLicense,
+    InsuranceCoverage,
+    Role,
+    User,
+    Vehicle,
+    VehicleCategory,
+    VehicleModel,
+)
+
+__all__ = [
+    "ClientStatus",
+    "ClientType",
+    "ContractStatus",
+    "DamageSeverity",
+    "DamageType",
+    "MaintenanceStatus",
+    "MaintenanceType",
+    "PaymentMethod",
+    "PaymentType",
+    "ReservationStatus",
+    "SettlementStatus",
+    "UserRole",
+    "VehicleStatus",
+    "Brand",
+    "Client",
+    "DriverLicense",
+    "InsuranceCoverage",
+    "Role",
+    "User",
+    "Vehicle",
+    "VehicleCategory",
+    "VehicleModel",
+]

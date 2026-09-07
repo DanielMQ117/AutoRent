@@ -1,0 +1,18 @@
+# ============================================================================
+# PROYECTO INTEGRADOR II: SISTEMA DE CONTROL DE ALQUILER DE AUTOMOVILES
+# DEPENDENCIAS DE PRODUCCION (PYTHON 3.12+)
+# ============================================================================
+
+# Interfaz Grafica de Usuario (GUI)
+PySide6>=6.6.0
+
+# Conector y Pool de Conexiones para PostgreSQL
+# Se soporta psycopg 3 y psycopg2-binary
+psycopg2-binary>=2.9.9
+psycopg[binary,pool]>=3.1.18
+
+# Carga de Variables de Entorno (.env)
+python-dotenv>=1.0.1
+
+# Seguridad y Cifrado de Contraseñas (Hashing)
+bcrypt>=4.1.2
