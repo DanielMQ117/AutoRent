@@ -22,42 +22,56 @@ VALUES (
         'Supervisión operativa, reportes ejecutivos y autorizaciones especiales'
     );
 
--- 2. Usuarios Iniciales (Contraseñas simuladas con hash bcrypt)
+-- 2. Usuarios Iniciales con contraseñas hash reales en bcrypt
+-- admin: Admin123* | agente1: Agente123* | taller1: Taller123* | gerente1: Gerente123* | inactivo: Inactivo123*
 INSERT INTO
     usuarios (
         id_rol,
         username,
         password_hash,
         nombre_completo,
-        email
+        email,
+        activo
     )
 VALUES (
         1,
         'admin',
-        '$2b$12$e8Yk1O1a6oDk9dFkKzK7ue0OcbHw5B.Qo0U4A5xQ7E7j9XwY3mJ2u',
+        '$2b$12$XZF4Nh4qnfmE3uacE8U72O0nX9ERp6ljAgAWu/JBsYA2MVYua/Khq',
         'Carlos Fonseca Amador',
-        'admin@rentacar.com'
+        'admin@rentacar.com',
+        TRUE
     ),
     (
         2,
         'agente1',
-        '$2b$12$e8Yk1O1a6oDk9dFkKzK7ue0OcbHw5B.Qo0U4A5xQ7E7j9XwY3mJ2u',
+        '$2b$12$5eYu5DxVi6TN0oVMRPWgI.XXpA2tDQFDn6oIScnIQ1hVjFLEPdiHu',
         'Maria Elena Morales',
-        'maria.agente@rentacar.com'
+        'maria.agente@rentacar.com',
+        TRUE
     ),
     (
         3,
         'taller1',
-        '$2b$12$e8Yk1O1a6oDk9dFkKzK7ue0OcbHw5B.Qo0U4A5xQ7E7j9XwY3mJ2u',
+        '$2b$12$uOPHM2vr.acr0VmPo.mPvO8LJH82m6oqdgj27KDhvX1AwJ.tH6lUW',
         'Jorge Gutierrez Lopez',
-        'jorge.taller@rentacar.com'
+        'jorge.taller@rentacar.com',
+        TRUE
     ),
     (
         4,
         'gerente1',
-        '$2b$12$e8Yk1O1a6oDk9dFkKzK7ue0OcbHw5B.Qo0U4A5xQ7E7j9XwY3mJ2u',
+        '$2b$12$pBXT4SiGrZXRcI4oZzLVg.jUeRR7R8/gqNXT9fKoMac5e2ChG5h.e',
         'Sofia Lorente Blandon',
-        'sofia.gerente@rentacar.com'
+        'sofia.gerente@rentacar.com',
+        TRUE
+    ),
+    (
+        2,
+        'inactivo',
+        '$2b$12$OVrkEfOfMACqU7fWiEP7uulOCg0hlJPl6h.1z9JsQcGnAX65tdYS.',
+        'Usuario Deshabilitado de Prueba',
+        'inactivo@rentacar.com',
+        FALSE
     );
 
 -- 3. Marcas y Modelos

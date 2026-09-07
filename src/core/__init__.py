@@ -17,6 +17,7 @@ from src.core.exceptions import (
 )
 from src.core.logger import get_logger, setup_logging
 from src.core.security import hash_password, verify_password
+from src.core.session import UserSession, session
 
 __all__ = [
     "AppException",
@@ -36,4 +37,6 @@ __all__ = [
     "setup_logging",
     "hash_password",
     "verify_password",
+    "UserSession",
+    "session",
 ]
