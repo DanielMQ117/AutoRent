@@ -520,7 +520,7 @@ INSERT INTO
     danios (
         id_devolucion,
         zona_carroceria,
-        tipo_dano,
+        tipo_danio,
         gravedad,
         descripcion,
         costo_reparacion
@@ -545,7 +545,7 @@ INSERT INTO
         cargos_retraso,
         cargos_combustible,
         cargos_km_excedente,
-        cargos_danos,
+        cargos_danios,
         total_bruto,
         monto_garantia_aplicado,
         saldo_cliente,
@@ -601,6 +601,10 @@ VALUES (
         'REFUND-112233',
         2
     );
+
+-- Cierre definitivo del contrato histórico y liberación del vehículo a DISPONIBLE
+UPDATE contratos SET estado = 'LIQUIDADO' WHERE id_contrato = 2;
+UPDATE vehiculos SET estado = 'DISPONIBLE' WHERE id_vehiculo = 2;
 
 -- 11. Caso 4: Orden de Mantenimiento Activa
 INSERT INTO mantenimientos (

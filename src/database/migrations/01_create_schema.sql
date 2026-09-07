@@ -174,7 +174,7 @@ CREATE TABLE licencias_conducir (
     id_licencia BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_cliente BIGINT NOT NULL UNIQUE,
     numero_licencia VARCHAR(40) NOT NULL UNIQUE,
-    categoria_licencia VARCHAR(10) NOT NULL,
+    categoria_licencia VARCHAR(30) NOT NULL,
     fecha_emision DATE NOT NULL,
     fecha_vencimiento DATE NOT NULL,
     pais_emision VARCHAR(50) NOT NULL DEFAULT 'Nicaragua',

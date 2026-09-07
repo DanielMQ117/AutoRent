@@ -88,7 +88,7 @@ SELECT
         d.kilometraje_retorno - c.kilometraje_salida
     ) AS km_recorridos,
     l.subtotal_renta,
-    l.cargos_danos,
+    l.cargos_danios,
     l.total_bruto,
     l.monto_garantia_aplicado,
     l.saldo_cliente,
