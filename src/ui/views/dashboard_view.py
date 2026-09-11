@@ -24,6 +24,7 @@ from src.core.logger import get_logger
 from src.core.session import session
 from src.services.auth_service import auth_service
 from src.ui.views.clients_view import ClientsView
+from src.ui.views.reservations_view import ReservationsView
 from src.ui.views.vehicles_view import VehiclesView
 
 logger = get_logger(__name__)
@@ -75,6 +76,11 @@ class DashboardView(QMainWindow):
         self.vehicles_view.back_requested.connect(lambda: self._switch_to_page(0))
         self.stacked_widget.addWidget(self.vehicles_view)
 
+        # Página 3: Módulo de Gestión de Reservas (Fase 4)
+        self.reservations_view = ReservationsView(self)
+        self.reservations_view.back_requested.connect(lambda: self._switch_to_page(0))
+        self.stacked_widget.addWidget(self.reservations_view)
+
         main_layout.addWidget(self.stacked_widget, stretch=1)
 
         # 3. Barra de Estado Inferior
@@ -121,6 +127,12 @@ class DashboardView(QMainWindow):
             self._style_nav_button(self.btn_nav_clientes)
             self.btn_nav_clientes.clicked.connect(lambda: self._open_clientes_module())
             nav_container.addWidget(self.btn_nav_clientes)
+
+        if session.has_permission("reservas"):
+            self.btn_nav_reservas = QPushButton("📅 Reservas")
+            self._style_nav_button(self.btn_nav_reservas)
+            self.btn_nav_reservas.clicked.connect(lambda: self._open_reservations_module())
+            nav_container.addWidget(self.btn_nav_reservas)
 
         bar_layout.addLayout(nav_container)
         bar_layout.addStretch()
@@ -271,8 +283,8 @@ class DashboardView(QMainWindow):
         welcome_title.setStyleSheet("color: #f8fafc; border: none;")
 
         desc_label = QLabel(
-            "Fase 3 activa: Los módulos base de catálogo ('Gestión de Clientes' y 'Gestión de Flota') "
-            "se encuentran plenamente operativos con CRUD completo y control de estados (Disponible, Alquilado y Mantenimiento)."
+            "Fases 3 y 4 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota' y 'Reservas & Disponibilidad' "
+            "se encuentran plenamente operativos con CRUD completo, control de estados, cálculo de cotización y bloqueo de flota."
         )
         desc_label.setFont(QFont("Segoe UI", 9))
         desc_label.setStyleSheet("color: #94a3b8; border: none;")
@@ -318,11 +330,11 @@ class DashboardView(QMainWindow):
         card_layout.setSpacing(10)
         card_layout.setContentsMargins(16, 16, 16, 16)
 
-        is_fase3 = module_key in ("flota", "clientes")
+        is_operativo = module_key in ("flota", "clientes", "reservas")
 
         if has_access:
-            badge_color = "#38bdf8" if is_fase3 else "#4ade80"
-            status_text = "★ Módulo Operativo" if is_fase3 else "✓ Acceso Concedido"
+            badge_color = "#38bdf8" if is_operativo else "#4ade80"
+            status_text = "★ Módulo Operativo" if is_operativo else "✓ Acceso Concedido"
 
             card.setStyleSheet("""
                 QFrame {
@@ -378,14 +390,24 @@ class DashboardView(QMainWindow):
         card_layout.addWidget(desc, stretch=1)
 
         # Botón de Acción
-        action_btn = QPushButton("Abrir Catálogo" if (has_access and is_fase3) else ("Abrir Módulo" if has_access else "Restringido"))
+        if has_access:
+            if module_key in ("flota", "clientes"):
+                btn_label = "Abrir Catálogo"
+            elif module_key == "reservas":
+                btn_label = "Gestionar Reservas"
+            else:
+                btn_label = "Abrir Módulo"
+        else:
+            btn_label = "Restringido"
+
+        action_btn = QPushButton(btn_label)
         action_btn.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
         action_btn.setEnabled(has_access)
         action_btn.setCursor(Qt.CursorShape.PointingHandCursor if has_access else Qt.CursorShape.ForbiddenCursor)
 
         if has_access:
-            btn_bg = "#0284c7" if is_fase3 else "#334155"
-            btn_hover = "#0369a1" if is_fase3 else "#475569"
+            btn_bg = "#0284c7" if is_operativo else "#334155"
+            btn_hover = "#0369a1" if is_operativo else "#475569"
             action_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {btn_bg};
@@ -433,12 +455,22 @@ class DashboardView(QMainWindow):
         self.vehicles_view.load_data()
         self._switch_to_page(2)
 
+    def _open_reservations_module(self) -> None:
+        """Abre la pantalla del motor de reservas y disponibilidad."""
+        if not session.has_permission("reservas"):
+            QMessageBox.warning(self, "Acceso Restringido", "Su perfil no cuenta con permisos para el módulo de Reservas.")
+            return
+        self.reservations_view.load_data()
+        self._switch_to_page(3)
+
     def _handle_open_module(self, module_name: str, module_key: str) -> None:
         """Maneja el clic en las tarjetas de módulo."""
         if module_key == "clientes":
             self._open_clientes_module()
         elif module_key == "flota":
             self._open_flota_module()
+        elif module_key == "reservas":
+            self._open_reservations_module()
         else:
             QMessageBox.information(
                 self,

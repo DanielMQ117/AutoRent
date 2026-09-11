@@ -7,6 +7,8 @@ from src.ui.views.client_form_dialog import ClientFormDialog
 from src.ui.views.vehicles_view import VehiclesView
 from src.ui.views.vehicle_form_dialog import VehicleFormDialog
 from src.ui.views.vehicle_status_dialog import VehicleStatusDialog
+from src.ui.views.reservations_view import ReservationsView
+from src.ui.views.reservation_form_dialog import ReservationFormDialog
 
 __all__ = [
     "LoginView",
@@ -16,4 +18,6 @@ __all__ = [
     "VehiclesView",
     "VehicleFormDialog",
     "VehicleStatusDialog",
+    "ReservationsView",
+    "ReservationFormDialog",
 ]

@@ -123,3 +123,46 @@ class InsuranceCoverage:
     descripcion: str = ""
     costo_diario: Decimal = Decimal("0.00")
     porcentaje_deducible: Decimal = Decimal("10.00")
+
+
+@dataclass
+class Reservation:
+    id_reserva: Optional[int] = None
+    codigo_reserva: str = ""
+    id_cliente: int = 0
+    id_categoria: int = 0
+    id_vehiculo: Optional[int] = None
+    fecha_hora_inicio: Optional[datetime] = None
+    fecha_hora_fin: Optional[datetime] = None
+    monto_anticipo: Decimal = Decimal("0.00")
+    estado: ReservationStatus = ReservationStatus.PENDIENTE
+    id_usuario: int = 0
+    fecha_creacion: Optional[datetime] = None
+    # Atributos auxiliares provenientes de JOINs para presentación
+    cliente_nombre: Optional[str] = None
+    cliente_identificacion: Optional[str] = None
+    categoria_nombre: Optional[str] = None
+    tarifa_base_diaria: Optional[Decimal] = None
+    vehiculo_placa: Optional[str] = None
+    vehiculo_modelo: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+
+    @property
+    def duracion_dias(self) -> int:
+        """Calcula la duración en días calendario de la reserva (mínimo 1 día)."""
+        if not self.fecha_hora_inicio or not self.fecha_hora_fin:
+            return 1
+        delta = self.fecha_hora_fin - self.fecha_hora_inicio
+        dias = delta.days
+        # Si sobran más de 60 minutos se computa como fracción o día adicional
+        if delta.seconds > 3600:
+            dias += 1
+        return max(1, dias)
+
+    @property
+    def costo_estimado(self) -> Decimal:
+        """Calcula el costo total estimado de renta para el período reservado."""
+        if not self.tarifa_base_diaria:
+            return Decimal("0.00")
+        return self.tarifa_base_diaria * Decimal(self.duracion_dias)
+

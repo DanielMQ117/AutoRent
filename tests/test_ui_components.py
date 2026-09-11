@@ -69,13 +69,25 @@ def run_ui_checks():
     assert status_dlg.vehicle.placa == test_veh.placa
     print(" -> PASO: VehicleStatusDialog verificado.")
 
-    print("\n[CHECK 6] Inicializando DashboardView integrado...")
+    print("\n[CHECK 6] Inicializando ReservationsView...")
+    from src.ui.views.reservations_view import ReservationsView
+    reservations_view = ReservationsView()
+    assert reservations_view.table.columnCount() == 10
+    print(" -> PASO: ReservationsView inicializada con 10 columnas.")
+
+    print("\n[CHECK 7] Inicializando ReservationFormDialog...")
+    from src.ui.views.reservation_form_dialog import ReservationFormDialog
+    res_dlg = ReservationFormDialog()
+    assert "Nueva Reserva de Vehículo" in res_dlg.windowTitle()
+    print(" -> PASO: ReservationFormDialog inicializado correctamente.")
+
+    print("\n[CHECK 8] Inicializando DashboardView integrado...")
     dashboard = DashboardView()
-    assert dashboard.stacked_widget.count() == 3
-    print(" -> PASO: DashboardView integrado con las 3 páginas (Dashboard, Clientes, Flota).")
+    assert dashboard.stacked_widget.count() == 4
+    print(" -> PASO: DashboardView integrado con las 4 páginas (Dashboard, Clientes, Flota, Reservas).")
 
     print("\n" + "=" * 70)
-    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [6/6]")
+    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [8/8]")
     print("=" * 70 + "\n")
 
 
