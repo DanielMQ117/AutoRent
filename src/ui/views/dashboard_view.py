@@ -24,6 +24,7 @@ from src.core.logger import get_logger
 from src.core.session import session
 from src.services.auth_service import auth_service
 from src.ui.views.clients_view import ClientsView
+from src.ui.views.contracts_view import ContractsView
 from src.ui.views.reservations_view import ReservationsView
 from src.ui.views.vehicles_view import VehiclesView
 
@@ -81,6 +82,11 @@ class DashboardView(QMainWindow):
         self.reservations_view.back_requested.connect(lambda: self._switch_to_page(0))
         self.stacked_widget.addWidget(self.reservations_view)
 
+        # Página 4: Módulo de Gestión de Contratos y Entrega (Fase 5)
+        self.contracts_view = ContractsView(self)
+        self.contracts_view.back_requested.connect(lambda: self._switch_to_page(0))
+        self.stacked_widget.addWidget(self.contracts_view)
+
         main_layout.addWidget(self.stacked_widget, stretch=1)
 
         # 3. Barra de Estado Inferior
@@ -133,6 +139,12 @@ class DashboardView(QMainWindow):
             self._style_nav_button(self.btn_nav_reservas)
             self.btn_nav_reservas.clicked.connect(lambda: self._open_reservations_module())
             nav_container.addWidget(self.btn_nav_reservas)
+
+        if session.has_permission("contratos"):
+            self.btn_nav_contratos = QPushButton("📄 Contratos")
+            self._style_nav_button(self.btn_nav_contratos)
+            self.btn_nav_contratos.clicked.connect(lambda: self._open_contratos_module())
+            nav_container.addWidget(self.btn_nav_contratos)
 
         bar_layout.addLayout(nav_container)
         bar_layout.addStretch()
@@ -283,8 +295,8 @@ class DashboardView(QMainWindow):
         welcome_title.setStyleSheet("color: #f8fafc; border: none;")
 
         desc_label = QLabel(
-            "Fases 3 y 4 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota' y 'Reservas & Disponibilidad' "
-            "se encuentran plenamente operativos con CRUD completo, control de estados, cálculo de cotización y bloqueo de flota."
+            "Fases 3, 4 y 5 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota', 'Reservas' y 'Contratos de Entrega' "
+            "se encuentran plenamente operativos con formalización transaccional, inspección física y garantías."
         )
         desc_label.setFont(QFont("Segoe UI", 9))
         desc_label.setStyleSheet("color: #94a3b8; border: none;")
@@ -330,7 +342,7 @@ class DashboardView(QMainWindow):
         card_layout.setSpacing(10)
         card_layout.setContentsMargins(16, 16, 16, 16)
 
-        is_operativo = module_key in ("flota", "clientes", "reservas")
+        is_operativo = module_key in ("flota", "clientes", "reservas", "contratos")
 
         if has_access:
             badge_color = "#38bdf8" if is_operativo else "#4ade80"
@@ -395,6 +407,8 @@ class DashboardView(QMainWindow):
                 btn_label = "Abrir Catálogo"
             elif module_key == "reservas":
                 btn_label = "Gestionar Reservas"
+            elif module_key == "contratos":
+                btn_label = "Gestionar Contratos"
             else:
                 btn_label = "Abrir Módulo"
         else:
@@ -463,6 +477,14 @@ class DashboardView(QMainWindow):
         self.reservations_view.load_data()
         self._switch_to_page(3)
 
+    def _open_contratos_module(self) -> None:
+        """Abre la pantalla de gestión de contratos y entrega de vehículos."""
+        if not session.has_permission("contratos"):
+            QMessageBox.warning(self, "Acceso Restringido", "Su perfil no cuenta con permisos para el módulo de Contratos.")
+            return
+        self.contracts_view.load_data()
+        self._switch_to_page(4)
+
     def _handle_open_module(self, module_name: str, module_key: str) -> None:
         """Maneja el clic en las tarjetas de módulo."""
         if module_key == "clientes":
@@ -471,6 +493,8 @@ class DashboardView(QMainWindow):
             self._open_flota_module()
         elif module_key == "reservas":
             self._open_reservations_module()
+        elif module_key == "contratos":
+            self._open_contratos_module()
         else:
             QMessageBox.information(
                 self,

@@ -81,13 +81,25 @@ def run_ui_checks():
     assert "Nueva Reserva de Vehículo" in res_dlg.windowTitle()
     print(" -> PASO: ReservationFormDialog inicializado correctamente.")
 
-    print("\n[CHECK 8] Inicializando DashboardView integrado...")
+    print("\n[CHECK 8] Inicializando ContractsView...")
+    from src.ui.views.contracts_view import ContractsView
+    contracts_view = ContractsView()
+    assert contracts_view.table.columnCount() == 11
+    print(" -> PASO: ContractsView inicializada con 11 columnas.")
+
+    print("\n[CHECK 9] Inicializando ContractFormDialog...")
+    from src.ui.views.contract_form_dialog import ContractFormDialog
+    contract_dlg = ContractFormDialog()
+    assert "Apertura de Contrato" in contract_dlg.windowTitle()
+    print(" -> PASO: ContractFormDialog inicializado correctamente.")
+
+    print("\n[CHECK 10] Inicializando DashboardView integrado...")
     dashboard = DashboardView()
-    assert dashboard.stacked_widget.count() == 4
-    print(" -> PASO: DashboardView integrado con las 4 páginas (Dashboard, Clientes, Flota, Reservas).")
+    assert dashboard.stacked_widget.count() == 5
+    print(" -> PASO: DashboardView integrado con las 5 páginas (Dashboard, Clientes, Flota, Reservas, Contratos).")
 
     print("\n" + "=" * 70)
-    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [8/8]")
+    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [10/10]")
     print("=" * 70 + "\n")
 
 

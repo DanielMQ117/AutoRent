@@ -166,3 +166,96 @@ class Reservation:
             return Decimal("0.00")
         return self.tarifa_base_diaria * Decimal(self.duracion_dias)
 
+
+@dataclass
+class AdditionalDriver:
+    id_conductor: Optional[int] = None
+    id_contrato: Optional[int] = None
+    nombre_completo: str = ""
+    identificacion: str = ""
+    numero_licencia: str = ""
+    fecha_vencimiento_licencia: Optional[date] = None
+
+
+@dataclass
+class Payment:
+    id_pago: Optional[int] = None
+    codigo_transaccion: str = ""
+    id_contrato: Optional[int] = None
+    id_reserva: Optional[int] = None
+    id_liquidacion: Optional[int] = None
+    tipo_movimiento: PaymentType = PaymentType.DEPOSITO_GARANTIA
+    metodo_pago: PaymentMethod = PaymentMethod.EFECTIVO
+    monto: Decimal = Decimal("0.00")
+    fecha_hora: Optional[datetime] = None
+    referencia: Optional[str] = None
+    id_usuario: int = 0
+    usuario_nombre: Optional[str] = None
+
+
+@dataclass
+class Contract:
+    id_contrato: Optional[int] = None
+    codigo_contrato: str = ""
+    id_reserva: Optional[int] = None
+    id_cliente: int = 0
+    id_vehiculo: int = 0
+    id_cobertura: int = 0
+    fecha_hora_inicio_pactada: Optional[datetime] = None
+    fecha_hora_fin_pactada: Optional[datetime] = None
+    fecha_hora_salida_real: Optional[datetime] = None
+    kilometraje_salida: int = 0
+    combustible_salida: Decimal = Decimal("1.00")
+    tarifa_diaria_aplicada: Decimal = Decimal("0.00")
+    monto_garantia: Decimal = Decimal("300.00")
+    kilometraje_ilimitado: bool = True
+    limite_km_diario: Optional[int] = None
+    costo_km_excedente: Decimal = Decimal("0.00")
+    estado: ContractStatus = ContractStatus.ACTIVO
+    id_usuario: int = 0
+    fecha_creacion: Optional[datetime] = None
+
+    # Atributos auxiliares de presentación / JOINs
+    cliente_nombre: Optional[str] = None
+    cliente_identificacion: Optional[str] = None
+    cliente_telefono: Optional[str] = None
+    vehiculo_placa: Optional[str] = None
+    vehiculo_modelo: Optional[str] = None
+    vehiculo_categoria: Optional[str] = None
+    cobertura_nombre: Optional[str] = None
+    cobertura_costo_diario: Optional[Decimal] = None
+    usuario_nombre: Optional[str] = None
+    reserva_codigo: Optional[str] = None
+
+    # Sub-entidades
+    conductores_adicionales: list[AdditionalDriver] = field(default_factory=list)
+    pagos: list[Payment] = field(default_factory=list)
+
+    @property
+    def duracion_dias(self) -> int:
+        """Calcula la duración pactada en días calendario (mínimo 1 día)."""
+        if not self.fecha_hora_inicio_pactada or not self.fecha_hora_fin_pactada:
+            return 1
+        delta = self.fecha_hora_fin_pactada - self.fecha_hora_inicio_pactada
+        dias = delta.days
+        if delta.seconds > 3600:
+            dias += 1
+        return max(1, dias)
+
+    @property
+    def costo_cobertura_total(self) -> Decimal:
+        """Costo total del seguro durante el período contratado."""
+        daily_cost = self.cobertura_costo_diario or Decimal("0.00")
+        return daily_cost * Decimal(self.duracion_dias)
+
+    @property
+    def subtotal_renta_pactado(self) -> Decimal:
+        """Subtotal pactado de la tarifa diaria del automóvil."""
+        return self.tarifa_diaria_aplicada * Decimal(self.duracion_dias)
+
+    @property
+    def total_estimado(self) -> Decimal:
+        """Total estimado del alquiler (renta + seguro contratado)."""
+        return self.subtotal_renta_pactado + self.costo_cobertura_total
+
+

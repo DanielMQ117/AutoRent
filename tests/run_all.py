@@ -11,6 +11,7 @@ from tests.test_auth import run_tests as run_auth_tests
 from tests.test_clients import run_tests as run_clients_tests
 from tests.test_vehicles import run_tests as run_vehicles_tests
 from tests.test_reservations import run_tests as run_reservations_tests
+from tests.test_contracts import run_tests as run_contracts_tests
 from tests.test_ui_components import run_ui_checks
 
 
@@ -23,10 +24,11 @@ def main():
     run_clients_tests()
     run_vehicles_tests()
     run_reservations_tests()
+    run_contracts_tests()
     run_ui_checks()
 
     print("\n" + "#" * 78)
-    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, VEHICULOS, RESERVAS, UI) PASARON! [100%]")
+    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, VEHÍCULOS, RESERVAS, CONTRATOS, UI) PASARON! [100%]")
     print("#" * 78 + "\n")
 
 

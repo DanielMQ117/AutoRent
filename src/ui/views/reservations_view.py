@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QComboBox,
+    QDialog,
 )
 
 from src.core.exceptions import AppException
@@ -295,19 +296,19 @@ class ReservationsView(QWidget):
         """)
         self.edit_btn.clicked.connect(self._open_edit_dialog)
 
-        self.convert_btn = QPushButton("📄 Convertir a Contrato (Fase 5)")
+        self.convert_btn = QPushButton("📄 Formalizar en Contrato")
         self.convert_btn.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.convert_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.convert_btn.setStyleSheet("""
             QPushButton {
-                background-color: #8b5cf6;
+                background-color: #0284c7;
                 color: #ffffff;
                 border: none;
                 border-radius: 6px;
                 padding: 7px 16px;
             }
             QPushButton:hover {
-                background-color: #7c3aed;
+                background-color: #0369a1;
             }
         """)
         self.convert_btn.clicked.connect(self._handle_convert_to_contract)
@@ -468,27 +469,21 @@ class ReservationsView(QWidget):
                 QMessageBox.warning(self, "Error", e.message)
 
     def _handle_convert_to_contract(self) -> None:
-        """Paso previo de enlace con la Fase 5 (Contratos)."""
+        """Formaliza la reserva seleccionada abriendo el diálogo de contrato y entrega."""
         selected = self._get_selected_reservation()
         if not selected:
             QMessageBox.warning(self, "Selección Requerida", "Por favor seleccione una reserva.")
             return
 
-        if selected.estado != ReservationStatus.CONFIRMADA:
+        if selected.estado not in (ReservationStatus.CONFIRMADA, ReservationStatus.PENDIENTE):
             QMessageBox.warning(
                 self,
                 "Estado Incompatible",
-                f"Para formalizar contrato la reserva debe estar 'CONFIRMADA'. Estado actual: '{selected.estado.value}'.",
+                f"Solo las reservas 'CONFIRMADAS' o 'PENDIENTES' pueden formalizarse en contrato. Estado actual: '{selected.estado.value}'.",
             )
             return
 
-        QMessageBox.information(
-            self,
-            "Enlace con Fase 5: Contratos",
-            f"La reserva '{selected.codigo_reserva}' cumple con todas las precondiciones para formalización:\n\n"
-            f"• Cliente: {selected.cliente_nombre}\n"
-            f"• Período: {selected.fecha_hora_inicio.strftime('%d/%m/%Y')} → {selected.fecha_hora_fin.strftime('%d/%m/%Y')}\n"
-            f"• Anticipo registrado: ${selected.monto_anticipo:.2f}\n\n"
-            "En la siguiente fase (Fase 5: Contratos y Despacho) se vinculará directamente el odómetro de salida, "
-            "inspección inicial de accesorios y fianza retenida.",
-        )
+        from src.ui.views.contract_form_dialog import ContractFormDialog
+        dlg = ContractFormDialog(contract=None, reservation=selected, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.load_data()

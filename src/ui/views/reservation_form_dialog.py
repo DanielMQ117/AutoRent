@@ -337,8 +337,8 @@ class ReservationFormDialog(QDialog):
             for cat in self._categories:
                 self.category_combo.addItem(f"{cat.nombre} — ${cat.tarifa_base_diaria}/día", cat.id_categoria)
 
-        except Exception as e:
-            logger.error("Error al cargar catálogos en ReservationFormDialog: %s", e)
+        except Exception:
+            logger.exception("Error al cargar catálogos en ReservationFormDialog")
 
     def _on_client_changed(self) -> None:
         """Verifica la licencia del cliente seleccionado en tiempo real."""
@@ -513,5 +513,5 @@ class ReservationFormDialog(QDialog):
         except AppException as e:
             QMessageBox.warning(self, "Validación de Reserva", e.message)
         except Exception as e:
-            logger.error("Error al guardar reserva: %s", e)
+            logger.exception("Error al guardar reserva")
             QMessageBox.critical(self, "Error Inesperado", f"Ocurrió un error al persistir la reserva:\n{e}")

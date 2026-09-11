@@ -265,6 +265,33 @@ class VehicleRepository(BaseRepository[Vehicle]):
         logger.info("Estado del vehículo ID %s actualizado a '%s'", id_vehiculo, status_val)
         return count > 0
 
+    def update_delivery_state(
+        self,
+        id_vehiculo: int,
+        kilometraje: int,
+        combustible: Decimal,
+        new_status: VehicleStatus,
+        conn: Any = None,
+    ) -> bool:
+        """Actualiza odómetro, nivel de combustible y estado tras entrega o devolución."""
+        query = """
+            UPDATE vehiculos 
+            SET kilometraje_actual = %s,
+                nivel_combustible_actual = %s,
+                estado = %s
+            WHERE id_vehiculo = %s;
+        """
+        status_val = new_status.value if isinstance(new_status, VehicleStatus) else str(new_status)
+        count = self.execute_non_query(query, (kilometraje, float(combustible), status_val, id_vehiculo), conn=conn)
+        logger.info(
+            "Vehículo ID %s actualizado en entrega: km=%s, comb=%s, estado=%s",
+            id_vehiculo,
+            kilometraje,
+            combustible,
+            status_val,
+        )
+        return count > 0
+
     def soft_delete(self, id_vehiculo: int, conn: Any = None) -> bool:
         """Desactiva un vehículo y cambia su estado a DE_BAJA."""
         query = "UPDATE vehiculos SET activo = FALSE, estado = 'DE_BAJA' WHERE id_vehiculo = %s;"

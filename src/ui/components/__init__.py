@@ -5,6 +5,7 @@ from src.ui.components.badges import (
     get_vehicle_status_badge,
     get_client_status_badge,
     get_reservation_status_badge,
+    get_contract_status_badge,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "get_vehicle_status_badge",
     "get_client_status_badge",
     "get_reservation_status_badge",
+    "get_contract_status_badge",
 ]

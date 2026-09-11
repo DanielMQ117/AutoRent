@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QLabel
 
-from src.domain.enums import ClientStatus, ReservationStatus, VehicleStatus
+from src.domain.enums import ClientStatus, ContractStatus, ReservationStatus, VehicleStatus
 
 
 def create_badge(text: str, bg_color: str, text_color: str, border_color: str) -> QLabel:
@@ -65,5 +65,21 @@ def get_reservation_status_badge(status: ReservationStatus) -> QLabel:
         return create_badge("✖ CANCELADA", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
     elif val == ReservationStatus.VENCIDA.value:
         return create_badge("⌛ VENCIDA", "rgba(100, 116, 139, 0.2)", "#94a3b8", "rgba(100, 116, 139, 0.4)")
+    return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
+
+
+def get_contract_status_badge(status: ContractStatus) -> QLabel:
+    """Retorna un badge visualmente codificado por color según el estado del contrato."""
+    val = status.value if isinstance(status, ContractStatus) else str(status)
+    if val == ContractStatus.ACTIVO.value:
+        return create_badge("⚡ ACTIVO", "rgba(16, 185, 129, 0.15)", "#34d399", "rgba(16, 185, 129, 0.4)")
+    elif val == ContractStatus.EN_INSPECCION.value:
+        return create_badge("🔍 EN INSPECCIÓN", "rgba(245, 158, 11, 0.15)", "#fbbf24", "rgba(245, 158, 11, 0.4)")
+    elif val == ContractStatus.EN_LIQUIDACION.value:
+        return create_badge("💳 EN LIQUIDACIÓN", "rgba(249, 115, 22, 0.15)", "#fb923c", "rgba(249, 115, 22, 0.4)")
+    elif val == ContractStatus.LIQUIDADO.value:
+        return create_badge("✓ LIQUIDADO", "rgba(14, 165, 233, 0.15)", "#38bdf8", "rgba(14, 165, 233, 0.4)")
+    elif val == ContractStatus.ANULADO.value:
+        return create_badge("✖ ANULADO", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
     return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
 
