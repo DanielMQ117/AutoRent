@@ -1,0 +1,32 @@
+"""Script ejecutor maestro de todas las suites de prueba (Fase 2 y Fase 3)."""
+
+from pathlib import Path
+import sys
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from tests.test_auth import run_tests as run_auth_tests
+from tests.test_clients import run_tests as run_clients_tests
+from tests.test_vehicles import run_tests as run_vehicles_tests
+from tests.test_ui_components import run_ui_checks
+
+
+def main():
+    print("\n" + "#" * 78)
+    print("# EJECUTANDO SUITE COMPLETA DE PRUEBAS DE CALIDAD - AUTORENT PRO")
+    print("#" * 78)
+
+    run_auth_tests()
+    run_clients_tests()
+    run_vehicles_tests()
+    run_ui_checks()
+
+    print("\n" + "#" * 78)
+    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, VEHICULOS, UI) PASARON! [100%]")
+    print("#" * 78 + "\n")
+
+
+if __name__ == "__main__":
+    main()

@@ -81,6 +81,9 @@ class Vehicle:
     activo: bool = True
     modelo_nombre: Optional[str] = None
     categoria_nombre: Optional[str] = None
+    marca_nombre: Optional[str] = None
+    anio: Optional[int] = None
+    tarifa_base_diaria: Optional[Decimal] = None
 
 
 @dataclass
@@ -107,6 +110,10 @@ class Client:
     estado_cliente: ClientStatus = ClientStatus.ACTIVO
     fecha_registro: Optional[datetime] = None
     licencia: Optional[DriverLicense] = None
+
+    @property
+    def nombre_completo(self) -> str:
+        return f"{self.nombres} {self.apellidos}".strip()
 
 
 @dataclass

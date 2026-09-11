@@ -85,6 +85,8 @@ class BaseRepository(ABC, Generic[T]):
             with self.db.cursor(conn=conn, dict_cursor=True) as cur:
                 cur.execute(query, params)
                 row = cur.fetchone()
+                if conn is None and cur.connection and any(k in query.upper() for k in ("INSERT ", "UPDATE ", "DELETE ")):
+                    cur.connection.commit()
                 return dict(row) if row is not None else None
         except Exception as e:
             raise self._translate_db_error(e, context=f"execute_query_one: {query[:60]}...") from e
@@ -99,7 +101,10 @@ class BaseRepository(ABC, Generic[T]):
         try:
             with self.db.cursor(conn=conn, dict_cursor=False) as cur:
                 cur.execute(query, params)
-                return cur.rowcount
+                count = cur.rowcount
+                if conn is None and cur.connection:
+                    cur.connection.commit()
+                return count
         except Exception as e:
             raise self._translate_db_error(e, context=f"execute_non_query: {query[:60]}...") from e
 
