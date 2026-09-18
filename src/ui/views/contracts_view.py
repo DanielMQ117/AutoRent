@@ -235,6 +235,11 @@ class ContractsView(QWidget):
         self.btn_view.clicked.connect(self._on_view_clicked)
         actions_bar.addWidget(self.btn_view)
 
+        self.btn_return = QPushButton("📥 Registrar Devolución")
+        self._style_action_button(self.btn_return, "#059669", "#047857")
+        self.btn_return.clicked.connect(self._on_return_clicked)
+        actions_bar.addWidget(self.btn_return)
+
         self.btn_cancel = QPushButton("✖ Anular Contrato")
         self._style_action_button(self.btn_cancel, "#7f1d1d", "#991b1b")
         self.btn_cancel.clicked.connect(self._on_cancel_clicked)
@@ -370,6 +375,27 @@ class ContractsView(QWidget):
         full_contract = contract_service.get_contract(c.id_contrato)
         dlg = ContractFormDialog(contract=full_contract, parent=self)
         dlg.exec()
+
+    def _on_return_clicked(self) -> None:
+        """Abre el diálogo de recepción e inspección para el contrato seleccionado."""
+        c = self._get_selected_contract()
+        if not c:
+            QMessageBox.information(self, "Selección Requerida", "Seleccione un contrato de la lista para registrar su devolución.")
+            return
+
+        if c.estado not in (ContractStatus.ACTIVO, ContractStatus.EN_INSPECCION):
+            QMessageBox.warning(
+                self,
+                "Estado no Válido",
+                f"Solo los contratos en estado 'ACTIVO' o 'EN_INSPECCION' pueden ser devueltos. Estado actual: '{c.estado.value}'.",
+            )
+            return
+
+        full_contract = contract_service.get_contract(c.id_contrato)
+        from src.ui.views.return_form_dialog import ReturnFormDialog
+        dlg = ReturnFormDialog(contract=full_contract, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.load_data()
 
     def _on_cancel_clicked(self) -> None:
         """Procesa la anulación del contrato activo seleccionado."""

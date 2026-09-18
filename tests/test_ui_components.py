@@ -1,5 +1,6 @@
 """Prueba de inicialización y renderizado de componentes de interfaz gráfica (Fase 3)."""
 
+from decimal import Decimal
 from pathlib import Path
 import sys
 
@@ -95,11 +96,34 @@ def run_ui_checks():
 
     print("\n[CHECK 10] Inicializando DashboardView integrado...")
     dashboard = DashboardView()
-    assert dashboard.stacked_widget.count() == 5
-    print(" -> PASO: DashboardView integrado con las 5 páginas (Dashboard, Clientes, Flota, Reservas, Contratos).")
+    assert dashboard.stacked_widget.count() == 6
+    print(" -> PASO: DashboardView integrado con las 6 páginas (Dashboard, Clientes, Flota, Reservas, Contratos, Devoluciones).")
+
+    print("\n[CHECK 11] Inicializando ReturnsView...")
+    from src.ui.views.returns_view import ReturnsView
+    returns_view = ReturnsView()
+    assert returns_view.table.columnCount() == 10
+    print(" -> PASO: ReturnsView inicializada con 10 columnas.")
+
+    print("\n[CHECK 12] Inicializando ReturnFormDialog...")
+    from src.ui.views.return_form_dialog import ReturnFormDialog
+    from src.domain.models import Contract
+    dummy_contract = Contract(
+        id_contrato=1,
+        codigo_contrato="CTR-202609-0001",
+        cliente_nombre="Cliente Prueba",
+        vehiculo_placa="M-TEST-01",
+        kilometraje_salida=10000,
+        combustible_salida=Decimal("1.00"),
+        tarifa_diaria_aplicada=Decimal("50.00"),
+        monto_garantia=Decimal("300.00"),
+    )
+    return_dlg = ReturnFormDialog(contract=dummy_contract)
+    assert "Recepción e Inspección de Retorno" in return_dlg.windowTitle()
+    print(" -> PASO: ReturnFormDialog inicializado correctamente.")
 
     print("\n" + "=" * 70)
-    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [10/10]")
+    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [12/12]")
     print("=" * 70 + "\n")
 
 

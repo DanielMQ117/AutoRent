@@ -1,0 +1,588 @@
+====================================================================================================
+SISTEMA DE CONTROL Y GESTIÓN DE ALQUILER DE AUTOMÓVILES (AUTORENT PRO)
+DOCUMENTO DE ESPECIFICACIÓN DE REQUISITOS FUNCIONALES Y NO FUNCIONALES (RF / RNF)
+Asignatura: Proyecto Integrador II — Ingeniería en Sistemas de Información (UNAN)
+Pila Tecnológica: Python 3.12+ | PySide6 (Qt) | PostgreSQL 15+
+====================================================================================================
+
+ÍNDICE DE REQUISITOS FUNCIONALES:
+----------------------------------------------------------------------------------------------------
+MÓDULO 1: AUTENTICACIÓN Y SEGURIDAD
+  - RF-01: Autenticación e Inicio de Sesión (Login)
+  - RF-02: Cierre de Sesión de Usuario (Logout) [Nuevo]
+  - RF-03: Bloqueo de Cuenta por Intentos Fallidos Consecutivos
+  - RF-04: Control de Acceso Basado en Roles (RBAC) y Permisos
+  - RF-05: Registro en Bitácora de Auditoría de Acciones Críticas
+
+MÓDULO 2: GESTIÓN DE FLOTA DE VEHÍCULOS
+  - RF-06: Registro y Actualización de Vehículos (Catálogo de Flota)
+  - RF-07: Control de Transición y Gestión de Estados del Vehículo
+  - RF-08: Inmutabilidad y Protección de Identificadores Críticos (Placa y VIN)
+  - RF-09: Sistema de Alertas por Kilometraje para Mantenimiento Preventivo
+
+MÓDULO 3: GESTIÓN DE CLIENTES Y CONDUCTORES
+  - RF-10: Registro y Gestión de Clientes (Particulares y Corporativos)
+  - RF-11: Registro y Verificación de Licencias de Conducir
+  - RF-12: Validación de Estatus Crediticio y Restricción de Clientes Vetados o Morosos
+  - RF-13: Registro y Vinculación de Conductores Adicionales en Contrato
+
+MÓDULO 4: GESTIÓN DE RESERVAS
+  - RF-14: Creación y Planificación de Reservas de Vehículos
+  - RF-15: Verificación de Disponibilidad Temporal y Detección de Solapamientos (Anti-Overbooking)
+  - RF-16: Registro y Control de Depósito de Anticipo de Reserva
+  - RF-17: Control de Estados del Ciclo de Vida de Reservas
+
+MÓDULO 5: CONTRATOS Y DESPACHO (ENTREGA / CHECK-IN)
+  - RF-18: Formalización y Apertura de Contratos de Alquiler (Directo y desde Reserva)
+  - RF-19: Selección de Pólizas de Cobertura de Seguros y Depósito de Garantía
+  - RF-20: Inspección Física de Entrega (Check-in) y Acta de Estado Inicial
+  - RF-21: Despacho del Vehículo y Activación Atómica del Contrato
+
+MÓDULO 6: DEVOLUCIÓN E INSPECCIÓN FÍSICA (CHECK-OUT)
+  - RF-22: Registro de Recepción Física y Fecha/Hora Real de Retorno
+  - RF-23: Inspección Física de Retorno (Check-out) y Verificación de Accesorios
+  - RF-24: Comparativa Automática de Odómetro y Nivel de Combustible
+
+MÓDULO 7: CÁLCULO DE COSTOS, PENALIZACIONES Y LIQUIDACIÓN FINANCIERA
+  - RF-25: Cálculo Automatizado de Costo Base de Alquiler
+  - RF-26: Cálculo y Aplicación de Penalizaciones por Retraso, Combustible y Kilometraje
+  - RF-27: Registro y Valoración de Daños Físicos o Averías Nuevas
+  - RF-28: Liquidación Financiera y Balance contra Depósito de Garantía
+  - RF-29: Emisión de Comprobante de Liquidación y Cierre de Contrato
+  - RF-30: Reclasificación y Transición Operativa del Vehículo post-Liquidación
+
+MÓDULO 8: MANTENIMIENTO DE FLOTA
+  - RF-31: Registro de Órdenes de Mantenimiento Preventivo y Correctivo
+  - RF-32: Bloqueo Operativo del Vehículo en Taller de Mantenimiento
+  - RF-33: Finalización de Mantenimiento, Registro de Costos y Reactivación de Vehículo
+
+MÓDULO 9: REPORTES, ESTADÍSTICAS Y ANALÍTICA
+  - RF-34: Reporte Consolidado de Ingresos Financieros y Recaudación
+  - RF-35: Reporte de Utilización, Tasa de Ocupación y Rendimiento de Flota
+  - RF-36: Reporte de Historial de Clientes, Siniestralidad y Morosidad
+  - RF-37: Exportación de Reportes a Formatos Estándar (PDF / Excel / CSV)
+====================================================================================================
+
+
+====================================================================================================
+MÓDULO 1: AUTENTICACIÓN Y SEGURIDAD
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-01)
+Código y Nombre: RF-01: Autenticación e Inicio de Sesión (Login)
+Propósito: Permite validar la identidad de los usuarios mediante credenciales seguras para autorizar el ingreso al sistema y cargar el perfil operativo correspondiente.
+Entradas (Inputs): Campos del formulario de inicio de sesión (Nombre de usuario en QLineEdit, Contraseña en QLineEdit en modo Password/EchoMode, Clic en botón "Iniciar Sesión").
+Proceso (Lógica / ORM): Captura las credenciales ingresadas, valida que los campos no se encuentren vacíos, consulta el usuario activo en la base de datos (tabla usuarios) mediante consulta parametrizada a través del repositorio/ORM. Si el usuario existe y está activo, verifica la contraseña comparando el hash almacenado utilizando bcrypt.checkpw(). Al ser correcta la verificación, inicializa el singleton de sesión de usuario (UserSession) con los datos del usuario, rol y permisos autorizados, reinicia el contador de intentos fallidos a cero y actualiza la fecha/hora de último ingreso en la base de datos. Si la verificación falla, invoca la lógica de incremento de intentos erróneos.
+Salidas (Outputs): Cuadro de diálogo de confirmación o alerta (QMessageBox), cierre de la ventana de Login, despliegue de la ventana principal (DashboardView) personalizada según el rol del usuario autenticado, y registro del evento de acceso en el archivo de log.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-02)
+Código y Nombre: RF-02: Cierre de Sesión de Usuario (Logout)
+Propósito: Permite al usuario en sesión activa finalizar de manera voluntaria y segura su jornada de trabajo, revocando el acceso y liberando los recursos de autenticación.
+Entradas (Inputs): Clic en el botón "Cerrar Sesión" (QPushButton) ubicado en la barra de navegación superior del Dashboard principal; confirmación en el cuadro de diálogo modal.
+Proceso (Lógica / ORM): Despliega un cuadro de confirmación modal para prevenir cierres accidentales. Al confirmar el usuario, la capa de presentación invoca AuthService.logout(), el cual destruye la instancia activa del singleton UserSession en memoria, revocando las credenciales, identificador de usuario, rol y matriz de permisos. Registra el evento de cierre de sesión en la bitácora del sistema y cierra todas las vistas secundarias abiertas asociadas a la sesión actual.
+Salidas (Outputs): Cuadro de diálogo modal de confirmación (QMessageBox.question), cierre inmediato y seguro de la ventana principal (DashboardView), reapertura de la ventana de inicio de sesión (LoginView) con los campos en blanco y foco en el campo de usuario.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-03)
+Código y Nombre: RF-03: Bloqueo de Cuenta por Intentos Fallidos Consecutivos
+Propósito: Proteger el sistema contra ataques de fuerza bruta o accesos no autorizados mediante la inhabilitación automática de la cuenta de usuario tras superar el límite de intentos fallidos permitidos.
+Entradas (Inputs): Intentos fallidos consecutivos de ingreso (ingreso de contraseñas erróneas para un mismo nombre de usuario).
+Proceso (Lógica / ORM): Cada vez que un intento de autenticación no coincide con el hash de contraseña, el servicio de autenticación consulta la base de datos e incrementa el contador intentos_fallidos del usuario. Si el valor alcanza o supera el umbral de seguridad configurado (por ejemplo, 3 intentos consecutivos), ejecuta una actualización en la base de datos cambiando el estado del usuario a inactivo (activo = FALSE), fija la fecha y motivo de bloqueo, y registra un incidente de seguridad crítico en la bitácora de auditoría. Todo intento de acceso subsiguiente es rechazado de inmediato.
+Salidas (Outputs): Cuadro de diálogo crítico (QMessageBox.warning) notificando al usuario que la cuenta ha sido bloqueada por exceder los intentos fallidos permitidos y solicitando contactar al Administrador, inhabilitación temporal de los campos de entrada y registro del evento en los logs del sistema.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-04)
+Código y Nombre: RF-04: Control de Acceso Basado en Roles (RBAC) y Permisos
+Propósito: Garantizar que cada usuario interactúe únicamente con los módulos, pantallas, botones y operaciones que correspondan a su rol asignado en la organización.
+Entradas (Inputs): Permisos del usuario autenticado cargados en el objeto de sesión (session.has_permission(modulo)).
+Proceso (Lógica / ORM): Al autenticar al usuario, el servicio de seguridad extrae de las tablas roles y roles_permisos la lista completa de privilegios autorizados. Durante la construcción del DashboardView y de las vistas especializadas, el sistema evalúa los permisos activos. Habilita o deshabilita los accesos rápidos de navegación y conmuta las tarjetas de módulos entre los estados "Módulo Operativo" (con cursor de mano y acceso habilitado) o "Sin Acceso / Restringido por Rol" (en gris y no clicable). Si un usuario intenta invocar una acción restringida, el controlador intercepta la llamada e impide su ejecución.
+Salidas (Outputs): Adaptación dinámica de la interfaz gráfica con controles y módulos visibles o inhabilitados según los privilegios del rol, etiqueta visual indicando el rol activo en la cabecera superior y cuadro de diálogo de advertencia (QMessageBox.warning) en caso de acceso no autorizado.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-05)
+Código y Nombre: RF-05: Registro en Bitácora de Auditoría de Acciones Críticas
+Propósito: Mantener un registro cronológico e inmutable de las operaciones sensibles ejecutadas en el sistema para fines de supervisión, trazabilidad y rendición de cuentas.
+Entradas (Inputs): Datos del evento operativo ejecutado (identificador de usuario en sesión, acción realizada, nombre de la tabla o entidad afectada, identificador del registro, valores anteriores y valores nuevos en formato estructurado JSONB, dirección IP/hostname).
+Proceso (Lógica / ORM): Al completarse cualquier operación catalogada como crítica (anulación de contratos, cambio de estado de clientes, alteración de tarifas, exoneración de penalizaciones o bloqueo de usuarios), la capa de servicios o los triggers de PostgreSQL insertan un registro en la tabla auditoria mediante una consulta parametrizada. La capa de persistencia asegura que la tabla de auditoría sea de solo inserción (inmutable), restringiendo permisos de modificación (UPDATE) o eliminación (DELETE).
+Salidas (Outputs): Nuevo registro persistido de forma permanente en la base de datos (tabla auditoria), mensaje registrado en el archivo de log (app.log) y actualización de la vista de auditoría disponible para el rol Administrador.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 2: GESTIÓN DE FLOTA DE VEHÍCULOS
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-06)
+Código y Nombre: RF-06: Registro y Actualización de Vehículos (Catálogo de Flota)
+Propósito: Permite registrar, editar, listar y consultar las unidades automotrices que integran la flota de la empresa a través del formulario de gestión de vehículos.
+Entradas (Inputs): Campos del formulario VehicleFormDialog (Placa, VIN de 17 caracteres, Número de Motor, Selección de Marca en QComboBox, Selección de Modelo en QComboBox, Año de Fabricación en QSpinBox, Selección de Categoría en QComboBox, Color, Kilometraje Actual en QSpinBox, Nivel de Combustible inicial en QComboBox, Estado Operativo inicial).
+Proceso (Lógica / ORM): Valida la obligatoriedad de campos y el formato de la placa y VIN mediante expresiones regulares. Verifica en la base de datos (tabla vehiculos) que la Placa y el VIN no existan previamente mediante vehicle_repo.get_by_placa() y get_by_vin(). Valida que el año de fabricación no exceda el año venidero y que el kilometraje sea mayor o igual a cero. En modo edición, verifica si el vehículo posee contratos históricos para bloquear campos inmutables. Guarda o actualiza los datos mediante una transacción segura en PostgreSQL.
+Salidas (Outputs): Cuadro de diálogo de confirmación (QMessageBox.information), actualización automática de la tabla de vehículos (QTableWidget con 11 columnas) con el nuevo registro, y vaciado o cierre del formulario.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-07)
+Código y Nombre: RF-07: Control de Transición y Gestión de Estados del Vehículo
+Propósito: Gestionar y salvaguardar el flujo legítimo de los estados operativos de los vehículos (DISPONIBLE, RESERVADO, ALQUILADO, EN_INSPECCION, EN_MANTENIMIENTO, DE_BAJA), impidiendo inconsistencias operativas.
+Entradas (Inputs): Selección del nuevo estado operativo en el diálogo VehicleStatusDialog (QComboBox), motivo o justificación técnica del cambio de estado (QLineEdit).
+Proceso (Lógica / ORM): La capa de servicios (VehicleService) valida las reglas de transición de la máquina de estados. Comprueba que un vehículo en estado ALQUILADO no pueda transicionar directamente a DISPONIBLE sin haber completado el flujo de devolución e inspección técnica. Comprueba que un vehículo DE_BAJA no pueda reactivarse sin autorización de Gerencia. Ejecuta la actualización atómica en la tabla vehiculos mediante el repositorio y registra la novedad en la bitácora.
+Salidas (Outputs): Cuadro de diálogo informando la actualización satisfactoria (QMessageBox.information) y refresco inmediato del badge visual de estado (verde para DISPONIBLE, azul para ALQUILADO, amarillo para RESERVADO, morado para EN_MANTENIMIENTO, rojo para DE_BAJA) en la tabla principal.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-08)
+Código y Nombre: RF-08: Inmutabilidad y Protección de Identificadores Críticos (Placa y VIN)
+Propósito: Salvaguardar la trazabilidad legal e histórica de los vehículos impidiendo la alteración de la Placa y el número VIN cuando la unidad posee registros históricos vinculados.
+Entradas (Inputs): Carga del vehículo en el formulario de edición VehicleFormDialog e intento de modificación de los campos de Placa o VIN.
+Proceso (Lógica / ORM): Al cargar un vehículo existente en modo edición, el servicio consulta en la base de datos si existen contratos o reservas históricas asociadas al identificador del vehículo (id_vehiculo). Si se detecta al menos un contrato registrado, el formulario bloquea los campos de Placa y VIN aplicando setReadOnly(True) y estilo visual de solo lectura. Si se intenta evadir la interfaz, la capa de servicios lanza BusinessRuleViolationError antes de enviar cualquier consulta de actualización a la base de datos.
+Salidas (Outputs): Campos de Placa y VIN bloqueados en la GUI con tooltip explicativo de restricción histórica y cuadro de advertencia (QMessageBox.warning) si se intenta alterar manualmente.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-09)
+Código y Nombre: RF-09: Sistema de Alertas por Kilometraje para Mantenimiento Preventivo
+Propósito: Monitorear de forma continua el odómetro de los vehículos y alertar oportunamente cuando una unidad se aproxime o supere el kilometraje estipulado para su próximo servicio preventivo.
+Entradas (Inputs): Actualización del kilometraje del vehículo tras cada cierre de contrato, devolución o ajuste manual en la base de datos.
+Proceso (Lógica / ORM): El servicio de vehículos calcula la diferencia matemática entre km_proximo_mantenimiento y kilometraje_actual. Si la diferencia es menor o igual al margen preventivo configurado (por ejemplo, 200 km) o si el kilometraje actual superó el umbral programado, el sistema marca el registro como prioritario para taller, genera una advertencia en los logs y bloquea la asignación del vehículo a futuros contratos hasta que se registre la orden de mantenimiento.
+Salidas (Outputs): Indicador visual de alerta en color anaranjado o rojo en la columna de kilometraje del QTableWidget de vehículos, notificación preventiva en la ficha técnica del vehículo y reporte en el panel de control de flota.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 3: GESTIÓN DE CLIENTES Y CONDUCTORES
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-10)
+Código y Nombre: RF-10: Registro y Gestión de Clientes (Particulares y Corporativos)
+Propósito: Permite registrar, modificar, listar y dar seguimiento a los expedientes de clientes naturales o jurídicos en la base de datos a través del formulario de clientes.
+Entradas (Inputs): Campos del formulario ClientFormDialog (Tipo de Persona: Natural/Jurídica, Nombres, Apellidos / Razón Social, Cédula / DNI / RUC, Teléfono, Correo Electrónico, Dirección Domiciliar, Selección de Estado Crediticio: Solvente, Moroso, Vetado).
+Proceso (Lógica / ORM): Valida la obligatoriedad de los campos clave, el formato sintáctico del correo electrónico con expresiones regulares y la coherencia del número de identificación. Consulta en la base de datos mediante client_repo.get_by_identificacion() para comprobar que el número de cédula o RUC no se encuentre duplicado. Invoca el servicio de clientes (ClientService) para crear o actualizar el registro en la tabla clientes dentro de una transacción gestionada.
+Salidas (Outputs): Cuadro de diálogo confirmando la acción realizada (QMessageBox.information), actualización automática de la tabla de clientes (QTableWidget con 9 columnas) y vaciado de campos del formulario.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-11)
+Código y Nombre: RF-11: Registro y Verificación de Licencias de Conducir
+Propósito: Registrar y validar la habilitación legal para conducir de los clientes, garantizando que su documento oficial se encuentre vigente durante todo el periodo de alquiler.
+Entradas (Inputs): Campos del formulario de licencia (Número de Licencia en QLineEdit, Categoría de Licencia en QComboBox, Fecha de Emisión en QDateEdit, Fecha de Vencimiento en QDateEdit, País de Emisión en QLineEdit).
+Proceso (Lógica / ORM): Valida que la fecha de vencimiento de la licencia sea posterior a la fecha actual. Verifica la unicidad del número de licencia en la tabla licencias_conducir mediante consulta al repositorio. Al crear o formalizar un contrato, la capa de servicios y el trigger de PostgreSQL (fn_validar_licencia_contrato) comprueban estrictamente que fecha_vencimiento >= fecha_hora_fin_pactada::DATE; si no se cumple, se interrumpe la transacción y se rechaza la operación.
+Salidas (Outputs): Licencia asociada al cliente en la base de datos, badge visual de estado ("Vigente" en verde o "Vencida" en rojo) en la vista de clientes y cuadro de advertencia (QMessageBox.warning) si la licencia no cubre el periodo de alquiler contratado.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-12)
+Código y Nombre: RF-12: Validación de Estatus Crediticio y Restricción de Clientes Vetados o Morosos
+Propósito: Prevenir pérdidas económicas y riesgos operacionales bloqueando automáticamente el alquiler de vehículos a clientes con estatus de Moroso o Vetado.
+Entradas (Inputs): Selección de un cliente en los diálogos de Reserva (ReservationFormDialog) o Contrato (ContractFormDialog).
+Proceso (Lógica / ORM): Al seleccionar o consultar un cliente para una operación comercial, el servicio de negocio inspecciona el campo estado_crediticio. Si el cliente posee estatus MOROSO o VETADO, el sistema lanza una excepción ClientNotEligibleError, detiene el procesamiento y bloquea el botón de confirmación en la interfaz. El sistema consulta adicionalmente si existen deudas pendientes registradas en liquidaciones anteriores no canceladas.
+Salidas (Outputs): Cuadro de diálogo de advertencia (QMessageBox.warning) indicando que el cliente seleccionado está inhabilitado para alquilar por deudas o sanciones previas, y bloqueo de los controles de avance en el formulario.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-13)
+Código y Nombre: RF-13: Registro y Vinculación de Conductores Adicionales en Contrato
+Propósito: Permitir registrar y autorizar legalmente a conductores secundarios en el contrato de alquiler, validando sus datos personales y vigencia de licencia de conducir.
+Entradas (Inputs): Subformulario dinámico de conductores en ContractFormDialog (Identificación/Cédula, Nombres Completos, Teléfono, Número de Licencia de Conducir, Fecha de Vencimiento de Licencia).
+Proceso (Lógica / ORM): Valida que los datos del conductor adicional estén completos, que su cédula no sea idéntica a la del cliente titular del contrato y que su licencia de conducir esté vigente al menos hasta la fecha pactada de finalización del contrato. Durante la formalización del contrato, la capa de servicios inserta de forma atómica a todos los conductores autorizados en la tabla conductores_adicionales mediante contract_repo.create().
+Salidas (Outputs): Inclusión del conductor en la tabla visual de conductores del formulario de contrato, cuadro de diálogo de confirmación y posterior incorporación de sus datos en el contrato impreso.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 4: GESTIÓN DE RESERVAS
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-14)
+Código y Nombre: RF-14: Creación y Planificación de Reservas de Vehículos
+Propósito: Permite registrar y programar anticipadamente la solicitud de alquiler de un vehículo o categoría para un cliente, estableciendo fechas y calculando cotizaciones previas.
+Entradas (Inputs): Campos del formulario ReservationFormDialog (Selección de Cliente en QComboBox con autocompletado, Selección de Categoría en QComboBox, Selección opcional de Vehículo en QComboBox, Fecha/Hora de Inicio en QDateTimeEdit, Fecha/Hora de Fin en QDateTimeEdit, Anticipo en QDoubleSpinBox, Notas/Observaciones).
+Proceso (Lógica / ORM): Valida que la fecha de inicio sea anterior a la fecha de fin y que la duración mínima sea de al menos 24 horas. Genera el código correlativo de reserva (código único con formato RES-YYYYMM-XXXX). Consulta la tarifa base de la categoría, calcula el costo total estimado de renta y persiste el registro en la tabla reservas con estado inicial CONFIRMADA o PENDIENTE dentro de una transacción gestionada.
+Salidas (Outputs): Cuadro de diálogo con el código de reserva asignado (QMessageBox.information), actualización automática de la tabla de reservas (QTableWidget con 10 columnas) y cierre del diálogo modal.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-15)
+Código y Nombre: RF-15: Verificación de Disponibilidad Temporal y Detección de Solapamientos (Anti-Overbooking)
+Propósito: Evitar la sobreventa o doble asignación garantizando que ningún vehículo sea reservado o contratado en periodos de tiempo coincidentes o solapados.
+Entradas (Inputs): Identificador del vehículo seleccionado, Fecha y Hora de Inicio solicitada, Fecha y Hora de Fin solicitada.
+Proceso (Lógica / ORM): La capa de servicio (ReservationService / ContractService) consulta en la base de datos comprobando que no existan contratos activos o reservas confirmadas donde: MAX(inicio_solicitado, inicio_existente) < MIN(fin_solicitado, fin_existente). Adicionalmente, el esquema relacional en PostgreSQL implementa una restricción de exclusión mediante btree_gist (excl_contrato_vehiculo_solapado) sobre el rango temporal tstzrange(fecha_inicio, fecha_fin, '[)'), lo que garantiza integridad estricta ante accesos concurrentes.
+Salidas (Outputs): Indicador visual en verde si el vehículo está disponible, o cuadro de alerta emergente (QMessageBox.warning) bloqueando la selección y mostrando el mensaje de conflicto de fechas en caso de solapamiento.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-16)
+Código y Nombre: RF-16: Registro y Control de Depósito de Anticipo de Reserva
+Propósito: Registrar de forma segura el abono económico previo entregado por el cliente para apartar la unidad vehicular y vincularlo contablemente al expediente de la reserva.
+Entradas (Inputs): Campo de Monto de Anticipo (QDoubleSpinBox), Método de Pago (Efectivo, Tarjeta de Crédito/Débito, Transferencia Bancaria), Número de Referencia o Transacción Bancaria.
+Proceso (Lógica / ORM): Valida que el monto ingresado sea mayor o igual a cero. Si se especifica un anticipo monetario, el servicio genera un código de transacción financiera único (TRX-ANT-YYYYMM-XXXX) y en la misma transacción de creación de la reserva inserta un registro en la tabla pagos con tipo_movimiento = 'INGRESO_ANTICIPO', vinculando el pago a la reserva y al usuario de caja en sesión.
+Salidas (Outputs): Actualización del campo de anticipo en la fila de la reserva dentro del QTableWidget, registro persistido en la tabla de pagos y emisión del recibo digital de abono para el cliente.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-17)
+Código y Nombre: RF-17: Control de Estados del Ciclo de Vida de Reservas
+Propósito: Administrar y controlar de forma auditada los estados de una reserva (PENDIENTE, CONFIRMADA, CANCELADA, VENCIDA, CONVERTIDA_A_CONTRATO).
+Entradas (Inputs): Clic en botones de acción en la vista de reservas ("Formalizar en Contrato", "Cancelar Reserva", "Actualizar Lista").
+Proceso (Lógica / ORM): Si el usuario solicita cancelar una reserva, el servicio valida que no se encuentre ya cancelada ni convertida a contrato, actualiza el estado a CANCELADA en la base de datos y libera el vehículo si estaba asignado en exclusiva. Si el cliente se presenta a formalizar el alquiler, el botón "Formalizar en Contrato" abre ContractFormDialog precargando los datos de la reserva y, al concluir el contrato, cambia atómicamente el estado a CONVERTIDA_A_CONTRATO.
+Salidas (Outputs): Cuadro de diálogo confirmando el cambio de estado (QMessageBox.information) y actualización visual inmediata del badge de estado (verde para CONFIRMADA, morado para CONVERTIDA_A_CONTRATO, gris para CANCELADA, rojo para VENCIDA) en la tabla.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 5: CONTRATOS Y DESPACHO (ENTREGA / CHECK-IN)
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-18)
+Código y Nombre: RF-18: Formalización y Apertura de Contratos de Alquiler (Directo y desde Reserva)
+Propósito: Permitir la generación y apertura legal del contrato de alquiler de vehículos tanto para clientes directos de mostrador (walk-in) como para clientes con reserva previa.
+Entradas (Inputs): Formulario ContractFormDialog (Selección de Cliente, Selección de Vehículo Disponible, Fechas y Horas de Inicio y Fin, Coberturas de Seguro, Conductores adicionales, Monto y Método de Depósito en Garantía).
+Proceso (Lógica / ORM): Valida que el vehículo seleccionado se encuentre estrictamente en estado DISPONIBLE. Si proviene de reserva, importa los datos precargados y los anticipos pagados. Genera el código correlativo de contrato con formato CTR-YYYYMM-XXXX. Valida la vigencia de licencias y solvencia del cliente. Ejecuta la inserción en la tabla contratos con estado ACTIVO mediante contract_repo.create() dentro de una transacción ACID.
+Salidas (Outputs): Cuadro de diálogo de confirmación con el código de contrato generado (QMessageBox.information), cierre del modal y actualización del listado general de contratos (QTableWidget con 11 columnas).
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-19)
+Código y Nombre: RF-19: Selección de Pólizas de Cobertura de Seguros y Depósito de Garantía
+Propósito: Permitir la contratación de pólizas de seguro adicionales y calcular de forma automática el monto de depósito en garantía (fianza) requerido para formalizar el contrato.
+Entradas (Inputs): Selector de Póliza de Cobertura en QComboBox (Seguro Básico Obligatorio, Cobertura Amplia, Cero Deducible), Campo de Monto de Garantía (con valor base sugerido según la categoría del vehículo), Método de Pago de Garantía.
+Proceso (Lógica / ORM): El servicio de contratos consulta la tabla coberturas_seguro para obtener la tarifa diaria de la póliza y el deducible estipulado. Calcula el costo total del seguro multiplicando la tarifa diaria por el número de días del contrato. Verifica la categoría del vehículo para fijar el depósito de garantía mínimo. Al formalizar, inserta automáticamente el pago en la tabla pagos con tipo_movimiento = 'DEPOSITO_GARANTIA' y código TRX-GAR-XXXX.
+Salidas (Outputs): Actualización en tiempo real de la tarjeta de cotización en el formulario (subtotal renta, costo seguro, garantía, total estimado) y registro del movimiento financiero en la base de datos.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-20)
+Código y Nombre: RF-20: Inspección Física de Entrega (Check-in) y Acta de Estado Inicial
+Propósito: Registrar de manera rigurosa el estado técnico, odómetro, nivel de combustible y accesorios del vehículo al momento de la entrega de llaves al arrendatario.
+Entradas (Inputs): Campos de inspección en ContractFormDialog (Kilometraje de Salida en QSpinBox, Nivel de Combustible de Salida en QComboBox: 1/4, 1/2, 3/4, Full, Checklist de equipamiento: Llanta de repuesto, Gata hidráulica, Llave de pernos, Extintor, Botiquín, Documentos originales, y Observaciones generales de carrocería).
+Proceso (Lógica / ORM): Valida que el kilometraje de salida ingresado sea mayor o igual al kilometraje actual registrado del vehículo en la base de datos, previniendo inconsistencias físicas. Guarda los valores de odómetro y combustible de salida en el registro del contrato y prepara los datos del acta de entrega para ser firmada digitalmente o impresa para firma física de conformidad.
+Salidas (Outputs): Datos de entrega asociados al contrato en la base de datos, habilitación del despacho del vehículo y generación del documento preliminar de entrega de unidad.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-21)
+Código y Nombre: RF-21: Despacho del Vehículo y Activación Atómica del Contrato
+Propósito: Concretar la entrega material del automóvil mediante una transacción atómica que active el contrato, actualice la flota y registre el ingreso del depósito en garantía.
+Entradas (Inputs): Clic en el botón "Formalizar Contrato y Despachar" (QPushButton) en ContractFormDialog tras completar las validaciones del formulario.
+Proceso (Lógica / ORM): La capa de servicios (ContractService.create_contract()) ejecuta una transacción ACID (run_in_transaction):
+1. Inserta el registro del contrato con estado ACTIVO en la tabla contratos.
+2. Si existen conductores adicionales, los inserta en conductores_adicionales.
+3. Si el contrato proviene de una reserva, actualiza el estado de la reserva a CONVERTIDA_A_CONTRATO.
+4. Actualiza el vehículo a estado ALQUILADO registrando el kilometraje y nivel de combustible de salida mediante vehicle_repo.update_delivery_state().
+5. Si se estipuló garantía, inserta el registro del depósito en la tabla pagos.
+Si ocurre un error en cualquier punto, se produce un ROLLBACK automático total.
+Salidas (Outputs): Cuadro de diálogo de confirmación (QMessageBox.information), cierre del formulario, actualización de la vista de contratos y actualización del vehículo a estado ALQUILADO en el módulo de flota.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 6: DEVOLUCIÓN E INSPECCIÓN FÍSICA (CHECK-OUT)
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-22)
+Código y Nombre: RF-22: Registro de Recepción Física y Fecha/Hora Real de Retorno
+Propósito: Registrar en el sistema la hora y fecha exacta en que el cliente regresa el vehículo a la agencia para iniciar el proceso de recepción técnica y cierre.
+Entradas (Inputs): Selección del contrato activo en la vista de contratos o búsqueda por placa en la ventana de devoluciones, Fecha y Hora real de retorno (QDateTimeEdit con captura automática de fecha/hora del sistema).
+Proceso (Lógica / ORM): Verifica que el contrato se encuentre en estado ACTIVO. Valida que la fecha/hora de retorno real no sea anterior a la fecha/hora de salida registrada en el contrato. Inserta el registro inicial en la tabla devoluciones vinculando el id_contrato y el id_usuario_receptor, y actualiza transitoriamente el contrato a estado EN_INSPECCION para impedir operaciones comerciales simultáneas.
+Salidas (Outputs): Creación del registro preliminar de retorno en la base de datos, apertura del formulario de inspección técnica de check-out y confirmación en la barra de estado.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-23)
+Código y Nombre: RF-23: Inspección Física de Retorno (Check-out) y Verificación de Accesorios
+Propósito: Documentar minuciosamente las condiciones de retorno del vehículo respecto a kilometraje final, combustible devuelto, inventario de accesorios y detección de averías.
+Entradas (Inputs): Kilometraje de Retorno en QSpinBox, Nivel de Combustible devuelto en QComboBox (1/4, 1/2, 3/4, Full), Verificación de Accesorios devueltos (Checkboxes: Llanta de repuesto, Gata, Extintor, etc.), Observaciones técnicas del inspector.
+Proceso (Lógica / ORM): Valida obligatoriamente que el kilometraje de retorno sea mayor o igual al kilometraje de salida registrado en el contrato (odometro_retorno >= odometro_salida). Comprueba el estado de cada accesorio entregado en la salida para detectar faltantes o pérdidas de equipo. Registra los valores de la inspección técnica en la tabla devoluciones mediante una consulta parametrizada.
+Salidas (Outputs): Acta de devolución técnica guardada en la base de datos, cálculo de indicadores de viaje en pantalla y habilitación del botón para proceder a la liquidación financiera.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-24)
+Código y Nombre: RF-24: Comparativa Automática de Odómetro y Nivel de Combustible
+Propósito: Calcular automáticamente las diferencias de kilometraje recorrido y combustible consumido respecto a los valores de entrega para alimentar el motor de cobro y liquidación.
+Entradas (Inputs): Valores de Odómetro de Salida y Retorno; Valores de Combustible de Salida y Retorno registrados en las actas de inspección.
+Proceso (Lógica / ORM): El servicio de liquidación calcula:
+1. Kilómetros totales recorridos = odometro_retorno - odometro_salida.
+2. Fracción de combustible faltante = combustible_salida - combustible_retorno.
+Si la diferencia de combustible es positiva, calcula el volumen de litros faltantes y el importe a cobrar en base al costo oficial por litro más recargos. Si el kilometraje excede el límite del paquete contratado, cuantifica los kilómetros punibles.
+Salidas (Outputs): Resumen visual comparativo en pantalla mostrando kilómetros recorridos y faltante de combustible en fracciones/litros, con envío de estos valores al módulo de liquidación financiera.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 7: CÁLCULO DE COSTOS, PENALIZACIONES Y LIQUIDACIÓN FINANCIERA
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-25)
+Código y Nombre: RF-25: Cálculo Automatizado de Costo Base de Alquiler
+Propósito: Computar con exactitud el subtotal correspondiente a los días de alquiler transcurridos y el costo de las coberturas de seguro contratadas.
+Entradas (Inputs): Tarifa diaria pactada, costo diario de seguro contratado, fecha/hora de salida y fecha/hora real de devolución.
+Proceso (Lógica / ORM): El motor de liquidación determina los días facturables aplicando la regla de negocio de días completos de 24 horas y tolerancia de gracia (por ejemplo, 60 minutos de cortesía). Multiplica los días efectivos por la tarifa diaria pactada en el contrato y suma el costo diario de la cobertura de seguro contratada. Obtiene el subtotal bruto del servicio de arrendamiento mediante cálculo en precisión decimal (Decimal de Python) para evitar errores de redondeo.
+Salidas (Outputs): Presentación en pantalla del subtotal desglosado: Días Facturados, Subtotal de Renta y Subtotal de Cobertura de Seguros en el cuadro de liquidación.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-26)
+Código y Nombre: RF-26: Cálculo y Aplicación de Penalizaciones por Retraso, Combustible y Kilometraje
+Propósito: Determinar y liquidar automáticamente los cargos económicos adicionales causados por incumplimiento de horarios, combustible faltante o exceso de kilometraje.
+Entradas (Inputs): Horas de demora en la devolución sobre la hora límite pactada, litros o fracciones faltantes de combustible, kilómetros recorridos por encima del límite permitido.
+Proceso (Lógica / ORM): La capa de servicios aplica las fórmulas reglamentarias:
+1. Penalización por demora: Calcula las horas de retraso multiplicadas por la tarifa horaria sancionatoria (o el equivalente a un día completo si supera el umbral máximo de horas).
+2. Penalización por combustible: Calcula el importe de los litros faltantes tasados al precio de mercado más un 20% por cargo operativo administrativo (RN-007).
+3. Penalización por kilometraje: Multiplica los kilómetros excedidos por la tarifa de km extra (DP-001).
+Salidas (Outputs): Detalle de cargos punitivos listados en la tabla de conceptos de la liquidación con su respectiva justificación y monto individualizado.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-27)
+Código y Nombre: RF-27: Registro y Valoración de Daños Físicos o Averías Nuevas
+Propósito: Registrar e imputar los costos de reparación por averías, golpes, roturas o suciedad extrema detectados en la inspección de retorno que no existían al momento del despacho.
+Entradas (Inputs): Formulario de registro de daños (Zona de la carrocería afectada, Tipo de daño: rayón, abolladura, rotura, faltante; Gravedad: leve, moderada, grave; Costo estimado de reparación en QDoubleSpinBox, Descripción técnica del daño).
+Proceso (Lógica / ORM): Valida que el costo estimado de reparación sea estrictamente positivo y cuente con descripción. Inserta cada daño registrado en la tabla danos vinculándolo al identificador de la devolución y del contrato. Totaliza la suma de todos los daños reportados y la transfiere al balance de liquidación financiera como cargo por siniestralidad.
+Salidas (Outputs): Lista de averías visualizada en el subformulario de daños y adición del importe total de reparaciones en la hoja de liquidación del contrato.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-28)
+Código y Nombre: RF-28: Liquidación Financiera y Balance contra Depósito de Garantía
+Propósito: Realizar el balance contable consolidando todos los cargos del contrato y cruzándolos contra los valores ya pagados (anticipos y depósito de garantía) para determinar saldos.
+Entradas (Inputs): Solicitud de cálculo de balance final en la vista de liquidación financiera.
+Proceso (Lógica / ORM): Aplica la ecuación contable de liquidación:
+Balance = (Subtotal Renta + Seguros + Penalización Retraso + Penalización Combustible + Daños + Otros Cargos) - (Anticipo Reserva + Depósito en Garantía).
+- Si Balance < 0: Existe un saldo remanente a favor del cliente; el sistema programa una devolución monetaria (tipo_movimiento = 'REEMBOLSO_GARANTIA').
+- Si Balance > 0: El depósito fue insuficiente; el sistema liquida un cobro pendiente al cliente por la diferencia adeudada.
+- Si Balance = 0: Los cargos igualaron a los depósitos; no hay diferencias económicas pendientes.
+Salidas (Outputs): Desglose financiero completo en pantalla mostrando Total Cargos, Total Abonos Previos y el Saldo Neto resultante claramente diferenciado como "Monto a Reembolsar al Cliente" o "Monto Pendiente de Cobro".
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-29)
+Código y Nombre: RF-29: Emisión de Comprobante de Liquidación y Cierre de Contrato
+Propósito: Concluir formalmente el contrato de arrendamiento en la base de datos, registrando el cobro o reembolso final y emitiendo el comprobante de liquidación.
+Entradas (Inputs): Método de pago para cobrar la diferencia o medio para reembolsar la garantía, Clic en el botón "Confirmar y Cerrar Liquidación" (QPushButton).
+Proceso (Lógica / ORM): Ejecuta una transacción atómica (ACID):
+1. Inserta el registro de la liquidación en la tabla liquidaciones con todos los conceptos calculados.
+2. Actualiza el estado del contrato a FINALIZADO en la tabla contratos.
+3. Inserta el movimiento financiero correspondiente en la tabla pagos (INGRESO_RENTA, COBRO_PENALIZACION o REEMBOLSO_GARANTIA).
+4. Genera el comprobante electrónico final con código correlativo único y datos del cliente, vehículo y desglose financiero.
+Salidas (Outputs): Cuadro de diálogo de confirmación (QMessageBox.information), generación del comprobante imprimible/PDF y actualización del estado del contrato en el sistema.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-30)
+Código y Nombre: RF-30: Reclasificación y Transición Operativa del Vehículo post-Liquidación
+Propósito: Actualizar automáticamente el estado del automóvil en el inventario de flota al liberarse del contrato según las condiciones técnicas dictaminadas en la devolución.
+Entradas (Inputs): Datos consolidados de la inspección técnica de retorno (kilometraje final y presencia de averías o daños reportados).
+Proceso (Lógica / ORM): Dentro de la transacción de cierre de liquidación, la capa de servicios evalúa:
+- Si se registraron daños físicos graves o mecánicos -> actualiza el vehículo a estado EN_MANTENIMIENTO y emite alerta de reparación.
+- Si el odómetro final superó o está a menos de 200 km de km_proximo_mantenimiento -> actualiza a estado EN_MANTENIMIENTO.
+- Si el vehículo se encuentra en óptimas condiciones y dentro de rango de servicio -> actualiza a estado DISPONIBLE y actualiza su kilometraje actual en la tabla vehiculos.
+Salidas (Outputs): Actualización inmediata del estado del vehículo en la tabla vehiculos de la base de datos, notificación en el módulo de flota y refresco en el Dashboard general.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 8: MANTENIMIENTO DE FLOTA
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-31)
+Código y Nombre: RF-31: Registro de Órdenes de Mantenimiento Preventivo y Correctivo
+Propósito: Registrar el ingreso de un vehículo a taller mecánico para la realización de servicios programados de rutina o reparaciones correctivas por desperfectos.
+Entradas (Inputs): Formulario de Mantenimiento (Selección de Vehículo en QComboBox, Tipo de Mantenimiento: Preventivo / Correctivo en QComboBox, Taller o Proveedor en QLineEdit, Fecha de Ingreso en QDateEdit, Fecha Estimada de Salida en QDateEdit, Odómetro de Ingreso en QSpinBox, Descripción detallada de trabajos a realizar).
+Proceso (Lógica / ORM): Valida que el vehículo seleccionado no se encuentre en estado ALQUILADO. Valida que el odómetro de ingreso sea consistente con el odómetro registrado del vehículo. En una transacción gestionada, inserta la orden en la tabla mantenimientos con estado EN_TALLER y actualiza de manera simultánea el estado del vehículo en la tabla vehiculos a EN_MANTENIMIENTO.
+Salidas (Outputs): Cuadro de diálogo de confirmación con el código de orden generado (QMessageBox.information), actualización de la tabla de mantenimientos activos y actualización del estado del vehículo en la flota.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-32)
+Código y Nombre: RF-32: Bloqueo Operativo del Vehículo en Taller de Mantenimiento
+Propósito: Garantizar que ningún vehículo que se encuentre en mantenimiento mecánico pueda ser seleccionado, reservado o despachado en operaciones comerciales.
+Entradas (Inputs): Intento de búsqueda, reserva o asignación de un vehículo con estado EN_MANTENIMIENTO en los módulos de reservas o contratos.
+Proceso (Lógica / ORM): Las consultas del repositorio filtran rigurosamente por vehiculos.estado = 'DISPONIBLE' en todas las listas de selección de unidades para venta. En caso de intento de invocación directa por identificador, el servicio de negocio lanza VehicleNotAvailableError indicando que la unidad se encuentra en taller. En la base de datos, las restricciones y triggers rechazan cualquier vinculación a un contrato activo.
+Salidas (Outputs): El vehículo se muestra inhabilitado en los selectores de vehículos, badge de estado morado en la tabla de flota y cuadro de advertencia (QMessageBox.warning) si se intenta operar comercialmente la unidad.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-33)
+Código y Nombre: RF-33: Finalización de Mantenimiento, Registro de Costos y Reactivación de Vehículo
+Propósito: Documentar la finalización de los trabajos de taller, registrar los costos económicos incurridos, reprogramar el próximo servicio preventivo y reintegrar el vehículo a la flota activa.
+Entradas (Inputs): Formulario de Cierre de Mantenimiento (Fecha Real de Salida en QDateEdit, Costo Total del Servicio en QDoubleSpinBox, Detalle de Repuestos y Trabajos Facturados, Nuevo Kilometraje programado para el próximo servicio).
+Proceso (Lógica / ORM): En una transacción ACID:
+1. Actualiza el registro de mantenimiento en la tabla mantenimientos con estado COMPLETADO, asentando el costo total y fecha real de entrega.
+2. Actualiza el vehículo en la tabla vehiculos cambiando su estado a DISPONIBLE y actualizando km_proximo_mantenimiento.
+3. Inserta el movimiento de egreso contable en la tabla pagos con tipo_movimiento = 'EGRESO_TALLER' vinculándolo al usuario responsable.
+Salidas (Outputs): Cuadro de diálogo confirmando la reincorporación del vehículo a la flota activa (QMessageBox.information), actualización del badge de estado a DISPONIBLE (verde) y registro contable del gasto.
+Prototipado de la GUI: Ver en Anexos.
+
+
+====================================================================================================
+MÓDULO 9: REPORTES, ESTADÍSTICAS Y ANALÍTICA
+====================================================================================================
+
+Plantilla de Especificación de Requisito Funcional (RF-34)
+Código y Nombre: RF-34: Reporte Consolidado de Ingresos Financieros y Recaudación
+Propósito: Proveer a la gerencia y administración un resumen detallado de la facturación, ingresos netos, cobros por penalizaciones y devoluciones en un periodo determinado.
+Entradas (Inputs): Filtros de consulta en la vista de reportes (Fecha de Inicio en QDateEdit, Fecha de Fin en QDateEdit, Filtro por Método de Pago en QComboBox: Todos, Efectivo, Tarjeta, Transferencia; Filtro por Concepto: Renta, Seguros, Penalizaciones).
+Proceso (Lógica / ORM): Ejecuta consultas analíticas agregadas (SUM, COUNT, GROUP BY) sobre las tablas liquidaciones y pagos mediante consultas parametrizadas en PostgreSQL. Totaliza los ingresos por renta base, ingresos por seguros, recaudación por penalizaciones y deducciones por reembolso de fianza. La ejecución se gestiona en un hilo de trabajo en segundo plano (QThread) para no bloquear la interfaz gráfica.
+Salidas (Outputs): Presentación de resultados en una tabla estructurada (QTableWidget), visualización de tarjetas con métricas clave (KPIs de Facturación Total, Ingreso Neto y Ticket Promedio) y gráficos estadísticos en pantalla.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-35)
+Código y Nombre: RF-35: Reporte de Utilización, Tasa de Ocupación y Rendimiento de Flota
+Propósito: Analizar la productividad y demanda de la flota vehicular, determinando la tasa de ocupación de las unidades, los modelos más rentados y los tiempos de inactividad.
+Entradas (Inputs): Rango de fechas a evaluar (Desde / Hasta), Filtro por Categoría de Vehículo en QComboBox, Filtro por Marca o Modelo.
+Proceso (Lógica / ORM): Calcula la tasa de ocupación de la flota mediante la fórmula:
+Tasa de Ocupación = (Días Totales Alquilados / (Días Totales del Periodo * Cantidad de Vehículos)) * 100.
+Consulta las tablas contratos y vehiculos agrupando por id_vehiculo y categoria para determinar el ranking de vehículos con mayor cantidad de contratos, ingresos generados y días acumulados en mantenimiento.
+Salidas (Outputs): Tabla analítica de rendimiento de flota, gráfico de barras comparativo de demanda por categoría de vehículo e indicadores de disponibilidad en tiempo real.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-36)
+Código y Nombre: RF-36: Reporte de Historial de Clientes, Siniestralidad y Morosidad
+Propósito: Generar reportes sobre el comportamiento de los clientes para identificar patrones de alquiler frecuente, reincidencia en daños a vehículos o historial de deudas no canceladas.
+Entradas (Inputs): Criterio de filtrado (Todos, Clientes Frecuentes con más de N alquileres, Clientes con Daños Reportados, Clientes Morosos o Vetados), Rango de fechas.
+Proceso (Lógica / ORM): Consulta las tablas clientes, contratos, liquidaciones y danos realizando cruces relacionales. Agrupa por cliente la cantidad de contratos firmados, monto total desembolsado, total de penalizaciones aplicadas y cantidad de actas de devolución con averías registradas. Clasifica el nivel de riesgo de cada arrendatario para alimentar las políticas comerciales.
+Salidas (Outputs): Listado consolidado en QTableWidget con el expediente histórico de cada cliente, semaforización de riesgo y detalle de incidencias previas.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-37)
+Código y Nombre: RF-37: Exportación de Reportes a Formatos Estándar (PDF / Excel / CSV)
+Propósito: Permitir al usuario descargar y guardar los reportes generados en formatos de archivo universales para su archivo formal, impresión o análisis en herramientas de ofimática.
+Entradas (Inputs): Selección del tipo de reporte visualizado, Clic en botón "Exportar a PDF" o "Exportar a Excel / CSV", Selección de la ruta y nombre de archivo mediante diálogo del sistema (QFileDialog.getSaveFileName).
+Proceso (Lógica / ORM): Captura la estructura tabular y datos consolidados del reporte actualmente activo. Si se selecciona PDF, genera un documento con encabezado institucional, fecha y hora de emisión, usuario que generó el reporte, paginación y formato de tabla estilizada. Si se selecciona CSV/Excel, estructura los datos con codificación UTF-8 y delimitadores estándar para compatibilidad directa con Microsoft Excel y hojas de cálculo.
+Salidas (Outputs): Archivo generado en la ruta indicada por el usuario, cuadro de diálogo informando la exportación exitosa (QMessageBox.information) con opción de abrir la carpeta contenedora.
+Prototipado de la GUI: Ver en Anexos.
+
+====================================================================================================
+ESPECIFICACIÓN DE REQUISITOS NO FUNCIONALES (RNF)
+====================================================================================================
+
+ÍNDICE DE REQUISITOS NO FUNCIONALES:
+----------------------------------------------------------------------------------------------------
+  - RNF-01: Rendimiento y Tiempo de Respuesta en Consultas de Base de Datos
+  - RNF-02: Integridad Transaccional y Consistencia ACID
+  - RNF-03: Usabilidad, Ergonomía Visual y Accesibilidad de la GUI
+  - RNF-04: Responsividad del Hilo Principal y Concurrencia (Asincronía en UI)
+  - RNF-05: Seguridad Criptográfica y Protección de Credenciales
+  - RNF-06: Mantenibilidad, Arquitectura en Capas y Tipado Estricto
+  - RNF-07: Portabilidad y Empaquetado en Entornos Windows
+  - RNF-08: Trazabilidad, Auditoría e Inmutabilidad de Registros Críticos
+====================================================================================================
+
+
+Plantilla de Especificación de Requisito No Funcional (RNF-01)
+Código y Nombre: RNF-01: Rendimiento y Tiempo de Respuesta en Consultas de Base de Datos
+Propósito: Garantizar un tiempo de respuesta óptimo en la interfaz gráfica durante la búsqueda, filtrado de disponibilidad de flota vehicular y consulta de expedientes de clientes históricos.
+Categoria: Rendimiento / Eficiencia de Desempeño
+Criterio / Métrica Objetivo: Tiempo de respuesta promedio menor o igual a 1.0 segundo para consultas complejas de disponibilidad con filtros temporales y búsqueda de clientes sobre un volumen de al menos 10,000 registros históricos; tiempo de renderizado de resultados en QTableWidget menor o igual a 500 milisegundos.
+Método de Verificación: Ejecución de pruebas de carga y benchmarking con scripts sintéticos que pueblen la base de datos con 10,000 clientes y contratos; ejecución de consultas mediante EXPLAIN ANALYZE en PostgreSQL para verificar el aprovechamiento de índices B-Tree y GiST, midiendo la latencia con decoradores de tiempo en la capa de repositorios.
+Prueba Técnica: Registros en app.log con nivel DEBUG reportando tiempos de ejecución por consulta SQL (ej. "[DEBUG] Query executed in 0.042s"), planes de ejecución de PostgreSQL con costo optimizado mostrando Index Scan / Bitmap Heap Scan en lugar de Sequential Scan, y gráficas de latencia generadas con scripts de prueba en tests/.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-02)
+Código y Nombre: RNF-02: Integridad Transaccional y Consistencia ACID
+Propósito: Asegurar la atomicidad, consistencia, aislamiento y durabilidad de todas las operaciones comerciales compuestas (apertura de contrato, entrega física, liquidación y órdenes de taller), evitando datos huérfanos o estados inconsistentes ante eventuales fallos de software o caídas de red.
+Categoria: Fiabilidad / Integridad de Datos
+Criterio / Métrica Objetivo: 100% de las operaciones de negocio críticas que involucran múltiples tablas ejecutadas dentro de bloques transaccionales gestionados (BEGIN ... COMMIT / ROLLBACK) en PostgreSQL con nivel de aislamiento READ COMMITTED o superior; 0% de tolerancia a discrepancias contables o vehículos en estados ambiguos.
+Método de Verificación: Pruebas de inyección de fallos controlados (Fault Injection Testing) forzando excepciones deliberadas en pasos intermedios de transacciones (por ejemplo, fallar el registro de pago tras haber insertado el contrato) para verificar que el context manager ejecute automáticamente el ROLLBACK completo y revierta todos los cambios.
+Prueba Técnica: Trazabilidad en app.log con mensajes explícitos de "[DEBUG] Iniciando bloque de transacción en servicio...", "[DEBUG] Error detectado, ejecutando ROLLBACK atómico..." y "[DEBUG] Transacción confirmada (COMMIT) con éxito", junto con los tests de integración en tests/test_contracts.py comprobando la restitución de estados en la base de datos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-03)
+Código y Nombre: RNF-03: Usabilidad, Ergonomía Visual y Accesibilidad de la GUI
+Propósito: Proveer una interfaz gráfica de usuario en PySide6 intuitiva, fluida y con diseño ergonómico moderno que facilite la labor del operador, reduzca la curva de aprendizaje y evite errores humanos de captura.
+Categoria: Usabilidad / Experiencia de Usuario (UX/UI)
+Criterio / Métrica Objetivo: Cumplimiento de estándares de contraste visual WCAG 2.1 nivel AA sobre paleta oscura (Dark Theme profesional #0f172a / #1e293b); soporte responsive para resolución de pantalla mínima de 1366x768 píxeles sin deformación de layouts ni scroll horizontal invasivo; validaciones de formulario en tiempo real con alertas contextuales; tasa de error de entrada en pruebas de usuario menor o igual al 5%.
+Método de Verificación: Pruebas de usabilidad cronometradas con usuarios de prueba evaluando la facilidad para formalizar una reserva y un contrato; inspección visual de interfaces en monitores con distintas resoluciones y factores de escala (DPI scaling); verificación estricta de validadores de entrada (QRegularExpressionValidator, setReadOnly, selectores de fecha con límites configurados).
+Prueba Técnica: Ejecución automatizada de tests/test_ui_components.py que comprueba la inicialización sin errores de todos los diálogos y vistas, capturas de pantalla de la GUI en resolución 1366x768 verificando márgenes y alineación, y logs de eventos de validación de formularios en tiempo de ejecución.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-04)
+Código y Nombre: RNF-04: Responsividad del Hilo Principal y Concurrencia (Asincronía en UI)
+Propósito: Garantizar que la interfaz gráfica permanezca interactiva y no se congele ("No responde") durante operaciones intensivas de Entrada/Salida (I/O) como consultas masivas a PostgreSQL, exportaciones de reportes o generación de documentos PDF.
+Categoria: Desempeño / Concurrencia y Responsividad
+Criterio / Métrica Objetivo: Mantener la tasa de refresco del hilo principal de PySide6 a 60 cuadros por segundo (FPS); ningún bloqueo de la ventana principal superior a 100 milisegundos (cero eventos de congelamiento de ventana detectados por el sistema operativo - ANR = 0).
+Método de Verificación: Delegación de operaciones pesadas y generación de reportes analíticos a hilos de trabajo asíncronos (QThread o QRunnable administrados por QThreadPool), comunicando el avance mediante señales Qt (Signal y Slot) hacia barras de progreso (QProgressBar); prueba de estrés moviendo y redimensionando la ventana mientras se procesan cálculos financieros en segundo plano.
+Prueba Técnica: Gráficas de utilización de CPU en el Administrador de Tareas o Monitor de Rendimiento de Windows demostrando balanceo en hilos secundarios sin saturar el hilo de renderizado; trazas de log identificando el hilo de ejecución ("[Thread-2] Generando reporte analítico...", "[MainThread] UI respondiendo a eventos de usuario").
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-05)
+Código y Nombre: RNF-05: Seguridad Criptográfica y Protección de Credenciales
+Propósito: Proteger la confidencialidad e integridad de las credenciales de acceso de los usuarios y las cadenas de conexión a la base de datos frente a accesos no autorizados o ataques de exfiltración.
+Categoria: Seguridad / Confidencialidad Criptográfica
+Criterio / Métrica Objetivo: 0% de contraseñas almacenadas en texto plano o con algoritmos obsoletos (MD5/SHA1); uso obligatorio de funciones de derivación criptográfica con sal individual aleatoria mediante el algoritmo bcrypt con factor de trabajo (work factor / cost) mayor o igual a 12; almacenamiento seguro de credenciales de base de datos fuera del control de versiones mediante variables de entorno en archivo .env.
+Método de Verificación: Inspección estática del repositorio de base de datos verificando que no existan contraseñas legibles en usuarios.password_hash; pruebas unitarias de autenticación en tests/test_auth.py comprobando que contraseñas idénticas generen hashes distintos debido a las sales aleatorias; análisis de seguridad de código (SAST) para verificar que no existan credenciales hardcodeadas.
+Prueba Técnica: Salida de la suite tests/test_auth.py confirmando la verificación correcta y el rechazo de hashes alterados; consulta directa "SELECT id_usuario, username, password_hash FROM usuarios;" en psql demostrando hashes con estructura "$2b$12$..." de 60 caracteres.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-06)
+Código y Nombre: RNF-06: Mantenibilidad, Arquitectura en Capas y Tipado Estricto
+Propósito: Asegurar la modularidad, facilidad de mantenimiento, escalabilidad y testabilidad del código fuente del proyecto a través de una separación rigurosa de responsabilidades bajo principios SOLID y tipado estático.
+Categoria: Mantenibilidad / Calidad de Arquitectura de Software
+Criterio / Métrica Objetivo: Estructura arquitectónica 100% desacoplada en capas (Presentación UI -> Lógica de Negocio Services -> Acceso a Datos Repositories -> PostgreSQL); 0 líneas de código SQL embebidas dentro de las vistas de PySide6; 100% de signaturas de métodos y funciones anotadas con Type Hints de Python (typing); índice de cobertura de pruebas unitarias/integración mayor o igual al 85%.
+Método de Verificación: Ejecución de herramientas de análisis estático de tipos (mypy --strict) sobre el paquete src/; revisión estática de código verificando que la capa UI solo invoque a la capa services, y que services solo acceda a la persistencia mediante repositories; ejecución de la suite automatizada completa tests/run_all.py.
+Prueba Técnica: Reporte de ejecución limpia de tests/run_all.py con 100% de pruebas aprobadas en todos los módulos; reporte de verificación estática de código confirmando cero violaciones de dependencia circular entre capas.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-07)
+Código y Nombre: RNF-07: Portabilidad y Empaquetado en Entornos Windows
+Propósito: Garantizar la distribución, instalación y ejecución consistente del sistema en equipos de cómputo con sistemas operativos Windows modernos sin requerir dependencias previas complejas por parte del usuario final.
+Categoria: Portabilidad / Empaquetabilidad y Despliegue
+Criterio / Métrica Objetivo: Compatibilidad operativa completa en Windows 10 y Windows 11 (arquitectura de 64 bits x86_64); distribución empaquetada como binario ejecutable (.exe autónomo o instalador mediante PyInstaller / Inno Setup); tiempo de arranque inicial en frío (Cold Start) menor o igual a 3.0 segundos en hardware estándar (Intel Core i3 / 8 GB RAM / SSD).
+Método de Verificación: Compilación del aplicativo mediante script de PyInstaller con todas las dependencias dinámicas (DLLs de PySide6/Qt6, libpq de PostgreSQL, librerías de soporte); ejecución de pruebas de instalación y arranque en una máquina virtual limpia con Windows 10 recién instalado sin Python ni herramientas de desarrollo preinstaladas.
+Prueba Técnica: Archivo de especificación de empaquetado (pyinstaller.spec), log de compilación exitosa sin DLLs faltantes, reporte de verificación con herramienta dumpbin /dependents o Dependencies.exe y medición cronometrada del tiempo transcurrido desde el doble clic hasta la presentación de la pantalla de login.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-08)
+Código y Nombre: RNF-08: Trazabilidad, Auditoría e Inmutabilidad de Registros Críticos
+Propósito: Preservar la integridad legal y contable de los datos históricos de la empresa impidiendo el borrado inadvertido o malintencionado de contratos, inspecciones, cobros y liquidaciones, y garantizando la trazabilidad total de cambios.
+Categoria: Seguridad / Integridad, Auditoría y No Repudio
+Criterio / Métrica Objetivo: 0% de eliminaciones físicas (DELETE) admitidas en tablas de soporte contractual y contable (contratos, devoluciones, liquidaciones, pagos, auditoria); 100% de operaciones sensibles (anulación de contratos, cambios de tarifas, veto de clientes) registradas con timestamp, ID de usuario, IP y estado previo/nuevo en formato JSONB.
+Método de Verificación: Intentos controlados de ejecución de sentencias DELETE directas sobre tablas históricas desde la consola de base de datos para comprobar que sean bloqueadas por constraints de clave foránea con ON DELETE RESTRICT o reglas de base de datos; comprobación de que los flujos de anulación empleen borrado lógico (actualización de estado a ANULADO) y registren automáticamente la entrada correspondiente en la tabla auditoria.
+Prueba Técnica: Consultas de auditoría a la base de datos "SELECT * FROM auditoria ORDER BY fecha_hora DESC;" evidenciando los registros con sus snapshots de datos antes y después; logs de excepciones controladas "IntegrityError: update or delete on table violates foreign key constraint" al intentar borrar registros con dependencias históricas.
+
+====================================================================================================
+FIN DEL DOCUMENTO DE ESPECIFICACIÓN DE REQUISITOS (RF Y RNF)
+====================================================================================================

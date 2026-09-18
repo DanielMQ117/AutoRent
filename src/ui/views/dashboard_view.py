@@ -26,6 +26,7 @@ from src.services.auth_service import auth_service
 from src.ui.views.clients_view import ClientsView
 from src.ui.views.contracts_view import ContractsView
 from src.ui.views.reservations_view import ReservationsView
+from src.ui.views.returns_view import ReturnsView
 from src.ui.views.vehicles_view import VehiclesView
 
 logger = get_logger(__name__)
@@ -87,6 +88,11 @@ class DashboardView(QMainWindow):
         self.contracts_view.back_requested.connect(lambda: self._switch_to_page(0))
         self.stacked_widget.addWidget(self.contracts_view)
 
+        # Página 5: Módulo de Devoluciones e Inspección de Retorno (Fase 6)
+        self.returns_view = ReturnsView(self)
+        self.returns_view.back_requested.connect(lambda: self._switch_to_page(0))
+        self.stacked_widget.addWidget(self.returns_view)
+
         main_layout.addWidget(self.stacked_widget, stretch=1)
 
         # 3. Barra de Estado Inferior
@@ -145,6 +151,12 @@ class DashboardView(QMainWindow):
             self._style_nav_button(self.btn_nav_contratos)
             self.btn_nav_contratos.clicked.connect(lambda: self._open_contratos_module())
             nav_container.addWidget(self.btn_nav_contratos)
+
+        if session.has_permission("devoluciones"):
+            self.btn_nav_devoluciones = QPushButton("🔄 Devoluciones")
+            self._style_nav_button(self.btn_nav_devoluciones)
+            self.btn_nav_devoluciones.clicked.connect(lambda: self._open_devoluciones_module())
+            nav_container.addWidget(self.btn_nav_devoluciones)
 
         bar_layout.addLayout(nav_container)
         bar_layout.addStretch()
@@ -295,8 +307,9 @@ class DashboardView(QMainWindow):
         welcome_title.setStyleSheet("color: #f8fafc; border: none;")
 
         desc_label = QLabel(
-            "Fases 3, 4 y 5 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota', 'Reservas' y 'Contratos de Entrega' "
-            "se encuentran plenamente operativos con formalización transaccional, inspección física y garantías."
+            "Fases 3, 4, 5 y 6 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota', 'Reservas', "
+            "'Contratos y Entrega' y 'Devoluciones e Inspección' se encuentran plenamente operativos con formalización "
+            "transaccional, inspección física, liquidaciones y garantías."
         )
         desc_label.setFont(QFont("Segoe UI", 9))
         desc_label.setStyleSheet("color: #94a3b8; border: none;")
@@ -342,7 +355,7 @@ class DashboardView(QMainWindow):
         card_layout.setSpacing(10)
         card_layout.setContentsMargins(16, 16, 16, 16)
 
-        is_operativo = module_key in ("flota", "clientes", "reservas", "contratos")
+        is_operativo = module_key in ("flota", "clientes", "reservas", "contratos", "devoluciones")
 
         if has_access:
             badge_color = "#38bdf8" if is_operativo else "#4ade80"
@@ -409,6 +422,8 @@ class DashboardView(QMainWindow):
                 btn_label = "Gestionar Reservas"
             elif module_key == "contratos":
                 btn_label = "Gestionar Contratos"
+            elif module_key == "devoluciones":
+                btn_label = "Registrar Devolución"
             else:
                 btn_label = "Abrir Módulo"
         else:
@@ -485,6 +500,14 @@ class DashboardView(QMainWindow):
         self.contracts_view.load_data()
         self._switch_to_page(4)
 
+    def _open_devoluciones_module(self) -> None:
+        """Abre la pantalla de gestión de devoluciones e inspecciones de retorno."""
+        if not session.has_permission("devoluciones"):
+            QMessageBox.warning(self, "Acceso Restringido", "Su perfil no cuenta con permisos para el módulo de Devoluciones.")
+            return
+        self.returns_view.load_data()
+        self._switch_to_page(5)
+
     def _handle_open_module(self, module_name: str, module_key: str) -> None:
         """Maneja el clic en las tarjetas de módulo."""
         if module_key == "clientes":
@@ -495,6 +518,8 @@ class DashboardView(QMainWindow):
             self._open_reservations_module()
         elif module_key == "contratos":
             self._open_contratos_module()
+        elif module_key == "devoluciones":
+            self._open_devoluciones_module()
         else:
             QMessageBox.information(
                 self,

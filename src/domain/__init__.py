@@ -29,6 +29,9 @@ from src.domain.models import (
     AdditionalDriver,
     Payment,
     Contract,
+    Damage,
+    ReturnInspection,
+    Settlement,
 )
 
 __all__ = [
@@ -58,4 +61,7 @@ __all__ = [
     "AdditionalDriver",
     "Payment",
     "Contract",
+    "Damage",
+    "ReturnInspection",
+    "Settlement",
 ]

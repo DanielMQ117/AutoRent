@@ -11,6 +11,8 @@ from src.ui.views.reservations_view import ReservationsView
 from src.ui.views.reservation_form_dialog import ReservationFormDialog
 from src.ui.views.contracts_view import ContractsView
 from src.ui.views.contract_form_dialog import ContractFormDialog
+from src.ui.views.returns_view import ReturnsView
+from src.ui.views.return_form_dialog import ReturnFormDialog
 
 __all__ = [
     "LoginView",
@@ -24,4 +26,6 @@ __all__ = [
     "ReservationFormDialog",
     "ContractsView",
     "ContractFormDialog",
+    "ReturnsView",
+    "ReturnFormDialog",
 ]

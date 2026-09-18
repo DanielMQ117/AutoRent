@@ -9,6 +9,8 @@ from src.domain.enums import (
     ClientStatus,
     ClientType,
     ContractStatus,
+    DamageSeverity,
+    DamageType,
     MaintenanceStatus,
     MaintenanceType,
     PaymentMethod,
@@ -228,7 +230,8 @@ class Contract:
     reserva_codigo: Optional[str] = None
 
     # Sub-entidades
-    conductores_adicionales: list[AdditionalDriver] = field(default_factory=list)
+    conductores_adicionales: list[AdditionalDriver] = field(
+        default_factory=list)
     pagos: list[Payment] = field(default_factory=list)
 
     @property
@@ -259,3 +262,91 @@ class Contract:
         return self.subtotal_renta_pactado + self.costo_cobertura_total
 
 
+@dataclass
+class Damage:
+    """Representa un daño físico registrado durante la inspección de retorno."""
+    id_danio: Optional[int] = None
+    id_devolucion: Optional[int] = None
+    zona_carroceria: str = ""
+    tipo_danio: DamageType = DamageType.RAYON
+    gravedad: DamageSeverity = DamageSeverity.LEVE
+    descripcion: str = ""
+    costo_reparacion: Decimal = Decimal("0.00")
+
+
+@dataclass
+class ReturnInspection:
+    """Representa el acta de devolución física e inspección técnica de un vehículo."""
+    id_devolucion: Optional[int] = None
+    id_contrato: int = 0
+    fecha_hora_retorno_real: Optional[datetime] = None
+    kilometraje_retorno: int = 0
+    combustible_retorno: Decimal = Decimal("1.00")
+    horas_retraso: int = 0
+    limpieza_aprobada: bool = True
+    accesorios_completos: bool = True
+    observaciones: Optional[str] = None
+    id_usuario: int = 0
+
+    # Atributos informativos cargados por JOINs
+    contrato_codigo: Optional[str] = None
+    cliente_nombre: Optional[str] = None
+    cliente_identificacion: Optional[str] = None
+    vehiculo_placa: Optional[str] = None
+    vehiculo_modelo: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    kilometraje_salida: int = 0
+    combustible_salida: Decimal = Decimal("1.00")
+    fecha_hora_fin_pactada: Optional[datetime] = None
+    tarifa_diaria: Decimal = Decimal("0.00")
+
+    # Lista de averías detectadas
+    danios: list[Damage] = field(default_factory=list)
+
+    @property
+    def km_recorridos(self) -> int:
+        """Calcula los kilómetros transitados durante el período del contrato."""
+        return max(0, self.kilometraje_retorno - self.kilometraje_salida)
+
+    @property
+    def combustible_faltante(self) -> Decimal:
+        """Fracción faltante de combustible respecto al nivel de entrega."""
+        return max(Decimal("0.00"), self.combustible_salida - self.combustible_retorno)
+
+    @property
+    def costo_total_danios(self) -> Decimal:
+        """Monto acumulado por concepto de reparación de averías."""
+        return sum((d.costo_reparacion for d in self.danios), Decimal("0.00"))
+
+    @property
+    def tiene_danio_grave(self) -> bool:
+        """Indica si existe alguna avería de gravedad alta que inhabilite el vehículo."""
+        return any(d.gravedad == DamageSeverity.GRAVE for d in self.danios)
+
+
+@dataclass
+class Settlement:
+    """Representa la liquidación financiera final y balance contable de un contrato."""
+    id_liquidacion: Optional[int] = None
+    id_contrato: int = 0
+    id_devolucion: int = 0
+    fecha_liquidacion: Optional[datetime] = None
+    dias_facturados: int = 1
+    subtotal_renta: Decimal = Decimal("0.00")
+    cargos_retraso: Decimal = Decimal("0.00")
+    cargos_combustible: Decimal = Decimal("0.00")
+    cargos_km_excedente: Decimal = Decimal("0.00")
+    cargos_danios: Decimal = Decimal("0.00")
+    total_bruto: Decimal = Decimal("0.00")
+    monto_garantia_aplicado: Decimal = Decimal("0.00")
+    saldo_cliente: Decimal = Decimal("0.00")
+    estado_liquidacion: SettlementStatus = SettlementStatus.CERRADA
+    id_usuario: int = 0
+
+    # Atributos auxiliares informativos
+    contrato_codigo: Optional[str] = None
+    cliente_nombre: Optional[str] = None
+    vehiculo_placa: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+    monto_garantia_inicial: Decimal = Decimal("0.00")
+    pagos: list[Payment] = field(default_factory=list)

@@ -4,7 +4,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QLabel
 
-from src.domain.enums import ClientStatus, ContractStatus, ReservationStatus, VehicleStatus
+from src.domain.enums import (
+    ClientStatus,
+    ContractStatus,
+    DamageSeverity,
+    ReservationStatus,
+    SettlementStatus,
+    VehicleStatus,
+)
 
 
 def create_badge(text: str, bg_color: str, text_color: str, border_color: str) -> QLabel:
@@ -81,5 +88,27 @@ def get_contract_status_badge(status: ContractStatus) -> QLabel:
         return create_badge("✓ LIQUIDADO", "rgba(14, 165, 233, 0.15)", "#38bdf8", "rgba(14, 165, 233, 0.4)")
     elif val == ContractStatus.ANULADO.value:
         return create_badge("✖ ANULADO", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
+    return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
+
+
+def get_settlement_status_badge(status: SettlementStatus) -> QLabel:
+    """Retorna un badge visualmente codificado por color según el estado de la liquidación."""
+    val = status.value if isinstance(status, SettlementStatus) else str(status)
+    if val == SettlementStatus.CERRADA.value:
+        return create_badge("✓ CERRADA", "rgba(16, 185, 129, 0.15)", "#34d399", "rgba(16, 185, 129, 0.4)")
+    elif val == SettlementStatus.PENDIENTE_PAGO.value:
+        return create_badge("⏳ PENDIENTE PAGO", "rgba(245, 158, 11, 0.15)", "#fbbf24", "rgba(245, 158, 11, 0.4)")
+    return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
+
+
+def get_damage_severity_badge(severity: DamageSeverity) -> QLabel:
+    """Retorna un badge según la gravedad de la avería física."""
+    val = severity.value if isinstance(severity, DamageSeverity) else str(severity)
+    if val == DamageSeverity.LEVE.value:
+        return create_badge("LEVE", "rgba(56, 189, 248, 0.15)", "#38bdf8", "rgba(56, 189, 248, 0.4)")
+    elif val == DamageSeverity.MODERADO.value:
+        return create_badge("MODERADO", "rgba(245, 158, 11, 0.15)", "#fbbf24", "rgba(245, 158, 11, 0.4)")
+    elif val == DamageSeverity.GRAVE.value:
+        return create_badge("⛔ GRAVE", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
     return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
 
