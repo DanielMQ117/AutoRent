@@ -320,6 +320,9 @@ class ReturnFormDialog(QDialog):
             self._style_input(self.dmg_desc_input)
             add_row.addWidget(self.dmg_desc_input, stretch=2)
 
+            self.dmg_zona_input.returnPressed.connect(self._add_damage)
+            self.dmg_desc_input.returnPressed.connect(self._add_damage)
+
             btn_add_dmg = QPushButton("➕ Agregar")
             btn_add_dmg.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
             btn_add_dmg.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -328,7 +331,7 @@ class ReturnFormDialog(QDialog):
                     background-color: #dc2626;
                     color: #ffffff;
                     border-radius: 6px;
-                    padding: 6px 12px;
+                    padding: 6px 14px;
                 }
                 QPushButton:hover {
                     background-color: #b91c1c;
@@ -361,7 +364,7 @@ class ReturnFormDialog(QDialog):
                 font-weight: bold;
             }
         """)
-        self.damages_table.setFixedHeight(120)
+        self.damages_table.setMinimumHeight(130)
         vbox.addWidget(self.damages_table)
         self._refresh_damages_table()
 
@@ -555,27 +558,37 @@ class ReturnFormDialog(QDialog):
         costo = Decimal(str(self.dmg_cost_input.value()))
 
         if not zona:
-            QMessageBox.warning(self, "Campo Requerido", "Especifique la zona de la carrocería afectada.")
+            QMessageBox.warning(self, "Campo Requerido", "Especifique la zona de la carrocería afectada (ej: Parachoques, Puerta derecha).")
             self.dmg_zona_input.setFocus()
             return
-        if not desc:
-            QMessageBox.warning(self, "Campo Requerido", "Ingrese una breve descripción de la avería.")
-            self.dmg_desc_input.setFocus()
+
+        if costo <= Decimal("0.00"):
+            QMessageBox.warning(self, "Costo Inválido", "El costo estimado de reparación debe ser estrictamente mayor a $0.00.")
+            self.dmg_cost_input.setFocus()
             return
+
+        tipo = self.dmg_tipo_combo.currentData()
+        gravedad = self.dmg_grav_combo.currentData()
+
+        # Si la descripción está vacía, generar una descriptiva por defecto
+        if not desc:
+            tipo_txt = tipo.value if hasattr(tipo, "value") else str(tipo)
+            desc = f"{tipo_txt.capitalize()} detectado en {zona}"
 
         danio = Damage(
             zona_carroceria=zona,
-            tipo_danio=self.dmg_tipo_combo.currentData(),
-            gravedad=self.dmg_grav_combo.currentData(),
+            tipo_danio=tipo,
+            gravedad=gravedad,
             descripcion=desc,
             costo_reparacion=costo,
         )
         self.damages_list.append(danio)
 
-        # Limpiar inputs de daños
+        # Limpiar inputs de daños y posicionar el foco
         self.dmg_zona_input.clear()
         self.dmg_desc_input.clear()
         self.dmg_cost_input.setValue(0.00)
+        self.dmg_zona_input.setFocus()
 
         self._refresh_damages_table()
         self._recalculate_liquidation()
@@ -594,17 +607,38 @@ class ReturnFormDialog(QDialog):
             row = self.damages_table.rowCount()
             self.damages_table.insertRow(row)
 
-            self.damages_table.setItem(row, 0, QTableWidgetItem(d.zona_carroceria))
-            self.damages_table.setItem(row, 1, QTableWidgetItem(d.tipo_danio.value if hasattr(d.tipo_danio, "value") else str(d.tipo_danio)))
-            self.damages_table.setItem(row, 2, QTableWidgetItem(d.gravedad.value if hasattr(d.gravedad, "value") else str(d.gravedad)))
+            item_zona = QTableWidgetItem(d.zona_carroceria)
+            item_zona.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+            self.damages_table.setItem(row, 0, item_zona)
+
+            tipo_val = d.tipo_danio.value if hasattr(d.tipo_danio, "value") else str(d.tipo_danio)
+            self.damages_table.setItem(row, 1, QTableWidgetItem(tipo_val))
+
+            grav_val = d.gravedad.value if hasattr(d.gravedad, "value") else str(d.gravedad)
+            item_grav = QTableWidgetItem(grav_val)
+            if grav_val == "GRAVE":
+                item_grav.setForeground(Qt.GlobalColor.red)
+            elif grav_val == "MODERADO":
+                item_grav.setForeground(Qt.GlobalColor.yellow)
+            self.damages_table.setItem(row, 2, item_grav)
+
             self.damages_table.setItem(row, 3, QTableWidgetItem(d.descripcion))
-            self.damages_table.setItem(row, 4, QTableWidgetItem(f"${d.costo_reparacion:,.2f}"))
+
+            item_cost = QTableWidgetItem(f"${d.costo_reparacion:,.2f}")
+            item_cost.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            item_cost.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            item_cost.setForeground(Qt.GlobalColor.cyan)
+            self.damages_table.setItem(row, 4, item_cost)
 
             if not self.is_view_mode:
                 btn_del = QPushButton("✖")
+                btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
                 btn_del.setStyleSheet("background-color: #7f1d1d; color: #ffffff; border-radius: 4px; padding: 2px;")
                 btn_del.clicked.connect(lambda _, i=idx: self._remove_damage(i))
                 self.damages_table.setCellWidget(row, 5, btn_del)
+
+        if self.damages_table.rowCount() > 0:
+            self.damages_table.scrollToBottom()
 
     def _recalculate_liquidation(self) -> None:
         """Recalcula las cifras de la liquidación en tiempo real ante cualquier cambio."""
