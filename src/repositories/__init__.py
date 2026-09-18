@@ -4,6 +4,7 @@ from src.repositories.base_repository import BaseRepository
 from src.repositories.client_repository import ClientRepository
 from src.repositories.contract_repository import ContractRepository
 from src.repositories.coverage_repository import CoverageRepository
+from src.repositories.maintenance_repository import MaintenanceRepository
 from src.repositories.payment_repository import PaymentRepository
 from src.repositories.reservation_repository import ReservationRepository
 from src.repositories.return_repository import ReturnRepository
@@ -16,6 +17,7 @@ __all__ = [
     "ClientRepository",
     "ContractRepository",
     "CoverageRepository",
+    "MaintenanceRepository",
     "PaymentRepository",
     "ReservationRepository",
     "ReturnRepository",

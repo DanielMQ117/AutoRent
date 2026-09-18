@@ -32,6 +32,7 @@ from src.domain.models import (
     Damage,
     ReturnInspection,
     Settlement,
+    Maintenance,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "Damage",
     "ReturnInspection",
     "Settlement",
+    "Maintenance",
 ]

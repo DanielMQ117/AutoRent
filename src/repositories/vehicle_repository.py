@@ -292,6 +292,31 @@ class VehicleRepository(BaseRepository[Vehicle]):
         )
         return count > 0
 
+    def update_maintenance_release(
+        self,
+        id_vehiculo: int,
+        nuevo_km_proximo_mantenimiento: Optional[int] = None,
+        conn: Any = None,
+    ) -> bool:
+        """Restaura un vehículo de taller a DISPONIBLE y actualiza su próximo kilometraje de mantenimiento."""
+        if nuevo_km_proximo_mantenimiento is not None:
+            query = """
+                UPDATE vehiculos 
+                SET estado = 'DISPONIBLE',
+                    km_proximo_mantenimiento = %s
+                WHERE id_vehiculo = %s;
+            """
+            count = self.execute_non_query(query, (nuevo_km_proximo_mantenimiento, id_vehiculo), conn=conn)
+        else:
+            query = "UPDATE vehiculos SET estado = 'DISPONIBLE' WHERE id_vehiculo = %s;"
+            count = self.execute_non_query(query, (id_vehiculo,), conn=conn)
+        logger.info(
+            "Vehículo ID %s liberado de taller: estado=DISPONIBLE, km_proximo=%s",
+            id_vehiculo,
+            nuevo_km_proximo_mantenimiento,
+        )
+        return count > 0
+
     def soft_delete(self, id_vehiculo: int, conn: Any = None) -> bool:
         """Desactiva un vehículo y cambia su estado a DE_BAJA."""
         query = "UPDATE vehiculos SET activo = FALSE, estado = 'DE_BAJA' WHERE id_vehiculo = %s;"

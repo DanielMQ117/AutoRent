@@ -8,6 +8,8 @@ from src.domain.enums import (
     ClientStatus,
     ContractStatus,
     DamageSeverity,
+    MaintenanceStatus,
+    MaintenanceType,
     ReservationStatus,
     SettlementStatus,
     VehicleStatus,
@@ -110,5 +112,27 @@ def get_damage_severity_badge(severity: DamageSeverity) -> QLabel:
         return create_badge("MODERADO", "rgba(245, 158, 11, 0.15)", "#fbbf24", "rgba(245, 158, 11, 0.4)")
     elif val == DamageSeverity.GRAVE.value:
         return create_badge("⛔ GRAVE", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
+    return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
+
+
+def get_maintenance_status_badge(status: MaintenanceStatus) -> QLabel:
+    """Retorna un badge visualmente codificado por color según el estado de la orden de taller."""
+    val = status.value if isinstance(status, MaintenanceStatus) else str(status)
+    if val == MaintenanceStatus.EN_TALLER.value:
+        return create_badge("🔧 EN TALLER", "rgba(245, 158, 11, 0.15)", "#fbbf24", "rgba(245, 158, 11, 0.4)")
+    elif val == MaintenanceStatus.FINALIZADO.value:
+        return create_badge("✓ FINALIZADO", "rgba(16, 185, 129, 0.15)", "#34d399", "rgba(16, 185, 129, 0.4)")
+    elif val == MaintenanceStatus.CANCELADO.value:
+        return create_badge("✖ CANCELADO", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
+    return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
+
+
+def get_maintenance_type_badge(m_type: MaintenanceType) -> QLabel:
+    """Retorna un badge según si la orden es Preventiva o Correctiva."""
+    val = m_type.value if isinstance(m_type, MaintenanceType) else str(m_type)
+    if val == MaintenanceType.PREVENTIVO.value:
+        return create_badge("🛡 PREVENTIVO", "rgba(14, 165, 233, 0.15)", "#38bdf8", "rgba(14, 165, 233, 0.4)")
+    elif val == MaintenanceType.CORRECTIVO.value:
+        return create_badge("⚠️ CORRECTIVO", "rgba(249, 115, 22, 0.15)", "#fb923c", "rgba(249, 115, 22, 0.4)")
     return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
 

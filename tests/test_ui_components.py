@@ -96,8 +96,8 @@ def run_ui_checks():
 
     print("\n[CHECK 10] Inicializando DashboardView integrado...")
     dashboard = DashboardView()
-    assert dashboard.stacked_widget.count() == 6
-    print(" -> PASO: DashboardView integrado con las 6 páginas (Dashboard, Clientes, Flota, Reservas, Contratos, Devoluciones).")
+    assert dashboard.stacked_widget.count() == 7
+    print(" -> PASO: DashboardView integrado con las 7 páginas (Dashboard, Clientes, Flota, Reservas, Contratos, Devoluciones, Mantenimientos).")
 
     print("\n[CHECK 11] Inicializando ReturnsView...")
     from src.ui.views.returns_view import ReturnsView
@@ -122,8 +122,36 @@ def run_ui_checks():
     assert "Recepción e Inspección de Retorno" in return_dlg.windowTitle()
     print(" -> PASO: ReturnFormDialog inicializado correctamente.")
 
+    print("\n[CHECK 13] Inicializando MaintenancesView...")
+    from src.ui.views.maintenances_view import MaintenancesView
+    maintenances_view = MaintenancesView()
+    assert maintenances_view.table.columnCount() == 9
+    print(" -> PASO: MaintenancesView inicializada con 9 columnas.")
+
+    print("\n[CHECK 14] Inicializando MaintenanceFormDialog...")
+    from src.ui.views.maintenance_form_dialog import MaintenanceFormDialog
+    maint_form_dlg = MaintenanceFormDialog()
+    assert "Nueva Orden de Mantenimiento" in maint_form_dlg.windowTitle()
+    print(" -> PASO: MaintenanceFormDialog inicializado correctamente.")
+
+    print("\n[CHECK 15] Inicializando MaintenanceCompleteDialog...")
+    from src.domain.models import Maintenance
+    from src.ui.views.maintenance_complete_dialog import MaintenanceCompleteDialog
+    dummy_maint = Maintenance(
+        id_mantenimiento=1,
+        id_vehiculo=1,
+        vehiculo_placa="TEST-01",
+        vehiculo_modelo="Toyota Yaris",
+        taller_servicio="Taller Central",
+        kilometraje_entrada=20000,
+        costo_total=Decimal("150.00"),
+    )
+    complete_dlg = MaintenanceCompleteDialog(maintenance=dummy_maint)
+    assert "Finalizar Orden de Mantenimiento" in complete_dlg.windowTitle()
+    print(" -> PASO: MaintenanceCompleteDialog inicializado correctamente.")
+
     print("\n" + "=" * 70)
-    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [12/12]")
+    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [15/15]")
     print("=" * 70 + "\n")
 
 

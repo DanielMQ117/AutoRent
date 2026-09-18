@@ -13,6 +13,9 @@ from src.ui.views.contracts_view import ContractsView
 from src.ui.views.contract_form_dialog import ContractFormDialog
 from src.ui.views.returns_view import ReturnsView
 from src.ui.views.return_form_dialog import ReturnFormDialog
+from src.ui.views.maintenances_view import MaintenancesView
+from src.ui.views.maintenance_form_dialog import MaintenanceFormDialog
+from src.ui.views.maintenance_complete_dialog import MaintenanceCompleteDialog
 
 __all__ = [
     "LoginView",
@@ -28,4 +31,7 @@ __all__ = [
     "ContractFormDialog",
     "ReturnsView",
     "ReturnFormDialog",
+    "MaintenancesView",
+    "MaintenanceFormDialog",
+    "MaintenanceCompleteDialog",
 ]

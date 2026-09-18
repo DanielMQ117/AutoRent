@@ -461,10 +461,32 @@ class VehiclesView(QWidget):
                 color: #ffffff;
             }
         """)
-        del_btn.clicked.connect(lambda _, v=vehicle: self._handle_delete_vehicle(v))
-        layout.addWidget(del_btn)
+        # Botón Enviar a Taller (Fase 8)
+        if vehicle.estado not in (VehicleStatus.ALQUILADO, VehicleStatus.DE_BAJA, VehicleStatus.EN_MANTENIMIENTO):
+            workshop_btn = QPushButton("🔧 Taller")
+            workshop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            workshop_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: rgba(245, 158, 11, 0.2);
+                    color: #fbbf24;
+                    border: 1px solid rgba(245, 158, 11, 0.4);
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 8pt;
+                }
+                QPushButton:hover { background-color: #d97706; color: #ffffff; }
+            """)
+            workshop_btn.clicked.connect(lambda _, v=vehicle: self._handle_send_to_workshop(v))
+            layout.addWidget(workshop_btn)
 
         return container
+
+    def _handle_send_to_workshop(self, vehicle: Vehicle) -> None:
+        """Abre el diálogo de mantenimiento preseleccionando el vehículo."""
+        from src.ui.views.maintenance_form_dialog import MaintenanceFormDialog
+        dialog = MaintenanceFormDialog(self, preselected_vehicle_id=vehicle.id_vehiculo)
+        if dialog.exec():
+            self.load_data()
 
     def _handle_new_vehicle(self) -> None:
         """Abre el diálogo modal de alta de vehículo."""

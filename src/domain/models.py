@@ -350,3 +350,41 @@ class Settlement:
     usuario_nombre: Optional[str] = None
     monto_garantia_inicial: Decimal = Decimal("0.00")
     pagos: list[Payment] = field(default_factory=list)
+
+
+@dataclass
+class Maintenance:
+    """Representa una orden de servicio en taller mecánico (preventivo o correctivo)."""
+    id_mantenimiento: Optional[int] = None
+    id_vehiculo: int = 0
+    tipo_mantenimiento: MaintenanceType = MaintenanceType.PREVENTIVO
+    fecha_ingreso: Optional[datetime] = None
+    fecha_salida_estimada: Optional[date] = None
+    fecha_salida_real: Optional[datetime] = None
+    kilometraje_entrada: int = 0
+    taller_servicio: str = ""
+    descripcion_trabajo: str = ""
+    costo_total: Decimal = Decimal("0.00")
+    estado: MaintenanceStatus = MaintenanceStatus.EN_TALLER
+    id_usuario: int = 0
+
+    # Atributos auxiliares de presentación cargados vía JOINs
+    vehiculo_placa: Optional[str] = None
+    vehiculo_modelo: Optional[str] = None
+    vehiculo_categoria: Optional[str] = None
+    vehiculo_kilometraje_actual: int = 0
+    km_proximo_mantenimiento_actual: int = 0
+    usuario_nombre: Optional[str] = None
+
+    @property
+    def duracion_dias(self) -> int:
+        """Calcula los días transcurridos o estimados en taller."""
+        if not self.fecha_ingreso:
+            return 1
+        fin = self.fecha_salida_real.date() if self.fecha_salida_real else (self.fecha_salida_estimada or date.today())
+        inicio = self.fecha_ingreso.date()
+        return max(1, (fin - inicio).days)
+
+    @property
+    def esta_completado(self) -> bool:
+        return self.estado == MaintenanceStatus.FINALIZADO
