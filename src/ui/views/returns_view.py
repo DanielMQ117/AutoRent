@@ -292,12 +292,13 @@ class ReturnsView(QWidget):
         # Diálogo simple de selección de contrato
         select_dlg = QDialog(self)
         select_dlg.setWindowTitle("Seleccionar Contrato para Devolución")
-        select_dlg.resize(650, 400)
+        select_dlg.resize(720, 440)
+        select_dlg.setMinimumSize(650, 380)
         select_dlg.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         vbox = QVBoxLayout(select_dlg)
-        vbox.setContentsMargins(18, 14, 18, 14)
-        vbox.setSpacing(10)
+        vbox.setContentsMargins(20, 18, 20, 18)
+        vbox.setSpacing(12)
 
         lbl = QLabel("Seleccione el contrato activo cuyo vehículo va a ser recibido:")
         lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
@@ -305,7 +306,14 @@ class ReturnsView(QWidget):
 
         contract_table = QTableWidget(len(active_contracts), 4)
         contract_table.setHorizontalHeaderLabels(["Código", "Cliente", "Placa", "Fin Pactado"])
-        contract_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        contract_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        contract_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        contract_table.horizontalHeader().setStretchLastSection(False)
+        contract_table.verticalHeader().setVisible(False)
+        contract_table.verticalHeader().setDefaultSectionSize(40)
+        contract_table.setColumnWidth(0, 140)
+        contract_table.setColumnWidth(2, 110)
+        contract_table.setColumnWidth(3, 150)
         contract_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         contract_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         contract_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -321,7 +329,7 @@ class ReturnsView(QWidget):
                 background-color: #0f172a;
                 color: #94a3b8;
                 font-weight: bold;
-                padding: 6px;
+                padding: 8px;
             }
         """)
 

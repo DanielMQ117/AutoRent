@@ -60,8 +60,8 @@ class ReservationFormDialog(QDialog):
         """Inicializa los componentes visuales del diálogo."""
         title = "Modificar Reserva" if self.is_edit_mode else "Nueva Reserva de Vehículo"
         self.setWindowTitle(f"AutoRent Pro — {title}")
-        self.resize(700, 720)
-        self.setMinimumSize(620, 640)
+        self.resize(720, 740)
+        self.setMinimumSize(640, 660)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -115,6 +115,8 @@ class ReservationFormDialog(QDialog):
         client_card = self._create_card("1. Expediente del Cliente")
         client_grid = QGridLayout()
         client_grid.setSpacing(10)
+        client_grid.setColumnStretch(0, 0)
+        client_grid.setColumnStretch(1, 1)
 
         client_grid.addWidget(self._create_label("Cliente Arrendatario *"), 0, 0)
         self.client_combo = QComboBox()
@@ -134,6 +136,8 @@ class ReservationFormDialog(QDialog):
         dates_card = self._create_card("2. Período de Alquiler Solicitado")
         dates_grid = QGridLayout()
         dates_grid.setSpacing(10)
+        dates_grid.setColumnStretch(0, 0)
+        dates_grid.setColumnStretch(1, 1)
 
         dates_grid.addWidget(self._create_label("Fecha y Hora de Inicio *"), 0, 0)
         self.start_date_edit = QDateTimeEdit()
@@ -161,6 +165,8 @@ class ReservationFormDialog(QDialog):
         vehicle_card = self._create_card("3. Categoría y Asignación de Flota")
         vehicle_grid = QGridLayout()
         vehicle_grid.setSpacing(10)
+        vehicle_grid.setColumnStretch(0, 0)
+        vehicle_grid.setColumnStretch(1, 1)
 
         vehicle_grid.addWidget(self._create_label("Categoría del Automóvil *"), 0, 0)
         self.category_combo = QComboBox()
@@ -186,6 +192,8 @@ class ReservationFormDialog(QDialog):
         cost_card = self._create_card("4. Resumen Económico y Anticipo")
         cost_grid = QGridLayout()
         cost_grid.setSpacing(10)
+        cost_grid.setColumnStretch(0, 0)
+        cost_grid.setColumnStretch(1, 1)
 
         self.lbl_days = QLabel("Duración: 0 días")
         self.lbl_days.setStyleSheet("color: #cbd5e1;")
@@ -264,12 +272,11 @@ class ReservationFormDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 14px;
             }
         """)
         layout = QVBoxLayout(card)
-        layout.setSpacing(10)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
+        layout.setContentsMargins(18, 16, 18, 16)
 
         card_title = QLabel(title)
         card_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))

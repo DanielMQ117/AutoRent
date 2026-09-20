@@ -73,8 +73,8 @@ class ReturnFormDialog(QDialog):
         """Configura la estructura gráfica del diálogo."""
         mode_text = "Auditoría de Devolución" if self.is_view_mode else "Recepción e Inspección de Retorno"
         self.setWindowTitle(f"AutoRent Pro — {mode_text} ({self.contract.codigo_contrato})")
-        self.resize(920, 850)
-        self.setMinimumSize(850, 750)
+        self.resize(940, 860)
+        self.setMinimumSize(860, 760)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -113,6 +113,51 @@ class ReturnFormDialog(QDialog):
         # 3. Botones de Acción Inferiores
         main_layout.addLayout(self._create_bottom_actions())
 
+    @staticmethod
+    def _create_section_card(title_text: str, accent_color: str = "#38bdf8") -> tuple[QFrame, QVBoxLayout]:
+        """Crea una tarjeta contenedora (QFrame) con el título DENTRO del rectángulo delimitador."""
+        card = QFrame()
+        card.setStyleSheet("""
+            QFrame {
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(18, 16, 18, 16)
+        card_layout.setSpacing(14)
+
+        title_lbl = QLabel(title_text)
+        title_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        title_lbl.setStyleSheet(f"""
+            QLabel {{
+                color: {accent_color};
+                background: transparent;
+                border: none;
+                padding: 0px 0px 2px 0px;
+            }}
+        """)
+        card_layout.addWidget(title_lbl)
+
+        return card, card_layout
+
+    @staticmethod
+    def _create_field_label(text: str) -> QLabel:
+        """Etiqueta estándar para campos de formulario interactivos."""
+        lbl = QLabel(text)
+        lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        lbl.setStyleSheet("color: #cbd5e1; background: transparent; border: none;")
+        return lbl
+
+    @staticmethod
+    def _create_metric_label(text: str) -> QLabel:
+        """Etiqueta estándar para títulos de métricas financieras e informativas."""
+        lbl = QLabel(text)
+        lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
+        lbl.setStyleSheet("color: #94a3b8; background: transparent; border: none;")
+        return lbl
+
     def _create_header_card(self) -> QFrame:
         """Crea la tarjeta resumen con los datos de entrega del contrato."""
         card = QFrame()
@@ -122,27 +167,27 @@ class ReturnFormDialog(QDialog):
                 border: 1px solid #334155;
                 border-left: 4px solid #38bdf8;
                 border-radius: 8px;
-                padding: 12px;
             }
         """)
         grid = QGridLayout(card)
-        grid.setSpacing(8)
+        grid.setContentsMargins(18, 14, 18, 14)
+        grid.setSpacing(10)
 
         title = QLabel(f"CONTRATO: {self.contract.codigo_contrato}")
         title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        title.setStyleSheet("color: #38bdf8; border: none;")
+        title.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
         grid.addWidget(title, 0, 0, 1, 2)
 
         cliente_info = f"👤 Cliente: {self.contract.cliente_nombre or 'N/A'} (Doc: {self.contract.cliente_identificacion or 'N/A'})"
         lbl_cliente = QLabel(cliente_info)
         lbl_cliente.setFont(QFont("Segoe UI", 9))
-        lbl_cliente.setStyleSheet("color: #e2e8f0; border: none;")
+        lbl_cliente.setStyleSheet("color: #e2e8f0; background: transparent; border: none;")
         grid.addWidget(lbl_cliente, 1, 0)
 
         veh_info = f"🚗 Vehículo: {self.contract.vehiculo_placa or 'N/A'} — {self.contract.vehiculo_modelo or 'N/A'}"
         lbl_veh = QLabel(veh_info)
         lbl_veh.setFont(QFont("Segoe UI", 9))
-        lbl_veh.setStyleSheet("color: #e2e8f0; border: none;")
+        lbl_veh.setStyleSheet("color: #e2e8f0; background: transparent; border: none;")
         grid.addWidget(lbl_veh, 1, 1)
 
         fecha_salida_str = self.contract.fecha_hora_salida_real.strftime("%d/%m/%Y %H:%M") if self.contract.fecha_hora_salida_real else "N/A"
@@ -150,7 +195,7 @@ class ReturnFormDialog(QDialog):
         tiempo_info = f"📅 Salida: {fecha_salida_str}  ➔  Fin Pactado: {fecha_fin_str}"
         lbl_tiempo = QLabel(tiempo_info)
         lbl_tiempo.setFont(QFont("Segoe UI", 9))
-        lbl_tiempo.setStyleSheet("color: #94a3b8; border: none;")
+        lbl_tiempo.setStyleSheet("color: #94a3b8; background: transparent; border: none;")
         grid.addWidget(lbl_tiempo, 2, 0)
 
         comb_salida_pct = int(self.contract.combustible_salida * 100)
@@ -161,35 +206,28 @@ class ReturnFormDialog(QDialog):
         )
         lbl_cond = QLabel(condiciones_salida)
         lbl_cond.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
-        lbl_cond.setStyleSheet("color: #34d399; border: none;")
+        lbl_cond.setStyleSheet("color: #34d399; background: transparent; border: none;")
         grid.addWidget(lbl_cond, 2, 1)
 
         return card
 
-    def _create_physical_inspection_box(self) -> QGroupBox:
+    def _create_physical_inspection_box(self) -> QFrame:
         """Crea el bloque de controles para la recepción física."""
-        box = QGroupBox("1. Inspección Física de Retorno (Check-out)")
-        box.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        box.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #334155;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding: 12px;
-                background-color: #1e293b;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 4px;
-                color: #38bdf8;
-            }
-        """)
-        layout = QGridLayout(box)
-        layout.setSpacing(10)
+        card, card_layout = self._create_section_card(
+            "1. 🔍 Inspección Física de Retorno (Check-out)", "#38bdf8"
+        )
+
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 0)
+        grid.setColumnStretch(3, 1)
 
         # Fecha de Retorno Real
-        layout.addWidget(QLabel("Fecha y Hora Real de Devolución:"), 0, 0)
+        grid.addWidget(self._create_field_label("Fecha y Hora Real de Devolución: *"), 0, 0)
         self.retorno_dt_edit = QDateTimeEdit()
         self.retorno_dt_edit.setCalendarPopup(True)
         self.retorno_dt_edit.setDisplayFormat("dd/MM/yyyy HH:mm")
@@ -199,10 +237,10 @@ class ReturnFormDialog(QDialog):
             self.retorno_dt_edit.setDateTime(datetime.now())
         self._style_input(self.retorno_dt_edit)
         self.retorno_dt_edit.dateTimeChanged.connect(self._recalculate_liquidation)
-        layout.addWidget(self.retorno_dt_edit, 0, 1)
+        grid.addWidget(self.retorno_dt_edit, 0, 1)
 
         # Odómetro de Retorno
-        layout.addWidget(QLabel("Kilometraje / Odómetro de Retorno:"), 0, 2)
+        grid.addWidget(self._create_field_label("Odómetro de Retorno: *"), 0, 2)
         self.odometro_input = QSpinBox()
         self.odometro_input.setRange(self.contract.kilometraje_salida, 9999999)
         if self.return_inspection:
@@ -212,10 +250,10 @@ class ReturnFormDialog(QDialog):
         self.odometro_input.setSuffix(" km")
         self._style_input(self.odometro_input)
         self.odometro_input.valueChanged.connect(self._recalculate_liquidation)
-        layout.addWidget(self.odometro_input, 0, 3)
+        grid.addWidget(self.odometro_input, 0, 3)
 
         # Nivel de Combustible de Retorno
-        layout.addWidget(QLabel("Nivel de Combustible Devuelto:"), 1, 0)
+        grid.addWidget(self._create_field_label("Nivel de Combustible Devuelto: *"), 1, 0)
         self.combustible_combo = QComboBox()
         self.combustible_combo.addItem("1.00 (Tanque Lleno - 100%)", Decimal("1.00"))
         self.combustible_combo.addItem("0.75 (3/4 Tanque - 75%)", Decimal("0.75"))
@@ -230,29 +268,55 @@ class ReturnFormDialog(QDialog):
                 self.combustible_combo.setCurrentIndex(idx)
         self._style_input(self.combustible_combo)
         self.combustible_combo.currentIndexChanged.connect(self._recalculate_liquidation)
-        layout.addWidget(self.combustible_combo, 1, 1)
+        grid.addWidget(self.combustible_combo, 1, 1)
 
         # Checklist de Limpieza y Accesorios
         chk_layout = QHBoxLayout()
-        self.chk_limpieza = QCheckBox("Limpieza Interior/Exterior Aprobada")
+        chk_layout.setSpacing(18)
+        chk_style = """
+            QCheckBox {
+                color: #cbd5e1;
+                font-size: 9pt;
+                spacing: 8px;
+                background: transparent;
+                border: none;
+            }
+            QCheckBox::indicator {
+                width: 17px;
+                height: 17px;
+                border-radius: 4px;
+                border: 1px solid #475569;
+                background-color: #0f172a;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #38bdf8;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #0284c7;
+                border-color: #38bdf8;
+            }
+        """
+        self.chk_limpieza = QCheckBox("Limpieza Aprobada")
         self.chk_limpieza.setChecked(self.return_inspection.limpieza_aprobada if self.return_inspection else True)
-        self.chk_limpieza.setStyleSheet("color: #cbd5e1; font-weight: normal;")
+        self.chk_limpieza.setStyleSheet(chk_style)
         chk_layout.addWidget(self.chk_limpieza)
 
-        self.chk_accesorios = QCheckBox("Accesorios Completos (Llanta, Gata, etc.)")
+        self.chk_accesorios = QCheckBox("Accesorios Completos")
         self.chk_accesorios.setChecked(self.return_inspection.accesorios_completos if self.return_inspection else True)
-        self.chk_accesorios.setStyleSheet("color: #cbd5e1; font-weight: normal;")
+        self.chk_accesorios.setStyleSheet(chk_style)
         chk_layout.addWidget(self.chk_accesorios)
-        layout.addLayout(chk_layout, 1, 2, 1, 2)
+        grid.addLayout(chk_layout, 1, 2, 1, 2)
 
         # Observaciones
-        layout.addWidget(QLabel("Observaciones del Inspector:"), 2, 0)
+        grid.addWidget(self._create_field_label("Observaciones de Inspección:"), 2, 0)
         self.observaciones_input = QLineEdit()
-        self.observaciones_input.setPlaceholderText("Comentarios adicionales sobre el estado de recepción...")
+        self.observaciones_input.setPlaceholderText("Comentarios o anotaciones sobre el estado del vehículo al retorno...")
         if self.return_inspection and self.return_inspection.observaciones:
             self.observaciones_input.setText(self.return_inspection.observaciones)
         self._style_input(self.observaciones_input)
-        layout.addWidget(self.observaciones_input, 2, 1, 1, 3)
+        grid.addWidget(self.observaciones_input, 2, 1, 1, 3)
+
+        card_layout.addLayout(grid)
 
         if self.is_view_mode:
             self.retorno_dt_edit.setReadOnly(True)
@@ -262,248 +326,280 @@ class ReturnFormDialog(QDialog):
             self.chk_accesorios.setEnabled(False)
             self.observaciones_input.setReadOnly(True)
 
-        return box
+        return card
 
-    def _create_damages_box(self) -> QGroupBox:
+    def _create_damages_box(self) -> QFrame:
         """Crea el bloque para reportar y valorar averías detectadas."""
-        box = QGroupBox("2. Registro de Daños Físicos e Incidencias")
-        box.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        box.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #334155;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding: 12px;
-                background-color: #1e293b;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 4px;
-                color: #f87171;
-            }
-        """)
-        vbox = QVBoxLayout(box)
-        vbox.setSpacing(8)
+        card, card_layout = self._create_section_card(
+            "2. ⚠️ Registro de Daños Físicos e Incidencias", "#f87171"
+        )
 
-        # Fila para agregar daños nuevos
+        # Controles para agregar daños nuevos
         if not self.is_view_mode:
-            add_row = QHBoxLayout()
-            add_row.setSpacing(6)
+            dmg_entry_card = QFrame()
+            dmg_entry_card.setStyleSheet("""
+                QFrame {
+                    background-color: #0f172a;
+                    border: 1px solid #334155;
+                    border-radius: 6px;
+                }
+            """)
+            dmg_grid = QGridLayout(dmg_entry_card)
+            dmg_grid.setContentsMargins(16, 14, 16, 14)
+            dmg_grid.setSpacing(10)
+            dmg_grid.setColumnStretch(0, 2)
+            dmg_grid.setColumnStretch(1, 1)
+            dmg_grid.setColumnStretch(2, 1)
+            dmg_grid.setColumnStretch(3, 1)
 
+            # Fila 0: Etiquetas
+            dmg_grid.addWidget(self._create_field_label("Zona Afectada: *"), 0, 0)
+            dmg_grid.addWidget(self._create_field_label("Tipo de Avería: *"), 0, 1)
+            dmg_grid.addWidget(self._create_field_label("Gravedad: *"), 0, 2)
+            dmg_grid.addWidget(self._create_field_label("Costo Estimado ($): *"), 0, 3)
+
+            # Fila 1: Entradas
             self.dmg_zona_input = QLineEdit()
-            self.dmg_zona_input.setPlaceholderText("Zona (ej: Puerta delantera der.)")
+            self.dmg_zona_input.setPlaceholderText("ej: Parachoques frontal, Puerta der.")
             self._style_input(self.dmg_zona_input)
-            add_row.addWidget(self.dmg_zona_input, stretch=2)
+            dmg_grid.addWidget(self.dmg_zona_input, 1, 0)
 
             self.dmg_tipo_combo = QComboBox()
             for t in DamageType:
                 self.dmg_tipo_combo.addItem(t.value, t)
             self._style_input(self.dmg_tipo_combo)
-            add_row.addWidget(self.dmg_tipo_combo, stretch=1)
+            dmg_grid.addWidget(self.dmg_tipo_combo, 1, 1)
 
             self.dmg_grav_combo = QComboBox()
             for g in DamageSeverity:
                 self.dmg_grav_combo.addItem(g.value, g)
             self._style_input(self.dmg_grav_combo)
-            add_row.addWidget(self.dmg_grav_combo, stretch=1)
+            dmg_grid.addWidget(self.dmg_grav_combo, 1, 2)
 
             self.dmg_cost_input = QDoubleSpinBox()
             self.dmg_cost_input.setRange(0.00, 10000.00)
             self.dmg_cost_input.setPrefix("$ ")
             self.dmg_cost_input.setValue(0.00)
             self._style_input(self.dmg_cost_input)
-            add_row.addWidget(self.dmg_cost_input, stretch=1)
+            dmg_grid.addWidget(self.dmg_cost_input, 1, 3)
 
+            # Fila 2: Etiquetas Descripción y Botón
+            dmg_grid.addWidget(self._create_field_label("Descripción de la Avería / Daño:"), 2, 0, 1, 3)
+
+            # Fila 3: Descripción y Botón de acción
             self.dmg_desc_input = QLineEdit()
-            self.dmg_desc_input.setPlaceholderText("Descripción del daño")
+            self.dmg_desc_input.setPlaceholderText("Detalles adicionales del daño (ej: Rayón profundo de 15cm con pérdida de pintura)...")
             self._style_input(self.dmg_desc_input)
-            add_row.addWidget(self.dmg_desc_input, stretch=2)
+            dmg_grid.addWidget(self.dmg_desc_input, 3, 0, 1, 3)
 
             self.dmg_zona_input.returnPressed.connect(self._add_damage)
             self.dmg_desc_input.returnPressed.connect(self._add_damage)
 
-            btn_add_dmg = QPushButton("➕ Agregar")
+            btn_add_dmg = QPushButton("➕ Agregar Avería")
             btn_add_dmg.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
             btn_add_dmg.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_add_dmg.setStyleSheet("""
                 QPushButton {
                     background-color: #dc2626;
                     color: #ffffff;
+                    border: none;
                     border-radius: 6px;
-                    padding: 6px 14px;
+                    padding: 7px 16px;
                 }
                 QPushButton:hover {
                     background-color: #b91c1c;
                 }
             """)
             btn_add_dmg.clicked.connect(self._add_damage)
-            add_row.addWidget(btn_add_dmg)
+            dmg_grid.addWidget(btn_add_dmg, 3, 3)
 
-            vbox.addLayout(add_row)
+            card_layout.addWidget(dmg_entry_card)
+
+        # Encabezado de la tabla
+        lbl_tbl_title = QLabel("📋 Detalle de Averías y Daños Registrados")
+        lbl_tbl_title.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        lbl_tbl_title.setStyleSheet("color: #cbd5e1; background: transparent; border: none; margin-top: 4px;")
+        card_layout.addWidget(lbl_tbl_title)
 
         # Tabla de daños registrados
         self.damages_table = QTableWidget(0, 5 if self.is_view_mode else 6)
-        headers = ["Zona", "Tipo", "Gravedad", "Descripción", "Costo Reparación"]
+        headers = ["Zona Afectada", "Tipo de Avería", "Gravedad", "Descripción", "Costo Estimado"]
         if not self.is_view_mode:
             headers.append("Acción")
         self.damages_table.setHorizontalHeaderLabels(headers)
-        self.damages_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.damages_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.damages_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.damages_table.horizontalHeader().setStretchLastSection(False)
+        self.damages_table.verticalHeader().setVisible(False)
+        self.damages_table.verticalHeader().setDefaultSectionSize(36)
+        self.damages_table.setColumnWidth(0, 160)  # Zona
+        self.damages_table.setColumnWidth(1, 120)  # Tipo
+        self.damages_table.setColumnWidth(2, 105)  # Gravedad
+        self.damages_table.setColumnWidth(4, 130)  # Costo Reparación
+        if not self.is_view_mode:
+            self.damages_table.setColumnWidth(5, 85)  # Acción
         self.damages_table.setStyleSheet("""
             QTableWidget {
                 background-color: #0f172a;
                 border: 1px solid #334155;
                 border-radius: 6px;
-                gridline-color: #334155;
+                gridline-color: #1e293b;
                 color: #f8fafc;
             }
             QHeaderView::section {
                 background-color: #1e293b;
                 color: #94a3b8;
-                padding: 4px;
+                padding: 7px 8px;
+                border: none;
+                border-bottom: 1px solid #334155;
                 font-weight: bold;
+                font-size: 9pt;
             }
         """)
         self.damages_table.setMinimumHeight(130)
-        vbox.addWidget(self.damages_table)
+        card_layout.addWidget(self.damages_table)
         self._refresh_damages_table()
 
-        return box
+        return card
 
     def _create_settlement_preview_card(self) -> QFrame:
         """Crea la tarjeta con el cálculo en vivo de la liquidación financiera."""
-        card = QFrame()
-        card.setStyleSheet("""
-            QFrame {
-                background-color: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 14px;
-            }
-        """)
-        vbox = QVBoxLayout(card)
-        vbox.setSpacing(10)
-
-        title = QLabel("3. Balance Financiero de Liquidación")
-        title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        title.setStyleSheet("color: #fbbf24; border: none;")
-        vbox.addWidget(title)
+        card, card_layout = self._create_section_card(
+            "3. 💰 Balance Financiero de Liquidación", "#fbbf24"
+        )
 
         grid = QGridLayout()
-        grid.setSpacing(8)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(18)
+        grid.setVerticalSpacing(12)
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 0)
+        grid.setColumnStretch(3, 1)
 
         # Fila 1: Días facturados y subtotal renta
-        grid.addWidget(QLabel("Días Facturados:"), 0, 0)
+        grid.addWidget(self._create_metric_label("Días Facturados:"), 0, 0)
         self.lbl_dias_fact = QLabel("0 días")
         self.lbl_dias_fact.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.lbl_dias_fact.setStyleSheet("color: #f8fafc; background: transparent; border: none;")
         grid.addWidget(self.lbl_dias_fact, 0, 1)
 
-        grid.addWidget(QLabel("Subtotal Renta + Seguro:"), 0, 2)
+        grid.addWidget(self._create_metric_label("Subtotal Renta + Seguro:"), 0, 2)
         self.lbl_subtotal_renta = QLabel("$0.00")
         self.lbl_subtotal_renta.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.lbl_subtotal_renta.setStyleSheet("color: #f8fafc; background: transparent; border: none;")
         grid.addWidget(self.lbl_subtotal_renta, 0, 3)
 
         # Fila 2: Penalizaciones (Retraso y Combustible)
-        grid.addWidget(QLabel("Penalización por Retraso:"), 1, 0)
+        grid.addWidget(self._create_metric_label("Penalización por Retraso:"), 1, 0)
         self.lbl_penal_retraso = QLabel("$0.00 (0 hrs)")
         self.lbl_penal_retraso.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        self.lbl_penal_retraso.setStyleSheet("color: #f87171;")
+        self.lbl_penal_retraso.setStyleSheet("color: #f87171; background: transparent; border: none;")
         grid.addWidget(self.lbl_penal_retraso, 1, 1)
 
-        grid.addWidget(QLabel("Penalización Combustible:"), 1, 2)
+        grid.addWidget(self._create_metric_label("Penalización Combustible:"), 1, 2)
         self.lbl_penal_comb = QLabel("$0.00 (0% faltante)")
         self.lbl_penal_comb.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        self.lbl_penal_comb.setStyleSheet("color: #f87171;")
+        self.lbl_penal_comb.setStyleSheet("color: #f87171; background: transparent; border: none;")
         grid.addWidget(self.lbl_penal_comb, 1, 3)
 
         # Fila 3: Daños y Total Bruto
-        grid.addWidget(QLabel("Cargos por Daños / Averías:"), 2, 0)
+        grid.addWidget(self._create_metric_label("Cargos por Daños / Averías:"), 2, 0)
         self.lbl_cargos_danios = QLabel("$0.00")
         self.lbl_cargos_danios.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        self.lbl_cargos_danios.setStyleSheet("color: #f87171;")
+        self.lbl_cargos_danios.setStyleSheet("color: #f87171; background: transparent; border: none;")
         grid.addWidget(self.lbl_cargos_danios, 2, 1)
 
-        grid.addWidget(QLabel("TOTAL BRUTO A LIQUIDAR:"), 2, 2)
+        grid.addWidget(self._create_field_label("TOTAL BRUTO A LIQUIDAR:"), 2, 2)
         self.lbl_total_bruto = QLabel("$0.00")
         self.lbl_total_bruto.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        self.lbl_total_bruto.setStyleSheet("color: #f8fafc;")
+        self.lbl_total_bruto.setStyleSheet("color: #f8fafc; background: transparent; border: none;")
         grid.addWidget(self.lbl_total_bruto, 2, 3)
 
-        vbox.addLayout(grid)
+        card_layout.addLayout(grid)
 
         # Separador horizontal
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background-color: #334155;")
-        vbox.addWidget(sep)
+        sep.setStyleSheet("background-color: #334155; border: none; min-height: 1px; max-height: 1px;")
+        card_layout.addWidget(sep)
 
-        # Fila 4: Garantía Aplicada y Saldo Neto
-        net_layout = QHBoxLayout()
+        # Barra inferior: Depósito en Garantía y Saldo Neto
+        net_card = QFrame()
+        net_card.setStyleSheet("""
+            QFrame {
+                background-color: #0f172a;
+                border: 1px solid #334155;
+                border-radius: 6px;
+            }
+        """)
+        net_layout = QHBoxLayout(net_card)
+        net_layout.setContentsMargins(16, 12, 16, 12)
         net_layout.setSpacing(12)
 
         lbl_gar = QLabel(f"Depósito en Garantía Retenido: ${self.contract.monto_garantia:,.2f}")
         lbl_gar.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
-        lbl_gar.setStyleSheet("color: #94a3b8;")
+        lbl_gar.setStyleSheet("color: #94a3b8; background: transparent; border: none;")
         net_layout.addWidget(lbl_gar)
 
         net_layout.addStretch()
 
         self.lbl_saldo_neto = QLabel("SALDO: $0.00")
-        self.lbl_saldo_neto.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        self.lbl_saldo_neto.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         self.lbl_saldo_neto.setStyleSheet("""
             background-color: rgba(56, 189, 248, 0.15);
             color: #38bdf8;
             border: 1px solid rgba(56, 189, 248, 0.3);
             border-radius: 6px;
-            padding: 4px 14px;
+            padding: 6px 16px;
         """)
         net_layout.addWidget(self.lbl_saldo_neto)
 
-        vbox.addLayout(net_layout)
+        card_layout.addWidget(net_card)
         return card
 
-    def _create_payment_closing_box(self) -> QGroupBox:
+    def _create_payment_closing_box(self) -> QFrame:
         """Crea el bloque con los datos para liquidar o reembolsar el saldo."""
-        box = QGroupBox("4. Liquidación y Cierre Contable")
-        box.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        box.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #334155;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding: 12px;
-                background-color: #1e293b;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 4px;
-                color: #34d399;
-            }
-        """)
-        layout = QGridLayout(box)
-        layout.setSpacing(10)
+        card, card_layout = self._create_section_card(
+            "4. 💳 Liquidación y Cierre Contable", "#34d399"
+        )
 
-        layout.addWidget(QLabel("Método de Pago / Reembolso:"), 0, 0)
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 0)
+        grid.setColumnStretch(3, 1)
+
+        grid.addWidget(self._create_field_label("Método de Pago / Reembolso: *"), 0, 0)
         self.metodo_pago_combo = QComboBox()
         self.metodo_pago_combo.addItem("Efectivo", PaymentMethod.EFECTIVO)
         self.metodo_pago_combo.addItem("Tarjeta de Crédito", PaymentMethod.TARJETA_CREDITO)
         self.metodo_pago_combo.addItem("Tarjeta de Débito", PaymentMethod.TARJETA_DEBITO)
         self.metodo_pago_combo.addItem("Transferencia Bancaria", PaymentMethod.TRANSFERENCIA)
         self._style_input(self.metodo_pago_combo)
-        layout.addWidget(self.metodo_pago_combo, 0, 1)
+        grid.addWidget(self.metodo_pago_combo, 0, 1)
 
-        layout.addWidget(QLabel("Referencia de Transacción:"), 0, 2)
+        grid.addWidget(self._create_field_label("Referencia de Transacción:"), 0, 2)
         self.referencia_input = QLineEdit()
         self.referencia_input.setPlaceholderText("N° comprobante o váucher bancario...")
         self._style_input(self.referencia_input)
-        layout.addWidget(self.referencia_input, 0, 3)
+        grid.addWidget(self.referencia_input, 0, 3)
+
+        lbl_note = QLabel("ℹ️ Nota: Si el balance resulta en reembolso, el depósito restante se devolverá por esta vía. Si existen cargos pendientes, se registrará el cobro.")
+        lbl_note.setFont(QFont("Segoe UI", 8))
+        lbl_note.setStyleSheet("color: #64748b; background: transparent; border: none; font-style: italic; margin-top: 4px;")
+        grid.addWidget(lbl_note, 1, 0, 1, 4)
+
+        card_layout.addLayout(grid)
 
         if self.is_view_mode:
             self.metodo_pago_combo.setEnabled(False)
             self.referencia_input.setReadOnly(True)
 
-        return box
+        return card
 
     def _create_bottom_actions(self) -> QHBoxLayout:
         """Botones de control en la base de la ventana modal."""
@@ -519,7 +615,7 @@ class ReturnFormDialog(QDialog):
                 color: #f8fafc;
                 border: 1px solid #475569;
                 border-radius: 6px;
-                padding: 8px 18px;
+                padding: 9px 20px;
             }
             QPushButton:hover {
                 background-color: #475569;
@@ -540,7 +636,7 @@ class ReturnFormDialog(QDialog):
                     color: #ffffff;
                     border: none;
                     border-radius: 6px;
-                    padding: 8px 22px;
+                    padding: 9px 24px;
                 }
                 QPushButton:hover {
                     background-color: #047857;
@@ -612,28 +708,47 @@ class ReturnFormDialog(QDialog):
             self.damages_table.setItem(row, 0, item_zona)
 
             tipo_val = d.tipo_danio.value if hasattr(d.tipo_danio, "value") else str(d.tipo_danio)
-            self.damages_table.setItem(row, 1, QTableWidgetItem(tipo_val))
+            item_tipo = QTableWidgetItem(tipo_val)
+            item_tipo.setFont(QFont("Segoe UI", 9))
+            self.damages_table.setItem(row, 1, item_tipo)
 
             grav_val = d.gravedad.value if hasattr(d.gravedad, "value") else str(d.gravedad)
             item_grav = QTableWidgetItem(grav_val)
+            item_grav.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
             if grav_val == "GRAVE":
-                item_grav.setForeground(Qt.GlobalColor.red)
+                item_grav.setForeground(QColor("#f87171"))
             elif grav_val == "MODERADO":
-                item_grav.setForeground(Qt.GlobalColor.yellow)
+                item_grav.setForeground(QColor("#fbbf24"))
+            else:
+                item_grav.setForeground(QColor("#34d399"))
             self.damages_table.setItem(row, 2, item_grav)
 
-            self.damages_table.setItem(row, 3, QTableWidgetItem(d.descripcion))
+            item_desc = QTableWidgetItem(d.descripcion)
+            item_desc.setFont(QFont("Segoe UI", 9))
+            self.damages_table.setItem(row, 3, item_desc)
 
             item_cost = QTableWidgetItem(f"${d.costo_reparacion:,.2f}")
             item_cost.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             item_cost.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-            item_cost.setForeground(Qt.GlobalColor.cyan)
+            item_cost.setForeground(QColor("#38bdf8"))
             self.damages_table.setItem(row, 4, item_cost)
 
             if not self.is_view_mode:
-                btn_del = QPushButton("✖")
+                btn_del = QPushButton("✖ Quitar")
+                btn_del.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
                 btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn_del.setStyleSheet("background-color: #7f1d1d; color: #ffffff; border-radius: 4px; padding: 2px;")
+                btn_del.setStyleSheet("""
+                    QPushButton {
+                        background-color: #7f1d1d;
+                        color: #ffffff;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 3px 8px;
+                    }
+                    QPushButton:hover {
+                        background-color: #991b1b;
+                    }
+                """)
                 btn_del.clicked.connect(lambda _, i=idx: self._remove_damage(i))
                 self.damages_table.setCellWidget(row, 5, btn_del)
 
@@ -674,7 +789,8 @@ class ReturnFormDialog(QDialog):
                 color: #34d399;
                 border: 1px solid rgba(16, 185, 129, 0.4);
                 border-radius: 6px;
-                padding: 4px 14px;
+                padding: 6px 16px;
+                font-size: 10pt;
             """)
         elif saldo > Decimal("0.00"):
             self.lbl_saldo_neto.setText(f"⚠ COBRO PENDIENTE AL CLIENTE: ${saldo:,.2f}")
@@ -683,7 +799,8 @@ class ReturnFormDialog(QDialog):
                 color: #f87171;
                 border: 1px solid rgba(239, 68, 68, 0.4);
                 border-radius: 6px;
-                padding: 4px 14px;
+                padding: 6px 16px;
+                font-size: 10pt;
             """)
         else:
             self.lbl_saldo_neto.setText("✓ LIQUIDACIÓN EN EQUILIBRIO: $0.00")
@@ -692,7 +809,8 @@ class ReturnFormDialog(QDialog):
                 color: #38bdf8;
                 border: 1px solid rgba(56, 189, 248, 0.4);
                 border-radius: 6px;
-                padding: 4px 14px;
+                padding: 6px 16px;
+                font-size: 10pt;
             """)
 
     def _process_return(self) -> None:

@@ -38,7 +38,8 @@ class UserFormDialog(QDialog):
     def _init_ui(self) -> None:
         title_text = "Nuevo Usuario del Sistema" if not self.is_edit_mode else f"Editar Usuario — @{self.user.username}"
         self.setWindowTitle(title_text)
-        self.setFixedSize(500, 520 if not self.is_edit_mode else 440)
+        self.resize(540, 560 if not self.is_edit_mode else 480)
+        self.setMinimumSize(480, 480 if not self.is_edit_mode else 420)
         self.setStyleSheet("""
             QDialog {
                 background-color: #0f172a;
@@ -53,7 +54,7 @@ class UserFormDialog(QDialog):
                 color: #f8fafc;
                 border: 1px solid #334155;
                 border-radius: 6px;
-                padding: 7px 10px;
+                padding: 8px 12px;
                 font-size: 9pt;
             }
             QLineEdit:focus, QComboBox:focus {
@@ -83,8 +84,8 @@ class UserFormDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(24, 22, 24, 22)
+        layout.setSpacing(14)
 
         # Encabezado
         title = QLabel(f"👤 {title_text}")

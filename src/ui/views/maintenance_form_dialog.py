@@ -50,11 +50,48 @@ class MaintenanceFormDialog(QDialog):
         self._init_ui()
         self._load_vehicles()
 
+    @staticmethod
+    def _create_section_card(title_text: str, accent_color: str = "#38bdf8") -> tuple[QFrame, QVBoxLayout]:
+        """Crea una tarjeta contenedora (QFrame) con el título DENTRO del rectángulo delimitador."""
+        card = QFrame()
+        card.setStyleSheet("""
+            QFrame {
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(18, 16, 18, 16)
+        card_layout.setSpacing(14)
+
+        title_lbl = QLabel(title_text)
+        title_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        title_lbl.setStyleSheet(f"""
+            QLabel {{
+                color: {accent_color};
+                background: transparent;
+                border: none;
+                padding: 0px 0px 2px 0px;
+            }}
+        """)
+        card_layout.addWidget(title_lbl)
+
+        return card, card_layout
+
+    @staticmethod
+    def _create_field_label(text: str) -> QLabel:
+        """Etiqueta estándar para campos de formulario interactivos."""
+        lbl = QLabel(text)
+        lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        lbl.setStyleSheet("color: #cbd5e1; background: transparent; border: none;")
+        return lbl
+
     def _init_ui(self) -> None:
         """Configura la interfaz gráfica del diálogo modal."""
         self.setWindowTitle("AutoRent Pro — Nueva Orden de Mantenimiento")
-        self.resize(680, 720)
-        self.setMinimumSize(620, 660)
+        self.resize(720, 750)
+        self.setMinimumSize(660, 680)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -66,14 +103,14 @@ class MaintenanceFormDialog(QDialog):
         header_layout.setSpacing(4)
 
         header_title = QLabel("🔧 Registro de Entrada a Taller")
-        header_title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        header_title.setStyleSheet("color: #38bdf8;")
+        header_title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
+        header_title.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
 
         header_desc = QLabel(
             "Genere una orden de servicio preventivo o correctivo. El vehículo quedará bloqueado en estado 'EN_MANTENIMIENTO'."
         )
         header_desc.setFont(QFont("Segoe UI", 9))
-        header_desc.setStyleSheet("color: #94a3b8;")
+        header_desc.setStyleSheet("color: #94a3b8; background: transparent; border: none;")
 
         header_layout.addWidget(header_title)
         header_layout.addWidget(header_desc)
@@ -88,7 +125,7 @@ class MaintenanceFormDialog(QDialog):
             color: #fca5a5;
             border: 1px solid rgba(239, 68, 68, 0.3);
             border-radius: 6px;
-            padding: 8px 12px;
+            padding: 8px 14px;
         """)
         self.error_label.hide()
         main_layout.addWidget(self.error_label)
@@ -104,24 +141,21 @@ class MaintenanceFormDialog(QDialog):
         container_layout.setContentsMargins(0, 0, 10, 0)
 
         # SECCIÓN 1: Selección de Vehículo
-        sec1_frame = self._create_card_frame()
-        sec1_layout = QVBoxLayout(sec1_frame)
-        sec1_layout.setSpacing(12)
-
-        sec1_title = QLabel("1. IDENTIFICACIÓN DEL VEHÍCULO")
-        sec1_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        sec1_title.setStyleSheet("color: #38bdf8; letter-spacing: 0.5px;")
-        sec1_layout.addWidget(sec1_title)
+        sec1_frame, sec1_layout = self._create_section_card(
+            "1. 🚗 Identificación y Estado del Vehículo", "#38bdf8"
+        )
 
         grid1 = QGridLayout()
-        grid1.setSpacing(12)
+        grid1.setContentsMargins(0, 0, 0, 0)
+        grid1.setHorizontalSpacing(16)
+        grid1.setVerticalSpacing(12)
+        grid1.setColumnStretch(0, 0)
+        grid1.setColumnStretch(1, 1)
 
-        lbl_veh = QLabel("Vehículo:")
-        lbl_veh.setStyleSheet("color: #94a3b8; font-weight: bold;")
+        grid1.addWidget(self._create_field_label("Vehículo a Ingresar: *"), 0, 0)
         self.combo_vehicle = QComboBox()
         self.combo_vehicle.setStyleSheet(self._input_style())
         self.combo_vehicle.currentIndexChanged.connect(self._on_vehicle_selected)
-        grid1.addWidget(lbl_veh, 0, 0)
         grid1.addWidget(self.combo_vehicle, 0, 1)
 
         sec1_layout.addLayout(grid1)
@@ -129,18 +163,27 @@ class MaintenanceFormDialog(QDialog):
         # Ficha Informativa del Vehículo Seleccionado
         self.vehicle_info_card = QFrame()
         self.vehicle_info_card.setStyleSheet("""
-            background-color: rgba(15, 23, 42, 0.6);
-            border: 1px dashed rgba(56, 189, 248, 0.3);
-            border-radius: 6px;
-            padding: 10px;
+            QFrame {
+                background-color: #0f172a;
+                border: 1px solid #334155;
+                border-radius: 6px;
+            }
         """)
         info_layout = QHBoxLayout(self.vehicle_info_card)
+        info_layout.setContentsMargins(16, 12, 16, 12)
+        info_layout.setSpacing(16)
+
         self.lbl_info_odometer = QLabel("Odómetro actual: — km")
-        self.lbl_info_odometer.setStyleSheet("color: #cbd5e1; font-weight: bold;")
+        self.lbl_info_odometer.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
+        self.lbl_info_odometer.setStyleSheet("color: #cbd5e1; background: transparent; border: none;")
+
         self.lbl_info_next_maint = QLabel("Próximo servicio: — km")
-        self.lbl_info_next_maint.setStyleSheet("color: #fbbf24; font-weight: bold;")
+        self.lbl_info_next_maint.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.lbl_info_next_maint.setStyleSheet("color: #fbbf24; background: transparent; border: none;")
+
         self.lbl_info_status = QLabel("Estado: —")
-        self.lbl_info_status.setStyleSheet("color: #38bdf8; font-weight: bold;")
+        self.lbl_info_status.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        self.lbl_info_status.setStyleSheet("color: #38bdf8; background: transparent; border: none;")
 
         info_layout.addWidget(self.lbl_info_odometer)
         info_layout.addWidget(self.lbl_info_next_maint)
@@ -150,84 +193,70 @@ class MaintenanceFormDialog(QDialog):
         container_layout.addWidget(sec1_frame)
 
         # SECCIÓN 2: Parámetros del Servicio
-        sec2_frame = self._create_card_frame()
-        sec2_layout = QVBoxLayout(sec2_frame)
-        sec2_layout.setSpacing(12)
-
-        sec2_title = QLabel("2. DETALLES Y PROVEEDOR DEL SERVICIO")
-        sec2_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        sec2_title.setStyleSheet("color: #38bdf8; letter-spacing: 0.5px;")
-        sec2_layout.addWidget(sec2_title)
+        sec2_frame, sec2_layout = self._create_section_card(
+            "2. ⚙️ Parámetros y Proveedor del Servicio", "#fbbf24"
+        )
 
         grid2 = QGridLayout()
-        grid2.setSpacing(12)
+        grid2.setContentsMargins(0, 0, 0, 0)
+        grid2.setHorizontalSpacing(16)
+        grid2.setVerticalSpacing(12)
+        grid2.setColumnStretch(0, 0)
+        grid2.setColumnStretch(1, 1)
 
         # Tipo de Mantenimiento
-        lbl_tipo = QLabel("Tipo de Servicio:")
-        lbl_tipo.setStyleSheet("color: #94a3b8; font-weight: bold;")
+        grid2.addWidget(self._create_field_label("Tipo de Servicio: *"), 0, 0)
         self.combo_tipo = QComboBox()
         self.combo_tipo.setStyleSheet(self._input_style())
         self.combo_tipo.addItem("🛡 PREVENTIVO (Rutina, Aceite, Filtros)", MaintenanceType.PREVENTIVO.value)
         self.combo_tipo.addItem("⚠️ CORRECTIVO (Avería Mecánica, Reparación)", MaintenanceType.CORRECTIVO.value)
-        grid2.addWidget(lbl_tipo, 0, 0)
         grid2.addWidget(self.combo_tipo, 0, 1)
 
         # Taller de Servicio
-        lbl_taller = QLabel("Taller / Proveedor:")
-        lbl_taller.setStyleSheet("color: #94a3b8; font-weight: bold;")
+        grid2.addWidget(self._create_field_label("Taller / Proveedor: *"), 1, 0)
         self.txt_taller = QLineEdit()
         self.txt_taller.setPlaceholderText("Ej. Taller Mecánico Central / AutoTech Express")
         self.txt_taller.setStyleSheet(self._input_style())
-        grid2.addWidget(lbl_taller, 1, 0)
         grid2.addWidget(self.txt_taller, 1, 1)
 
         # Odómetro de Entrada
-        lbl_km = QLabel("Kilometraje de Entrada:")
-        lbl_km.setStyleSheet("color: #94a3b8; font-weight: bold;")
+        grid2.addWidget(self._create_field_label("Kilometraje de Entrada: *"), 2, 0)
         self.spin_km_entrada = QSpinBox()
         self.spin_km_entrada.setRange(0, 9999999)
         self.spin_km_entrada.setSuffix(" km")
         self.spin_km_entrada.setStyleSheet(self._input_style())
-        grid2.addWidget(lbl_km, 2, 0)
         grid2.addWidget(self.spin_km_entrada, 2, 1)
 
         # Costo Estimado Inicial
-        lbl_costo = QLabel("Costo Estimado ($):")
-        lbl_costo.setStyleSheet("color: #94a3b8; font-weight: bold;")
+        grid2.addWidget(self._create_field_label("Costo Estimado ($):"), 3, 0)
         self.spin_costo = QDoubleSpinBox()
         self.spin_costo.setRange(0.00, 999999.99)
         self.spin_costo.setDecimals(2)
         self.spin_costo.setPrefix("$ ")
         self.spin_costo.setStyleSheet(self._input_style())
-        grid2.addWidget(lbl_costo, 3, 0)
         grid2.addWidget(self.spin_costo, 3, 1)
 
         # Fecha Estimada de Salida
-        lbl_salida = QLabel("Fecha Estimada de Salida:")
-        lbl_salida.setStyleSheet("color: #94a3b8; font-weight: bold;")
+        grid2.addWidget(self._create_field_label("Fecha Estimada de Salida: *"), 4, 0)
         self.date_salida_estimada = QDateEdit()
         self.date_salida_estimada.setCalendarPopup(True)
         self.date_salida_estimada.setDate(QDate.currentDate().addDays(3))
         self.date_salida_estimada.setStyleSheet(self._input_style())
-        grid2.addWidget(lbl_salida, 4, 0)
         grid2.addWidget(self.date_salida_estimada, 4, 1)
 
         sec2_layout.addLayout(grid2)
         container_layout.addWidget(sec2_frame)
 
         # SECCIÓN 3: Diagnóstico y Trabajos Solicitados
-        sec3_frame = self._create_card_frame()
-        sec3_layout = QVBoxLayout(sec3_frame)
-        sec3_layout.setSpacing(12)
+        sec3_frame, sec3_layout = self._create_section_card(
+            "3. 📋 Diagnóstico y Descripción del Trabajo", "#34d399"
+        )
 
-        sec3_title = QLabel("3. DIAGNÓSTICO Y DESCRIPCIÓN DEL TRABAJO")
-        sec3_title.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        sec3_title.setStyleSheet("color: #38bdf8; letter-spacing: 0.5px;")
-        sec3_layout.addWidget(sec3_title)
+        sec3_layout.addWidget(self._create_field_label("Detalle exhaustivo de las tareas a realizar o causas de la avería: *"))
 
         self.txt_descripcion = QTextEdit()
         self.txt_descripcion.setPlaceholderText(
-            "Detalle exhaustivo de las tareas a realizar: cambio de aceite y filtros, inspección de frenos, alineación, "
+            "Especifique tareas a realizar: cambio de aceite y filtros, inspección de frenos, alineación, "
             "o causas de la avería mecánica reportada..."
         )
         self.txt_descripcion.setStyleSheet("""
@@ -238,8 +267,8 @@ class MaintenanceFormDialog(QDialog):
                 border-radius: 6px;
                 padding: 10px;
                 font-family: 'Segoe UI';
-                font-size: 13px;
-                min-height: 90px;
+                font-size: 9pt;
+                min-height: 95px;
             }
             QTextEdit:focus {
                 border: 1px solid #38bdf8;
@@ -256,7 +285,8 @@ class MaintenanceFormDialog(QDialog):
         actions_layout.setSpacing(12)
 
         self.btn_cancel = QPushButton("Cancelar")
-        self.btn_cancel.setFont(QFont("Segoe UI", 10))
+        self.btn_cancel.setFont(QFont("Segoe UI", 9))
+        self.btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_cancel.setStyleSheet("""
             QPushButton {
                 background-color: #334155;
@@ -264,7 +294,6 @@ class MaintenanceFormDialog(QDialog):
                 border: 1px solid #475569;
                 border-radius: 6px;
                 padding: 9px 20px;
-                font-weight: bold;
             }
             QPushButton:hover {
                 background-color: #475569;
@@ -273,7 +302,8 @@ class MaintenanceFormDialog(QDialog):
         self.btn_cancel.clicked.connect(self.reject)
 
         self.btn_save = QPushButton("🔧 Registrar Orden y Enviar a Taller")
-        self.btn_save.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        self.btn_save.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_save.setStyleSheet("""
             QPushButton {
                 background-color: #0284c7;
@@ -296,18 +326,6 @@ class MaintenanceFormDialog(QDialog):
         actions_layout.addWidget(self.btn_save)
         main_layout.addLayout(actions_layout)
 
-    def _create_card_frame(self) -> QFrame:
-        frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 14px;
-            }
-        """)
-        return frame
-
     def _input_style(self) -> str:
         return """
             QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit {
@@ -317,14 +335,19 @@ class MaintenanceFormDialog(QDialog):
                 border-radius: 6px;
                 padding: 7px 10px;
                 font-family: 'Segoe UI';
-                font-size: 13px;
+                font-size: 9pt;
             }
             QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus {
                 border: 1px solid #38bdf8;
             }
+            QComboBox QAbstractItemView {
+                background-color: #1e293b;
+                color: #f8fafc;
+                selection-background-color: #0284c7;
+            }
             QComboBox::drop-down {
                 border: none;
-                padding-right: 10px;
+                padding-right: 8px;
             }
         """
 
@@ -367,10 +390,10 @@ class MaintenanceFormDialog(QDialog):
         # Si el odómetro ya superó el umbral de servicio, sugerir PREVENTIVO
         if veh.kilometraje_actual >= veh.km_proximo_mantenimiento:
             self.combo_tipo.setCurrentIndex(0)  # PREVENTIVO
-            self.lbl_info_next_maint.setStyleSheet("color: #ef4444; font-weight: bold;")
+            self.lbl_info_next_maint.setStyleSheet("color: #f87171; background: transparent; border: none; font-weight: bold;")
             self.lbl_info_next_maint.setText(f"Próximo servicio: {veh.km_proximo_mantenimiento:,} km (¡VENCIDO!)")
         else:
-            self.lbl_info_next_maint.setStyleSheet("color: #fbbf24; font-weight: bold;")
+            self.lbl_info_next_maint.setStyleSheet("color: #fbbf24; background: transparent; border: none; font-weight: bold;")
 
     def _show_error(self, message: str) -> None:
         self.error_label.setText(f"⚠ {message}")

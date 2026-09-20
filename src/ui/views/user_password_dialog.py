@@ -30,7 +30,8 @@ class UserPasswordDialog(QDialog):
 
     def _init_ui(self) -> None:
         self.setWindowTitle(f"Restablecer Contraseña — @{self.user.username}")
-        self.setFixedSize(440, 310)
+        self.resize(480, 350)
+        self.setMinimumSize(440, 320)
         self.setStyleSheet("""
             QDialog {
                 background-color: #0f172a;
@@ -53,7 +54,7 @@ class UserPasswordDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setContentsMargins(24, 22, 24, 22)
         layout.setSpacing(14)
 
         # Encabezado
@@ -63,9 +64,9 @@ class UserPasswordDialog(QDialog):
         layout.addWidget(title)
 
         info_box = QFrame()
-        info_box.setStyleSheet("background-color: #1e293b; border-radius: 6px; padding: 10px;")
+        info_box.setStyleSheet("background-color: #1e293b; border-radius: 6px; border: 1px solid #334155;")
         info_layout = QVBoxLayout(info_box)
-        info_layout.setContentsMargins(0, 0, 0, 0)
+        info_layout.setContentsMargins(12, 10, 12, 10)
         info_layout.setSpacing(4)
 
         lbl_user = QLabel(f"<b>Usuario:</b> @{self.user.username} ({self.user.nombre_completo})")

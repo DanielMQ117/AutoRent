@@ -124,7 +124,8 @@ class ReservationsView(QWidget):
 
         # Campo de Búsqueda
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Buscar por código, cliente o placa...")
+        self.search_input.setPlaceholderText(
+            "🔍 Buscar por código, cliente o placa...")
         self.search_input.setFont(QFont("Segoe UI", 9))
         self.search_input.setStyleSheet("""
             QLineEdit {
@@ -167,7 +168,7 @@ class ReservationsView(QWidget):
         filter_layout.addWidget(self.status_combo)
 
         # Botón Refrescar
-        refresh_btn = QPushButton("↻ Refrescar")
+        refresh_btn = QPushButton("🔄 Refrescar")
         refresh_btn.setFont(QFont("Segoe UI", 9))
         refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         refresh_btn.setStyleSheet("""
@@ -225,10 +226,13 @@ class ReservationsView(QWidget):
         """)
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(42)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setStretchLastSection(False)
 
         # Anchos de columna balanceados
@@ -350,7 +354,8 @@ class ReservationsView(QWidget):
 
             for row_idx, r in enumerate(self._reservations):
                 # 0. ID
-                self.table.setItem(row_idx, 0, QTableWidgetItem(str(r.id_reserva)))
+                self.table.setItem(
+                    row_idx, 0, QTableWidgetItem(str(r.id_reserva)))
                 # 1. Código
                 item_code = QTableWidgetItem(r.codigo_reserva)
                 item_code.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
@@ -366,15 +371,19 @@ class ReservationsView(QWidget):
                 veh_text = f"{r.vehiculo_placa} - {r.vehiculo_modelo}" if r.vehiculo_placa else "(Por Asignar en Contrato)"
                 self.table.setItem(row_idx, 4, QTableWidgetItem(veh_text))
                 # 5. Inicio
-                start_str = r.fecha_hora_inicio.strftime("%d/%m/%Y %H:%M") if r.fecha_hora_inicio else "-"
+                start_str = r.fecha_hora_inicio.strftime(
+                    "%d/%m/%Y %H:%M") if r.fecha_hora_inicio else "-"
                 self.table.setItem(row_idx, 5, QTableWidgetItem(start_str))
                 # 6. Fin
-                end_str = r.fecha_hora_fin.strftime("%d/%m/%Y %H:%M") if r.fecha_hora_fin else "-"
+                end_str = r.fecha_hora_fin.strftime(
+                    "%d/%m/%Y %H:%M") if r.fecha_hora_fin else "-"
                 self.table.setItem(row_idx, 6, QTableWidgetItem(end_str))
                 # 7. Días
-                self.table.setItem(row_idx, 7, QTableWidgetItem(f"{r.duracion_dias} d"))
+                self.table.setItem(
+                    row_idx, 7, QTableWidgetItem(f"{r.duracion_dias} d"))
                 # 8. Anticipo
-                self.table.setItem(row_idx, 8, QTableWidgetItem(f"${r.monto_anticipo:.2f}"))
+                self.table.setItem(row_idx, 8, QTableWidgetItem(
+                    f"${r.monto_anticipo:.2f}"))
                 # 9. Estado Badge
                 badge = get_reservation_status_badge(r.estado)
                 self.table.setCellWidget(row_idx, 9, badge)
@@ -402,7 +411,8 @@ class ReservationsView(QWidget):
         """Abre el formulario modal para modificar la reserva seleccionada."""
         selected = self._get_selected_reservation()
         if not selected:
-            QMessageBox.warning(self, "Selección Requerida", "Por favor seleccione una reserva de la tabla.")
+            QMessageBox.warning(self, "Selección Requerida",
+                                "Por favor seleccione una reserva de la tabla.")
             return
 
         if selected.estado in (ReservationStatus.CANCELADA, ReservationStatus.VENCIDA, ReservationStatus.CONVERTIDA_A_CONTRATO):
@@ -421,7 +431,8 @@ class ReservationsView(QWidget):
         """Confirma una reserva en estado PENDIENTE."""
         selected = self._get_selected_reservation()
         if not selected:
-            QMessageBox.warning(self, "Selección Requerida", "Por favor seleccione una reserva para confirmar.")
+            QMessageBox.warning(self, "Selección Requerida",
+                                "Por favor seleccione una reserva para confirmar.")
             return
 
         if selected.estado != ReservationStatus.PENDIENTE:
@@ -445,7 +456,8 @@ class ReservationsView(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 reservation_service.confirm_reservation(selected.id_reserva)
-                QMessageBox.information(self, "Éxito", f"Reserva '{selected.codigo_reserva}' confirmada exitosamente.")
+                QMessageBox.information(
+                    self, "Éxito", f"Reserva '{selected.codigo_reserva}' confirmada exitosamente.")
                 self.load_data()
             except AppException as e:
                 QMessageBox.warning(self, "Error", e.message)
@@ -454,7 +466,8 @@ class ReservationsView(QWidget):
         """Cancela una reserva activa."""
         selected = self._get_selected_reservation()
         if not selected:
-            QMessageBox.warning(self, "Selección Requerida", "Por favor seleccione una reserva para cancelar.")
+            QMessageBox.warning(self, "Selección Requerida",
+                                "Por favor seleccione una reserva para cancelar.")
             return
 
         if selected.estado not in (ReservationStatus.PENDIENTE, ReservationStatus.CONFIRMADA):
@@ -476,8 +489,10 @@ class ReservationsView(QWidget):
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                reservation_service.cancel_reservation(selected.id_reserva, motivo="Cancelación solicitada por usuario")
-                QMessageBox.information(self, "Reserva Cancelada", f"La reserva '{selected.codigo_reserva}' ha sido cancelada.")
+                reservation_service.cancel_reservation(
+                    selected.id_reserva, motivo="Cancelación solicitada por usuario")
+                QMessageBox.information(
+                    self, "Reserva Cancelada", f"La reserva '{selected.codigo_reserva}' ha sido cancelada.")
                 self.load_data()
             except AppException as e:
                 QMessageBox.warning(self, "Error", e.message)
@@ -486,7 +501,8 @@ class ReservationsView(QWidget):
         """Formaliza la reserva seleccionada abriendo el diálogo de contrato y entrega."""
         selected = self._get_selected_reservation()
         if not selected:
-            QMessageBox.warning(self, "Selección Requerida", "Por favor seleccione una reserva.")
+            QMessageBox.warning(self, "Selección Requerida",
+                                "Por favor seleccione una reserva.")
             return
 
         if selected.estado not in (ReservationStatus.CONFIRMADA, ReservationStatus.PENDIENTE):
@@ -498,6 +514,7 @@ class ReservationsView(QWidget):
             return
 
         from src.ui.views.contract_form_dialog import ContractFormDialog
-        dlg = ContractFormDialog(contract=None, reservation=selected, parent=self)
+        dlg = ContractFormDialog(
+            contract=None, reservation=selected, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.load_data()

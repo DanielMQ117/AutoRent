@@ -39,8 +39,8 @@ class VehicleStatusDialog(QDialog):
     def _init_ui(self) -> None:
         """Inicializa la interfaz del modal de cambio de estado."""
         self.setWindowTitle(f"Gestión de Estado — {self.vehicle.placa}")
-        self.resize(520, 480)
-        self.setMinimumSize(480, 440)
+        self.resize(540, 520)
+        self.setMinimumSize(500, 480)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -66,10 +66,10 @@ class VehicleStatusDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 12px;
             }
         """)
         info_layout = QHBoxLayout(card_info)
+        info_layout.setContentsMargins(16, 14, 16, 14)
         info_layout.setSpacing(20)
 
         left_info = QVBoxLayout()
@@ -95,10 +95,10 @@ class VehicleStatusDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 14px;
             }
         """)
         selector_layout = QVBoxLayout(selector_card)
+        selector_layout.setContentsMargins(16, 14, 16, 14)
         selector_layout.setSpacing(10)
 
         choose_title = QLabel("Seleccione el nuevo estado operativo:")

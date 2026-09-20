@@ -86,8 +86,8 @@ class ContractFormDialog(QDialog):
             title = "Apertura de Contrato y Entrega de Vehículo"
 
         self.setWindowTitle(f"AutoRent Pro — {title}")
-        self.resize(860, 820)
-        self.setMinimumSize(780, 720)
+        self.resize(880, 840)
+        self.setMinimumSize(800, 740)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -137,6 +137,8 @@ class ContractFormDialog(QDialog):
         client_card = self._create_card("1. Expediente del Cliente")
         client_grid = QGridLayout()
         client_grid.setSpacing(10)
+        client_grid.setColumnStretch(0, 0)
+        client_grid.setColumnStretch(1, 1)
 
         client_grid.addWidget(self._create_label("Cliente Registrado *"), 0, 0)
         self.client_combo = QComboBox()
@@ -157,6 +159,8 @@ class ContractFormDialog(QDialog):
         veh_card = self._create_card("2. Vehículo y Entrega de Flota")
         veh_grid = QGridLayout()
         veh_grid.setSpacing(10)
+        veh_grid.setColumnStretch(0, 0)
+        veh_grid.setColumnStretch(1, 1)
 
         veh_grid.addWidget(self._create_label("Vehículo Asignado *"), 0, 0)
         self.vehicle_combo = QComboBox()
@@ -212,6 +216,8 @@ class ContractFormDialog(QDialog):
         dates_card = self._create_card("3. Vigencia y Fechas del Alquiler")
         dates_grid = QGridLayout()
         dates_grid.setSpacing(10)
+        dates_grid.setColumnStretch(0, 0)
+        dates_grid.setColumnStretch(1, 1)
 
         dates_grid.addWidget(self._create_label("Inicio Pactado *"), 0, 0)
         self.start_date_edit = QDateTimeEdit()
@@ -239,6 +245,8 @@ class ContractFormDialog(QDialog):
         cost_card = self._create_card("4. Seguro, Tarifas y Garantía")
         cost_grid = QGridLayout()
         cost_grid.setSpacing(10)
+        cost_grid.setColumnStretch(0, 0)
+        cost_grid.setColumnStretch(1, 1)
 
         cost_grid.addWidget(self._create_label("Póliza de Cobertura *"), 0, 0)
         self.coverage_combo = QComboBox()
@@ -316,8 +324,15 @@ class ContractFormDialog(QDialog):
 
         self.drivers_table = QTableWidget(0, 4)
         self.drivers_table.setHorizontalHeaderLabels(["Nombre Completo", "Identificación", "Nº Licencia", "Vencimiento (YYYY-MM-DD)"])
-        self.drivers_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.drivers_table.setFixedHeight(120)
+        self.drivers_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.drivers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.drivers_table.horizontalHeader().setStretchLastSection(False)
+        self.drivers_table.verticalHeader().setVisible(False)
+        self.drivers_table.verticalHeader().setDefaultSectionSize(38)
+        self.drivers_table.setColumnWidth(1, 140)
+        self.drivers_table.setColumnWidth(2, 140)
+        self.drivers_table.setColumnWidth(3, 160)
+        self.drivers_table.setFixedHeight(140)
         self.drivers_table.setStyleSheet("""
             QTableWidget {
                 background-color: #0f172a;
@@ -331,6 +346,7 @@ class ContractFormDialog(QDialog):
                 border: 1px solid #334155;
                 font-size: 8pt;
                 font-weight: bold;
+                padding: 6px;
             }
         """)
         driver_card_layout.addWidget(self.drivers_table)
@@ -344,10 +360,10 @@ class ContractFormDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #38bdf8;
                 border-radius: 8px;
-                padding: 12px;
             }
         """)
         summary_layout = QHBoxLayout(self.summary_card)
+        summary_layout.setContentsMargins(16, 12, 16, 12)
 
         self.summary_days_lbl = QLabel("Días: 0")
         self.summary_days_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
@@ -427,12 +443,11 @@ class ContractFormDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 12px;
             }
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setSpacing(10)
-        card_layout.setContentsMargins(12, 10, 12, 10)
+        card_layout.setSpacing(12)
+        card_layout.setContentsMargins(18, 16, 18, 16)
 
         header = QLabel(title_text)
         header.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))

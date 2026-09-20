@@ -46,8 +46,8 @@ class ClientFormDialog(QDialog):
         """Inicializa la interfaz gráfica del diálogo modal."""
         title = "Editar Cliente" if self.is_edit_mode else "Registrar Nuevo Cliente"
         self.setWindowTitle(f"AutoRent Pro — {title}")
-        self.resize(650, 680)
-        self.setMinimumSize(580, 600)
+        self.resize(680, 720)
+        self.setMinimumSize(620, 640)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -100,6 +100,8 @@ class ClientFormDialog(QDialog):
         card_personal = self._create_card("1. Información Personal y de Contacto")
         grid_personal = QGridLayout()
         grid_personal.setSpacing(12)
+        grid_personal.setColumnStretch(0, 0)
+        grid_personal.setColumnStretch(1, 1)
 
         # Tipo de Persona
         grid_personal.addWidget(self._create_field_label("Tipo de Persona *"), 0, 0)
@@ -179,6 +181,8 @@ class ClientFormDialog(QDialog):
         grid_lic = QGridLayout(self.license_container)
         grid_lic.setContentsMargins(0, 0, 0, 0)
         grid_lic.setSpacing(12)
+        grid_lic.setColumnStretch(0, 0)
+        grid_lic.setColumnStretch(1, 1)
 
         # Número de Licencia
         grid_lic.addWidget(self._create_field_label("Número de Licencia *"), 0, 0)
@@ -282,11 +286,11 @@ class ClientFormDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 14px;
             }
         """)
         layout = QVBoxLayout(card)
-        layout.setSpacing(12)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(14)
 
         title_lbl = QLabel(title)
         title_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))

@@ -50,8 +50,8 @@ class VehicleFormDialog(QDialog):
         """Configura la interfaz gráfica del diálogo modal."""
         title = "Editar Ficha de Vehículo" if self.is_edit_mode else "Registrar Nuevo Vehículo"
         self.setWindowTitle(f"AutoRent Pro — {title}")
-        self.resize(650, 680)
-        self.setMinimumSize(580, 620)
+        self.resize(680, 720)
+        self.setMinimumSize(620, 640)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         main_layout = QVBoxLayout(self)
@@ -104,6 +104,8 @@ class VehicleFormDialog(QDialog):
         card_specs = self._create_card("1. Especificación de Marca, Modelo y Categoría")
         grid_specs = QGridLayout()
         grid_specs.setSpacing(12)
+        grid_specs.setColumnStretch(0, 0)
+        grid_specs.setColumnStretch(1, 1)
 
         # Marca
         grid_specs.addWidget(self._create_field_label("Marca del Fabricante *"), 0, 0)
@@ -131,6 +133,8 @@ class VehicleFormDialog(QDialog):
         card_id = self._create_card("2. Identificación Legal y Carrocería")
         grid_id = QGridLayout()
         grid_id.setSpacing(12)
+        grid_id.setColumnStretch(0, 0)
+        grid_id.setColumnStretch(1, 1)
 
         # Placa
         grid_id.addWidget(self._create_field_label("Número de Placa *"), 0, 0)
@@ -161,6 +165,8 @@ class VehicleFormDialog(QDialog):
         card_ops = self._create_card("3. Parámetros de Operación y Odómetro")
         grid_ops = QGridLayout()
         grid_ops.setSpacing(12)
+        grid_ops.setColumnStretch(0, 0)
+        grid_ops.setColumnStretch(1, 1)
 
         # Kilometraje Actual
         grid_ops.addWidget(self._create_field_label("Kilometraje Actual (km) *"), 0, 0)
@@ -253,11 +259,11 @@ class VehicleFormDialog(QDialog):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 14px;
             }
         """)
         layout = QVBoxLayout(card)
-        layout.setSpacing(12)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(14)
 
         title_lbl = QLabel(title)
         title_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
