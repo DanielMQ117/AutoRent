@@ -14,6 +14,8 @@ from tests.test_reservations import run_tests as run_reservations_tests
 from tests.test_contracts import run_tests as run_contracts_tests
 from tests.test_returns import run_tests as run_returns_tests
 from tests.test_maintenances import run_tests as run_maintenances_tests
+from tests.test_reports import run_tests as run_reports_tests
+from tests.test_users import run_tests as run_users_tests
 from tests.test_ui_components import run_ui_checks
 
 
@@ -29,10 +31,12 @@ def main():
     run_contracts_tests()
     run_returns_tests()
     run_maintenances_tests()
+    run_reports_tests()
+    run_users_tests()
     run_ui_checks()
 
     print("\n" + "#" * 78)
-    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, FLOTA, RESERVAS, CONTRATOS, RETORNO, TALLER, UI) PASARON! [100%]")
+    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, FLOTA, RESERVAS, CONTRATOS, RETORNO, TALLER, REPORTES, USUARIOS, UI) PASARON! [100%]")
     print("#" * 78 + "\n")
 
 

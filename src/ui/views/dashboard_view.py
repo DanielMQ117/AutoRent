@@ -26,8 +26,10 @@ from src.services.auth_service import auth_service
 from src.ui.views.clients_view import ClientsView
 from src.ui.views.contracts_view import ContractsView
 from src.ui.views.maintenances_view import MaintenancesView
+from src.ui.views.reports_view import ReportsView
 from src.ui.views.reservations_view import ReservationsView
 from src.ui.views.returns_view import ReturnsView
+from src.ui.views.users_view import UsersView
 from src.ui.views.vehicles_view import VehiclesView
 
 logger = get_logger(__name__)
@@ -99,6 +101,16 @@ class DashboardView(QMainWindow):
         self.maintenances_view.back_requested.connect(lambda: self._switch_to_page(0))
         self.stacked_widget.addWidget(self.maintenances_view)
 
+        # Página 7: Módulo de Reportes, Estadísticas y Analítica (Fase 9)
+        self.reports_view = ReportsView(self)
+        self.reports_view.back_requested.connect(lambda: self._switch_to_page(0))
+        self.stacked_widget.addWidget(self.reports_view)
+
+        # Página 8: Módulo de Control de Usuarios, RBAC y Auditoría (Fase 10)
+        self.users_view = UsersView(self)
+        self.users_view.back_requested.connect(lambda: self._switch_to_page(0))
+        self.stacked_widget.addWidget(self.users_view)
+
         main_layout.addWidget(self.stacked_widget, stretch=1)
 
         # 3. Barra de Estado Inferior
@@ -169,6 +181,18 @@ class DashboardView(QMainWindow):
             self._style_nav_button(self.btn_nav_mantenimientos)
             self.btn_nav_mantenimientos.clicked.connect(lambda: self._open_mantenimientos_module())
             nav_container.addWidget(self.btn_nav_mantenimientos)
+
+        if session.has_permission("reportes"):
+            self.btn_nav_reportes = QPushButton("📊 Reportes")
+            self._style_nav_button(self.btn_nav_reportes)
+            self.btn_nav_reportes.clicked.connect(lambda: self._open_reportes_module())
+            nav_container.addWidget(self.btn_nav_reportes)
+
+        if session.has_permission("usuarios"):
+            self.btn_nav_usuarios = QPushButton("🔐 Usuarios")
+            self._style_nav_button(self.btn_nav_usuarios)
+            self.btn_nav_usuarios.clicked.connect(lambda: self._open_usuarios_module())
+            nav_container.addWidget(self.btn_nav_usuarios)
 
         bar_layout.addLayout(nav_container)
         bar_layout.addStretch()
@@ -319,9 +343,10 @@ class DashboardView(QMainWindow):
         welcome_title.setStyleSheet("color: #f8fafc; border: none;")
 
         desc_label = QLabel(
-            "Fases 3, 4, 5, 6 y 8 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota', 'Reservas', "
-            "'Contratos y Entrega', 'Devoluciones e Inspección' y 'Mantenimiento y Taller' se encuentran plenamente operativos "
-            "con formalización transaccional, inspección física, liquidaciones, garantías y control de taller mecánico."
+            "Fases 3 a 10 activas: Los módulos de 'Gestión de Clientes', 'Gestión de Flota', 'Reservas', "
+            "'Contratos y Entrega', 'Devoluciones e Inspección', 'Mantenimiento y Taller', 'Reportes y Analítica' "
+            "y 'Control de Usuarios y Auditoría' se encuentran plenamente operativos con formalización transaccional, "
+            "inspección física, liquidaciones, control de taller, analítica ejecutiva y seguridad integral RBAC."
         )
         desc_label.setFont(QFont("Segoe UI", 9))
         desc_label.setStyleSheet("color: #94a3b8; border: none;")
@@ -367,7 +392,16 @@ class DashboardView(QMainWindow):
         card_layout.setSpacing(10)
         card_layout.setContentsMargins(16, 16, 16, 16)
 
-        is_operativo = module_key in ("flota", "clientes", "reservas", "contratos", "devoluciones", "mantenimientos")
+        is_operativo = module_key in (
+            "flota",
+            "clientes",
+            "reservas",
+            "contratos",
+            "devoluciones",
+            "mantenimientos",
+            "reportes",
+            "usuarios",
+        )
 
         if has_access:
             badge_color = "#38bdf8" if is_operativo else "#4ade80"
@@ -438,6 +472,10 @@ class DashboardView(QMainWindow):
                 btn_label = "Registrar Devolución"
             elif module_key == "mantenimientos":
                 btn_label = "Gestionar Taller"
+            elif module_key == "reportes":
+                btn_label = "Ver Reportes"
+            elif module_key == "usuarios":
+                btn_label = "Gestionar Usuarios"
             else:
                 btn_label = "Abrir Módulo"
         else:
@@ -530,6 +568,22 @@ class DashboardView(QMainWindow):
         self.maintenances_view.load_data()
         self._switch_to_page(6)
 
+    def _open_reportes_module(self) -> None:
+        """Abre la pantalla de centro de reportes y analítica de negocio."""
+        if not session.has_permission("reportes"):
+            QMessageBox.warning(self, "Acceso Restringido", "Su perfil no cuenta con permisos para el módulo de Reportes.")
+            return
+        self.reports_view.load_all_reports()
+        self._switch_to_page(7)
+
+    def _open_usuarios_module(self) -> None:
+        """Abre la pantalla de administración de usuarios, RBAC y auditoría (Fase 10)."""
+        if not session.has_permission("usuarios"):
+            QMessageBox.warning(self, "Acceso Restringido", "Su perfil no cuenta con permisos para el módulo de Usuarios.")
+            return
+        self.users_view.load_data()
+        self._switch_to_page(8)
+
     def _handle_open_module(self, module_name: str, module_key: str) -> None:
         """Maneja el clic en las tarjetas de módulo."""
         if module_key == "clientes":
@@ -544,6 +598,10 @@ class DashboardView(QMainWindow):
             self._open_devoluciones_module()
         elif module_key == "mantenimientos":
             self._open_mantenimientos_module()
+        elif module_key == "reportes":
+            self._open_reportes_module()
+        elif module_key == "usuarios":
+            self._open_usuarios_module()
         else:
             QMessageBox.information(
                 self,

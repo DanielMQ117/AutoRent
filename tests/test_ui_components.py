@@ -96,8 +96,8 @@ def run_ui_checks():
 
     print("\n[CHECK 10] Inicializando DashboardView integrado...")
     dashboard = DashboardView()
-    assert dashboard.stacked_widget.count() == 7
-    print(" -> PASO: DashboardView integrado con las 7 páginas (Dashboard, Clientes, Flota, Reservas, Contratos, Devoluciones, Mantenimientos).")
+    assert dashboard.stacked_widget.count() == 9
+    print(" -> PASO: DashboardView integrado con las 9 páginas (Dashboard, Clientes, Flota, Reservas, Contratos, Devoluciones, Mantenimientos, Reportes, Usuarios).")
 
     print("\n[CHECK 11] Inicializando ReturnsView...")
     from src.ui.views.returns_view import ReturnsView
@@ -150,8 +150,52 @@ def run_ui_checks():
     assert "Finalizar Orden de Mantenimiento" in complete_dlg.windowTitle()
     print(" -> PASO: MaintenanceCompleteDialog inicializado correctamente.")
 
+    print("\n[CHECK 16] Inicializando ReportsView...")
+    from src.ui.views.reports_view import ReportsView
+    reports_view = ReportsView()
+    assert reports_view.tabs.count() == 3
+    assert reports_view.table_financial.columnCount() == 7
+    assert reports_view.table_fleet.columnCount() == 10
+    assert reports_view.table_clients.columnCount() == 10
+    print(" -> PASO: ReportsView inicializada con 3 pestañas analíticas (Financiero, Flota, Clientes).")
+
+    print("\n[CHECK 17] Inicializando UsersView (Fase 10)...")
+    from src.ui.views.users_view import UsersView
+    users_view = UsersView()
+    assert users_view.tabs.count() == 3
+    assert users_view.tbl_users.columnCount() == 7
+    assert users_view.tbl_rbac.columnCount() == 9
+    assert users_view.tbl_audit.columnCount() == 8
+    print(" -> PASO: UsersView inicializada con 3 pestañas (Usuarios, Matriz RBAC, Auditoría RF-05).")
+
+    print("\n[CHECK 18] Inicializando UserFormDialog (Modo Alta y Modo Edición)...")
+    from src.ui.views.user_form_dialog import UserFormDialog
+    from src.domain.models import User
+    dlg_new_user = UserFormDialog()
+    assert "Nuevo Usuario" in dlg_new_user.windowTitle()
+
+    dummy_user = User(
+        id_usuario=1,
+        id_rol=1,
+        username="admin",
+        nombre_completo="Carlos Fonseca",
+        email="admin@rentacar.com",
+        activo=True,
+    )
+    dlg_edit_user = UserFormDialog(user=dummy_user)
+    assert "Editar Usuario" in dlg_edit_user.windowTitle()
+    assert not dlg_edit_user.txt_username.isEnabled()
+    assert not dlg_edit_user.cmb_rol.isEnabled()
+    print(" -> PASO: UserFormDialog verificado en modo alta y modo edición con protección de admin.")
+
+    print("\n[CHECK 19] Inicializando UserPasswordDialog...")
+    from src.ui.views.user_password_dialog import UserPasswordDialog
+    dlg_pwd = UserPasswordDialog(user=dummy_user)
+    assert "Restablecer Contraseña" in dlg_pwd.windowTitle()
+    print(" -> PASO: UserPasswordDialog verificado correctamente.")
+
     print("\n" + "=" * 70)
-    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [15/15]")
+    print("TODAS LAS VERIFICACIONES DE UI FINALIZARON CON EXITO [19/19]")
     print("=" * 70 + "\n")
 
 

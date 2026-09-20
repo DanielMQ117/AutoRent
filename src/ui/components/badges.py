@@ -136,3 +136,24 @@ def get_maintenance_type_badge(m_type: MaintenanceType) -> QLabel:
         return create_badge("⚠️ CORRECTIVO", "rgba(249, 115, 22, 0.15)", "#fb923c", "rgba(249, 115, 22, 0.4)")
     return create_badge(val, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
 
+
+def get_user_status_badge(activo: bool) -> QLabel:
+    """Retorna un badge visualmente codificado por color según el estado del usuario."""
+    if activo:
+        return create_badge("✓ ACTIVO", "rgba(16, 185, 129, 0.15)", "#34d399", "rgba(16, 185, 129, 0.4)")
+    return create_badge("⛔ INACTIVO", "rgba(239, 68, 68, 0.15)", "#f87171", "rgba(239, 68, 68, 0.4)")
+
+
+def get_user_role_badge(rol_nombre: str) -> QLabel:
+    """Retorna un badge con la identidad visual del rol del sistema."""
+    name = (rol_nombre or "SIN ROL").upper()
+    if name == "ADMINISTRADOR":
+        return create_badge("👑 ADMINISTRADOR", "rgba(168, 85, 247, 0.15)", "#c084fc", "rgba(168, 85, 247, 0.4)")
+    elif name == "GERENTE":
+        return create_badge("👔 GERENTE", "rgba(34, 197, 94, 0.15)", "#4ade80", "rgba(34, 197, 94, 0.4)")
+    elif name == "AGENTE_VENTAS":
+        return create_badge("💼 AGENTE VENTAS", "rgba(56, 189, 248, 0.15)", "#38bdf8", "rgba(56, 189, 248, 0.4)")
+    elif name == "INSPECTOR_TALLER":
+        return create_badge("🔧 INSPECTOR TALLER", "rgba(249, 115, 22, 0.15)", "#fb923c", "rgba(249, 115, 22, 0.4)")
+    return create_badge(name, "rgba(148, 163, 184, 0.15)", "#cbd5e1", "rgba(148, 163, 184, 0.3)")
+

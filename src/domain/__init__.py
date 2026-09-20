@@ -33,6 +33,13 @@ from src.domain.models import (
     ReturnInspection,
     Settlement,
     Maintenance,
+    FinancialReportItem,
+    FinancialReportSummary,
+    FleetUtilizationItem,
+    FleetUtilizationSummary,
+    ClientHistoryItem,
+    ClientHistorySummary,
+    AuditLog,
 )
 
 __all__ = [
@@ -66,4 +73,11 @@ __all__ = [
     "ReturnInspection",
     "Settlement",
     "Maintenance",
+    "FinancialReportItem",
+    "FinancialReportSummary",
+    "FleetUtilizationItem",
+    "FleetUtilizationSummary",
+    "ClientHistoryItem",
+    "ClientHistorySummary",
+    "AuditLog",
 ]

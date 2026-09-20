@@ -15,7 +15,10 @@ from src.ui.views.returns_view import ReturnsView
 from src.ui.views.return_form_dialog import ReturnFormDialog
 from src.ui.views.maintenances_view import MaintenancesView
 from src.ui.views.maintenance_form_dialog import MaintenanceFormDialog
-from src.ui.views.maintenance_complete_dialog import MaintenanceCompleteDialog
+from src.ui.views.reports_view import ReportsView
+from src.ui.views.users_view import UsersView
+from src.ui.views.user_form_dialog import UserFormDialog
+from src.ui.views.user_password_dialog import UserPasswordDialog
 
 __all__ = [
     "LoginView",
@@ -34,4 +37,8 @@ __all__ = [
     "MaintenancesView",
     "MaintenanceFormDialog",
     "MaintenanceCompleteDialog",
+    "ReportsView",
+    "UsersView",
+    "UserFormDialog",
+    "UserPasswordDialog",
 ]

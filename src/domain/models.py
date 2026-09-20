@@ -43,6 +43,19 @@ class User:
 
 
 @dataclass
+class AuditLog:
+    id_auditoria: Optional[int] = None
+    id_usuario: Optional[int] = None
+    username: str = ""
+    accion: str = ""
+    tabla_afectada: str = ""
+    id_registro: Optional[int] = None
+    detalles: Optional[str] = None
+    ip_origen: str = "127.0.0.1"
+    fecha_registro: Optional[datetime] = None
+
+
+@dataclass
 class VehicleCategory:
     id_categoria: Optional[int] = None
     nombre: str = ""
@@ -388,3 +401,99 @@ class Maintenance:
     @property
     def esta_completado(self) -> bool:
         return self.estado == MaintenanceStatus.FINALIZADO
+
+
+# ============================================================================
+# MODELOS DE DOMINIO PARA REPORTES, ESTADÍSTICAS Y ANALÍTICA (FASE 9)
+# ============================================================================
+
+@dataclass
+class FinancialReportItem:
+    """Ítem detallado de transacción financiera o movimiento de caja."""
+    id_pago: Optional[int] = None
+    codigo_transaccion: str = ""
+    tipo_movimiento: str = ""
+    concepto: str = ""
+    metodo_pago: str = ""
+    monto: Decimal = Decimal("0.00")
+    fecha_hora: Optional[datetime] = None
+    referencia: Optional[str] = None
+    contrato_codigo: Optional[str] = None
+    cliente_nombre: Optional[str] = None
+    usuario_nombre: Optional[str] = None
+
+
+@dataclass
+class FinancialReportSummary:
+    """Resumen consolidado financiero y de recaudación (RF-34)."""
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    total_facturado: Decimal = Decimal("0.00")
+    ingresos_renta: Decimal = Decimal("0.00")
+    ingresos_seguros: Decimal = Decimal("0.00")
+    ingresos_penalizaciones: Decimal = Decimal("0.00")
+    reembolsos_garantia: Decimal = Decimal("0.00")
+    gastos_mantenimiento: Decimal = Decimal("0.00")
+    ingreso_neto: Decimal = Decimal("0.00")
+    total_transacciones: int = 0
+    ticket_promedio: Decimal = Decimal("0.00")
+    items: list[FinancialReportItem] = field(default_factory=list)
+
+
+@dataclass
+class FleetUtilizationItem:
+    """Métricas de productividad y demanda por unidad vehicular (RF-35)."""
+    id_vehiculo: int = 0
+    placa: str = ""
+    marca_modelo: str = ""
+    categoria: str = ""
+    total_contratos: int = 0
+    dias_alquilado: int = 0
+    tasa_ocupacion_pct: float = 0.0
+    ingresos_generados: Decimal = Decimal("0.00")
+    dias_taller: int = 0
+    gastos_taller: Decimal = Decimal("0.00")
+    kilometraje_actual: int = 0
+    estado_actual: str = ""
+
+
+@dataclass
+class FleetUtilizationSummary:
+    """Resumen analítico de utilización de la flota completa (RF-35)."""
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    dias_periodo: int = 1
+    total_vehiculos: int = 0
+    total_dias_alquilados: int = 0
+    tasa_ocupacion_promedio: float = 0.0
+    ingresos_totales_flota: Decimal = Decimal("0.00")
+    gastos_totales_taller: Decimal = Decimal("0.00")
+    vehiculo_mas_rentado: str = "—"
+    items: list[FleetUtilizationItem] = field(default_factory=list)
+
+
+@dataclass
+class ClientHistoryItem:
+    """Ficha de siniestralidad, recurrencia y comportamiento crediticio de cliente (RF-36)."""
+    id_cliente: int = 0
+    identificacion: str = ""
+    nombre_completo: str = ""
+    telefono: str = ""
+    email: str = ""
+    estado_cliente: str = ""
+    total_contratos: int = 0
+    total_gastado: Decimal = Decimal("0.00")
+    total_dias_alquilados: int = 0
+    total_danos_reportados: int = 0
+    total_cargos_penalizaciones: Decimal = Decimal("0.00")
+    nivel_riesgo: str = "BAJO"  # "BAJO", "MEDIO", "ALTO"
+
+
+@dataclass
+class ClientHistorySummary:
+    """Resumen de comportamiento y segmentación de clientes (RF-36)."""
+    total_clientes_analizados: int = 0
+    clientes_frecuentes: int = 0
+    clientes_con_siniestros: int = 0
+    clientes_alto_riesgo: int = 0
+    items: list[ClientHistoryItem] = field(default_factory=list)

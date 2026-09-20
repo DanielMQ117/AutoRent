@@ -6,6 +6,8 @@
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- Limpieza preventiva en caso de reinstalación (respetando orden inverso de dependencias)
+DROP TABLE IF EXISTS auditoria CASCADE;
+
 DROP TABLE IF EXISTS mantenimientos CASCADE;
 
 DROP TABLE IF EXISTS pagos CASCADE;
@@ -69,6 +71,21 @@ CREATE TABLE usuarios (
     fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_usuarios_roles FOREIGN KEY (id_rol) REFERENCES roles (id_rol) ON DELETE RESTRICT
 );
+
+CREATE TABLE auditoria (
+    id_auditoria BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_usuario BIGINT REFERENCES usuarios (id_usuario) ON DELETE SET NULL,
+    username VARCHAR(50) NOT NULL,
+    accion VARCHAR(60) NOT NULL,
+    tabla_afectada VARCHAR(60) NOT NULL,
+    id_registro BIGINT,
+    detalles TEXT,
+    ip_origen VARCHAR(45) NOT NULL DEFAULT '127.0.0.1',
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_auditoria_fecha ON auditoria (fecha_registro DESC);
+CREATE INDEX idx_auditoria_usuario ON auditoria (id_usuario);
 
 -- ----------------------------------------------------------------------------
 -- 2. MODULO DE FLOTA Y VEHICULOS
