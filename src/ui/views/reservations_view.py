@@ -224,10 +224,24 @@ class ReservationsView(QWidget):
             }
         """)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(42)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(False)
+
+        # Anchos de columna balanceados
+        self.table.setColumnWidth(0, 50)    # ID
+        self.table.setColumnWidth(1, 125)   # Código
+        # Col 2: Cliente (Stretch)
+        self.table.setColumnWidth(3, 120)   # Categoría
+        self.table.setColumnWidth(4, 140)   # Vehículo
+        self.table.setColumnWidth(5, 125)   # Inicio
+        self.table.setColumnWidth(6, 125)   # Fin
+        self.table.setColumnWidth(7, 65)    # Días
+        self.table.setColumnWidth(8, 95)    # Anticipo
+        self.table.setColumnWidth(9, 135)   # Estado
 
         main_layout.addWidget(self.table, stretch=1)
 

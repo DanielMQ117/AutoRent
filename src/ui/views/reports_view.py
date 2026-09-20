@@ -236,6 +236,13 @@ class ReportsView(QWidget):
             "Contrato / Ref",
             "Cliente",
         ])
+        self.table_financial.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        self.table_financial.setColumnWidth(0, 120)  # Código Trx
+        self.table_financial.setColumnWidth(1, 135)  # Fecha y Hora
+        self.table_financial.setColumnWidth(2, 180)  # Concepto
+        self.table_financial.setColumnWidth(3, 135)  # Método
+        self.table_financial.setColumnWidth(4, 105)  # Monto
+        self.table_financial.setColumnWidth(5, 125)  # Contrato / Ref
         layout.addWidget(self.table_financial, stretch=1)
 
         return widget
@@ -320,6 +327,16 @@ class ReportsView(QWidget):
             "Gastos Taller ($)",
             "Estado Actual",
         ])
+        self.table_fleet.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table_fleet.setColumnWidth(0, 95)   # Placa
+        self.table_fleet.setColumnWidth(2, 115)  # Categoría
+        self.table_fleet.setColumnWidth(3, 85)   # Contratos
+        self.table_fleet.setColumnWidth(4, 95)   # Días Rentado
+        self.table_fleet.setColumnWidth(5, 105)  # Ocupación (%)
+        self.table_fleet.setColumnWidth(6, 110)  # Ingresos ($)
+        self.table_fleet.setColumnWidth(7, 95)   # Días Taller
+        self.table_fleet.setColumnWidth(8, 120)  # Gastos Taller ($)
+        self.table_fleet.setColumnWidth(9, 130)  # Estado Actual
         layout.addWidget(self.table_fleet, stretch=1)
 
         return widget
@@ -327,9 +344,6 @@ class ReportsView(QWidget):
     # ------------------------------------------------------------------------
     # PESTAÑA 3: HISTORIAL Y SINIESTRALIDAD DE CLIENTES (RF-36)
     # ------------------------------------------------------------------------
-
-    def _create_clients_tab() -> QWidget:
-        pass  # definido abajo
 
     def _create_clients_tab(self) -> QWidget:
         widget = QWidget()
@@ -394,6 +408,16 @@ class ReportsView(QWidget):
             "Penalizaciones ($)",
             "Nivel de Riesgo",
         ])
+        self.table_clients.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table_clients.setColumnWidth(0, 120)  # Identificación
+        self.table_clients.setColumnWidth(2, 115)  # Teléfono
+        self.table_clients.setColumnWidth(3, 120)  # Estado Cliente
+        self.table_clients.setColumnWidth(4, 85)   # Contratos
+        self.table_clients.setColumnWidth(5, 145)  # Total Desembolsado ($)
+        self.table_clients.setColumnWidth(6, 105)  # Días Rentados
+        self.table_clients.setColumnWidth(7, 125)  # Daños Reportados
+        self.table_clients.setColumnWidth(8, 125)  # Penalizaciones ($)
+        self.table_clients.setColumnWidth(9, 140)  # Nivel de Riesgo
         layout.addWidget(self.table_clients, stretch=1)
 
         return widget
@@ -487,7 +511,9 @@ class ReportsView(QWidget):
         table = QTableWidget(0, len(headers))
         table.setHorizontalHeaderLabels(headers)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setStretchLastSection(False)
+        table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(40)
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)

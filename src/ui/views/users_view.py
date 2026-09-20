@@ -301,7 +301,14 @@ class UsersView(QWidget):
         self.tbl_users.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.tbl_users.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.tbl_users.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.tbl_users.horizontalHeader().setStretchLastSection(False)
         self.tbl_users.verticalHeader().setVisible(False)
+        self.tbl_users.verticalHeader().setDefaultSectionSize(42)
+        self.tbl_users.setColumnWidth(0, 50)   # ID
+        self.tbl_users.setColumnWidth(1, 120)  # Usuario
+        self.tbl_users.setColumnWidth(4, 160)  # Rol Asignado
+        self.tbl_users.setColumnWidth(5, 120)  # Estado
+        self.tbl_users.setColumnWidth(6, 140)  # Fecha Registro
         self.tbl_users.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl_users.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.tbl_users.setAlternatingRowColors(True)
@@ -426,6 +433,7 @@ class UsersView(QWidget):
         self.tbl_rbac.setHorizontalHeaderLabels(headers)
         self.tbl_rbac.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tbl_rbac.verticalHeader().setVisible(False)
+        self.tbl_rbac.verticalHeader().setDefaultSectionSize(44)
         self.tbl_rbac.setRowCount(len(roles))
         self.tbl_rbac.setStyleSheet("""
             QTableWidget {
@@ -539,7 +547,16 @@ class UsersView(QWidget):
         ])
         self.tbl_audit.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.tbl_audit.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        self.tbl_audit.horizontalHeader().setStretchLastSection(False)
         self.tbl_audit.verticalHeader().setVisible(False)
+        self.tbl_audit.verticalHeader().setDefaultSectionSize(40)
+        self.tbl_audit.setColumnWidth(0, 65)   # ID Log
+        self.tbl_audit.setColumnWidth(1, 135)  # Fecha y Hora
+        self.tbl_audit.setColumnWidth(2, 110)  # Usuario
+        self.tbl_audit.setColumnWidth(3, 160)  # Acción Crítica
+        self.tbl_audit.setColumnWidth(4, 130)  # Módulo / Entidad
+        self.tbl_audit.setColumnWidth(5, 75)   # ID Reg.
+        self.tbl_audit.setColumnWidth(7, 110)  # IP Origen
         self.tbl_audit.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tbl_audit.setAlternatingRowColors(True)
         self.tbl_audit.setStyleSheet("""

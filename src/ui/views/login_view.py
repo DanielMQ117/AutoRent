@@ -34,13 +34,13 @@ class LoginView(QWidget):
     def _init_ui(self) -> None:
         """Inicializa los componentes visuales y estilos del formulario de acceso."""
         self.setWindowTitle("AutoRent Pro — Inicio de Sesión")
-        self.resize(440, 560)
-        self.setMinimumSize(400, 520)
+        self.resize(480, 620)
+        self.setMinimumSize(460, 580)
         self.setStyleSheet("background-color: #0f172a;")  # Fondo oscuro elegante (Slate 900)
 
         # Layout principal centrado
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(35, 40, 35, 40)
+        main_layout.setContentsMargins(25, 25, 25, 25)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Tarjeta contenedora de inicio de sesión
@@ -50,12 +50,11 @@ class LoginView(QWidget):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 12px;
-                padding: 30px;
             }
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setSpacing(18)
-        card_layout.setContentsMargins(10, 10, 10, 10)
+        card_layout.setSpacing(16)
+        card_layout.setContentsMargins(32, 32, 32, 32)
 
         # 1. Logo / Identificador de la aplicación
         header_layout = QVBoxLayout()
@@ -63,20 +62,19 @@ class LoginView(QWidget):
         header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         brand_badge = QLabel("AUTORENT PRO", card)
-        brand_badge.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        brand_badge.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         brand_badge.setStyleSheet("""
             color: #38bdf8;
-            letter-spacing: 2px;
             background-color: #0c4a6e;
-            padding: 4px 10px;
+            padding: 5px 14px;
             border-radius: 4px;
             border: none;
         """)
         brand_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title_label = QLabel("Iniciar Sesión", card)
-        title_label.setFont(QFont("Segoe UI", 20, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: #f8fafc; border: none; margin-top: 6px;")
+        title_label.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #f8fafc; border: none; margin-top: 4px;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         subtitle_label = QLabel("Ingrese sus credenciales de acceso", card)
@@ -121,7 +119,8 @@ class LoginView(QWidget):
                 color: #f8fafc;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 10px 12px;
+                padding: 10px 14px;
+                min-height: 20px;
             }
             QLineEdit:focus {
                 border: 1px solid #38bdf8;
@@ -157,7 +156,8 @@ class LoginView(QWidget):
                 border-bottom-left-radius: 8px;
                 border-top-right-radius: 0px;
                 border-bottom-right-radius: 0px;
-                padding: 10px 12px;
+                padding: 10px 14px;
+                min-height: 20px;
                 border-right: none;
             }
             QLineEdit:focus {
@@ -177,7 +177,9 @@ class LoginView(QWidget):
                 border-left: none;
                 border-top-right-radius: 8px;
                 border-bottom-right-radius: 8px;
-                padding: 10px 12px;
+                padding: 10px 14px;
+                min-height: 20px;
+                min-width: 20px;
                 font-size: 13px;
             }
             QPushButton:hover {
@@ -204,7 +206,8 @@ class LoginView(QWidget):
                 border: none;
                 border-radius: 8px;
                 padding: 12px;
-                margin-top: 10px;
+                min-height: 22px;
+                margin-top: 6px;
             }
             QPushButton:hover {
                 background-color: #0369a1;

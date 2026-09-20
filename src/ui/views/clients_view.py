@@ -188,10 +188,22 @@ class ClientsView(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setStretchLastSection(False)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self._handle_row_double_click)
+
+        # Anchos predeterminados optimizados
+        self.table.setColumnWidth(0, 50)    # ID
+        self.table.setColumnWidth(1, 130)   # Identificación
+        self.table.setColumnWidth(2, 95)    # Tipo
+        # Col 3: Nombre Completo (Stretch)
+        self.table.setColumnWidth(4, 115)   # Teléfono
+        self.table.setColumnWidth(5, 180)   # Email
+        self.table.setColumnWidth(6, 160)   # Licencia de Conducir
+        self.table.setColumnWidth(7, 120)   # Estado
+        self.table.setColumnWidth(8, 250)   # Acciones
 
         self.table.setStyleSheet("""
             QTableWidget {
@@ -376,6 +388,8 @@ class ClientsView(QWidget):
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 8pt;
+                font-weight: 600;
+                min-height: 22px;
             }
             QPushButton:hover { background-color: #0369a1; }
         """)
@@ -393,6 +407,8 @@ class ClientsView(QWidget):
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 8pt;
+                font-weight: 600;
+                min-height: 22px;
             }
             QPushButton:hover { background-color: #475569; }
         """)
@@ -410,6 +426,8 @@ class ClientsView(QWidget):
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 8pt;
+                font-weight: 600;
+                min-height: 22px;
             }
             QPushButton:hover {
                 background-color: #ef4444;

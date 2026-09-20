@@ -218,7 +218,18 @@ class MaintenancesView(QWidget):
             "Estado",
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(42)
+        self.table.setColumnWidth(0, 50)   # ID
+        self.table.setColumnWidth(2, 130)  # Tipo
+        self.table.setColumnWidth(3, 160)  # Taller Mecánico
+        self.table.setColumnWidth(4, 130)  # Fecha Ingreso
+        self.table.setColumnWidth(5, 125)  # Odómetro Entrada
+        self.table.setColumnWidth(6, 140)  # Salida Real / Est.
+        self.table.setColumnWidth(7, 100)  # Costo
+        self.table.setColumnWidth(8, 140)  # Estado
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)

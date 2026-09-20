@@ -159,10 +159,25 @@ class ReturnsView(QWidget):
             "Daños",
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(42)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+
+        # Anchos de columna balanceados
+        self.table.setColumnWidth(0, 50)    # ID
+        self.table.setColumnWidth(1, 130)   # Contrato
+        # Col 2: Cliente (Stretch)
+        self.table.setColumnWidth(3, 95)    # Placa
+        self.table.setColumnWidth(4, 140)   # Modelo
+        self.table.setColumnWidth(5, 130)   # Fecha Retorno
+        self.table.setColumnWidth(6, 135)   # Km Retorno
+        self.table.setColumnWidth(7, 95)    # Combustible
+        self.table.setColumnWidth(8, 90)    # Retraso
+        self.table.setColumnWidth(9, 150)   # Daños
         self.table.setStyleSheet("""
             QTableWidget {
                 background-color: #1e293b;

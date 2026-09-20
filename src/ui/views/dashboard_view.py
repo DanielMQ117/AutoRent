@@ -49,8 +49,8 @@ class DashboardView(QMainWindow):
     def _init_ui(self) -> None:
         """Inicializa los componentes de la interfaz de usuario."""
         self.setWindowTitle(f"{self.settings.app.name} — Panel de Control")
-        self.resize(1180, 780)
-        self.setMinimumSize(1000, 680)
+        self.resize(1260, 800)
+        self.setMinimumSize(1080, 700)
         self.setStyleSheet("background-color: #0f172a; color: #f8fafc;")
 
         # Widget central con layout vertical
@@ -124,12 +124,11 @@ class DashboardView(QMainWindow):
                 background-color: #1e293b;
                 border: 1px solid #334155;
                 border-radius: 10px;
-                padding: 10px 18px;
             }
         """)
         bar_layout = QHBoxLayout(top_bar)
-        bar_layout.setContentsMargins(0, 0, 0, 0)
-        bar_layout.setSpacing(14)
+        bar_layout.setContentsMargins(16, 8, 16, 8)
+        bar_layout.setSpacing(10)
 
         # Logo / Marca
         brand_label = QLabel("AutoRent Pro")
@@ -139,7 +138,7 @@ class DashboardView(QMainWindow):
 
         # Botones de navegación directa entre módulos autorizados
         nav_container = QHBoxLayout()
-        nav_container.setSpacing(8)
+        nav_container.setSpacing(6)
 
         self.btn_nav_dash = QPushButton("🏠 Inicio")
         self._style_nav_button(self.btn_nav_dash)
@@ -266,7 +265,7 @@ class DashboardView(QMainWindow):
                 color: #cbd5e1;
                 border: 1px solid #334155;
                 border-radius: 6px;
-                padding: 6px 12px;
+                padding: 6px 10px;
             }
             QPushButton:hover {
                 background-color: #334155;

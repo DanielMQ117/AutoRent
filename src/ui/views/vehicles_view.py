@@ -185,10 +185,24 @@ class VehiclesView(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setStretchLastSection(False)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self._handle_row_double_click)
+
+        # Anchos predeterminados optimizados
+        self.table.setColumnWidth(0, 50)    # ID
+        self.table.setColumnWidth(1, 100)   # Placa
+        # Col 2: Marca / Modelo (Stretch)
+        self.table.setColumnWidth(3, 70)    # Año
+        self.table.setColumnWidth(4, 115)   # Categoría
+        self.table.setColumnWidth(5, 90)    # Color
+        self.table.setColumnWidth(6, 100)   # Km Actual
+        self.table.setColumnWidth(7, 95)    # Combustible
+        self.table.setColumnWidth(8, 140)   # Próx. Mant.
+        self.table.setColumnWidth(9, 130)   # Estado
+        self.table.setColumnWidth(10, 290)  # Acciones
 
         self.table.setStyleSheet("""
             QTableWidget {
@@ -407,7 +421,7 @@ class VehiclesView(QWidget):
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(4, 2, 4, 2)
-        layout.setSpacing(6)
+        layout.setSpacing(5)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Botón Editar
@@ -419,8 +433,10 @@ class VehiclesView(QWidget):
                 color: #ffffff;
                 border: none;
                 border-radius: 4px;
-                padding: 4px 8px;
+                padding: 4px 7px;
                 font-size: 8pt;
+                font-weight: 600;
+                min-height: 22px;
             }
             QPushButton:hover { background-color: #0369a1; }
         """)
@@ -436,8 +452,10 @@ class VehiclesView(QWidget):
                 color: #e2e8f0;
                 border: 1px solid #475569;
                 border-radius: 4px;
-                padding: 4px 8px;
+                padding: 4px 7px;
                 font-size: 8pt;
+                font-weight: 600;
+                min-height: 22px;
             }
             QPushButton:hover { background-color: #475569; }
         """)
@@ -453,14 +471,18 @@ class VehiclesView(QWidget):
                 color: #fca5a5;
                 border: 1px solid rgba(239, 68, 68, 0.4);
                 border-radius: 4px;
-                padding: 4px 8px;
+                padding: 4px 7px;
                 font-size: 8pt;
+                font-weight: 600;
+                min-height: 22px;
             }
             QPushButton:hover {
                 background-color: #ef4444;
                 color: #ffffff;
             }
         """)
+        layout.addWidget(del_btn)
+
         # Botón Enviar a Taller (Fase 8)
         if vehicle.estado not in (VehicleStatus.ALQUILADO, VehicleStatus.DE_BAJA, VehicleStatus.EN_MANTENIMIENTO):
             workshop_btn = QPushButton("🔧 Taller")
@@ -471,8 +493,10 @@ class VehiclesView(QWidget):
                     color: #fbbf24;
                     border: 1px solid rgba(245, 158, 11, 0.4);
                     border-radius: 4px;
-                    padding: 4px 8px;
+                    padding: 4px 7px;
                     font-size: 8pt;
+                    font-weight: 600;
+                    min-height: 22px;
                 }
                 QPushButton:hover { background-color: #d97706; color: #ffffff; }
             """)

@@ -200,10 +200,26 @@ class ContractsView(QWidget):
             "Estado",
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(42)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+
+        # Anchos de columna equilibrados para evitar que Estado monopolice el espacio
+        self.table.setColumnWidth(0, 125)   # Código
+        # Col 1: Cliente (Stretch)
+        self.table.setColumnWidth(2, 115)   # Identificación
+        self.table.setColumnWidth(3, 145)   # Vehículo / Placa
+        self.table.setColumnWidth(4, 115)   # Cobertura
+        self.table.setColumnWidth(5, 125)   # Inicio Pactado
+        self.table.setColumnWidth(6, 125)   # Fin Pactado
+        self.table.setColumnWidth(7, 95)    # Km Salida
+        self.table.setColumnWidth(8, 90)    # Tarifa/Día
+        self.table.setColumnWidth(9, 90)    # Garantía
+        self.table.setColumnWidth(10, 140)  # Estado (proporcionado al badge)
         self.table.setStyleSheet("""
             QTableWidget {
                 background-color: #1e293b;
