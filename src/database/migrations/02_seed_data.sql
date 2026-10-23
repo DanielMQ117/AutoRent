@@ -1,8 +1,29 @@
 -- ============================================================================
--- SCRIPT DE DATOS DE PRUEBA Y CARGA INICIAL (SEEDS)
+-- SCRIPT DE DATOS DE PRUEBA Y CARGA INICIAL MULTI-TENANT (SEEDS)
 -- ============================================================================
 
--- 1. Roles del Sistema
+-- 0. Agencia Principal (Tenant Inicial - ID: 1)
+INSERT INTO
+    agencias (
+        codigo_agencia,
+        nombre_comercial,
+        ruc_nit,
+        telefono,
+        email,
+        direccion,
+        activo
+    )
+VALUES (
+        'AUT-MGA-01',
+        'AutoRent Pro - Sede Central Managua',
+        'J0310000999991',
+        '+505-2255-8800',
+        'central.managua@autorentpro.com.ni',
+        'Km 5 Carretera a Masaya, Managua, Nicaragua',
+        TRUE
+    );
+
+-- 1. Roles Globales del Sistema
 INSERT INTO
     roles (nombre, descripcion)
 VALUES (
@@ -22,10 +43,11 @@ VALUES (
         'Supervisión operativa, reportes ejecutivos y autorizaciones especiales'
     );
 
--- 2. Usuarios Iniciales con contraseñas hash reales en bcrypt
+-- 2. Usuarios Iniciales (Tenant 1) con contraseñas hash reales en bcrypt
 -- admin: Admin123* | agente1: Agente123* | taller1: Taller123* | gerente1: Gerente123* | inactivo: Inactivo123*
 INSERT INTO
     usuarios (
+        tenant_id,
         id_rol,
         username,
         password_hash,
@@ -35,6 +57,7 @@ INSERT INTO
     )
 VALUES (
         1,
+        1,
         'admin',
         '$2b$12$XZF4Nh4qnfmE3uacE8U72O0nX9ERp6ljAgAWu/JBsYA2MVYua/Khq',
         'Carlos Fonseca Amador',
@@ -42,6 +65,7 @@ VALUES (
         TRUE
     ),
     (
+        1,
         2,
         'agente1',
         '$2b$12$5eYu5DxVi6TN0oVMRPWgI.XXpA2tDQFDn6oIScnIQ1hVjFLEPdiHu',
@@ -50,6 +74,7 @@ VALUES (
         TRUE
     ),
     (
+        1,
         3,
         'taller1',
         '$2b$12$uOPHM2vr.acr0VmPo.mPvO8LJH82m6oqdgj27KDhvX1AwJ.tH6lUW',
@@ -58,6 +83,7 @@ VALUES (
         TRUE
     ),
     (
+        1,
         4,
         'gerente1',
         '$2b$12$pBXT4SiGrZXRcI4oZzLVg.jUeRR7R8/gqNXT9fKoMac5e2ChG5h.e',
@@ -66,6 +92,7 @@ VALUES (
         TRUE
     ),
     (
+        1,
         2,
         'inactivo',
         '$2b$12$OVrkEfOfMACqU7fWiEP7uulOCg0hlJPl6h.1z9JsQcGnAX65tdYS.',
@@ -74,7 +101,7 @@ VALUES (
         FALSE
     );
 
--- 3. Marcas y Modelos
+-- 3. Marcas y Modelos (Catálogo Global)
 INSERT INTO
     marcas (nombre)
 VALUES ('Toyota'),
@@ -140,42 +167,48 @@ VALUES (
         5
     );
 
--- 4. Categorías de Vehículos
+-- 4. Categorías de Vehículos (Tenant 1)
 INSERT INTO
     categorias_vehiculo (
+        tenant_id,
         nombre,
         descripcion,
         deposito_garantia_sugerido,
         tarifa_base_diaria
     )
 VALUES (
+        1,
         'Económico',
         'Vehículos compactos de bajo consumo de combustible para ciudad',
         250.00,
         35.00
     ),
     (
+        1,
         'Sedán Intermedio',
         'Vehículos confortables de 4 puertas para viajes ejecutivos',
         350.00,
         50.00
     ),
     (
+        1,
         'SUV Familiar',
         'Camionetas amplias con tracción y confort para familias',
         500.00,
         75.00
     ),
     (
+        1,
         'Pickup Trabajo/4x4',
         'Vehículos todo terreno ideales para carga y terrenos difíciles',
         600.00,
         90.00
     );
 
--- 5. Flota de Vehículos
+-- 5. Flota de Vehículos (Tenant 1)
 INSERT INTO
     vehiculos (
+        tenant_id,
         id_modelo,
         id_categoria,
         placa,
@@ -191,6 +224,7 @@ VALUES
     (
         1,
         1,
+        1,
         'M-245890',
         '1HGCR2F83HA001001',
         'Blanco',
@@ -200,6 +234,7 @@ VALUES
         20000
     ),
     (
+        1,
         3,
         2,
         'M-312450',
@@ -211,6 +246,7 @@ VALUES
         30000
     ),
     (
+        1,
         4,
         3,
         'M-198765',
@@ -223,6 +259,7 @@ VALUES
     ),
     -- Vehículo Alquilado
     (
+        1,
         2,
         4,
         'M-405912',
@@ -235,6 +272,7 @@ VALUES
     ),
     -- Vehículo en Mantenimiento Preventivo
     (
+        1,
         5,
         1,
         'M-112233',
@@ -246,9 +284,10 @@ VALUES
         50000
     );
 
--- 6. Clientes y Licencias
+-- 6. Clientes y Licencias (Tenant 1)
 INSERT INTO
     clientes (
+        tenant_id,
         tipo_persona,
         identificacion,
         nombres,
@@ -259,6 +298,7 @@ INSERT INTO
         estado_cliente
     )
 VALUES (
+        1,
         'NATURAL',
         '001-150898-0023K',
         'Ernesto',
@@ -269,6 +309,7 @@ VALUES (
         'ACTIVO'
     ),
     (
+        1,
         'NATURAL',
         '281-200395-0001P',
         'Lucia',
@@ -279,6 +320,7 @@ VALUES (
         'ACTIVO'
     ),
     (
+        1,
         'JURIDICA',
         'J0310000123456',
         'Constructora del Valle S.A.',
@@ -289,6 +331,7 @@ VALUES (
         'ACTIVO'
     ),
     (
+        1,
         'NATURAL',
         '001-050490-0044R',
         'Roberto',
@@ -301,6 +344,7 @@ VALUES (
 
 INSERT INTO
     licencias_conducir (
+        tenant_id,
         id_cliente,
         numero_licencia,
         categoria_licencia,
@@ -310,6 +354,7 @@ INSERT INTO
     )
 VALUES (
         1,
+        1,
         'LIC-001150898',
         'CATEGORIA_3',
         '2022-01-15',
@@ -317,6 +362,7 @@ VALUES (
         'Nicaragua'
     ),
     (
+        1,
         2,
         'LIC-281200395',
         'CATEGORIA_3',
@@ -325,6 +371,7 @@ VALUES (
         'Nicaragua'
     ),
     (
+        1,
         3,
         'LIC-001000999',
         'CATEGORIA_4',
@@ -333,6 +380,7 @@ VALUES (
         'Nicaragua'
     ),
     (
+        1,
         4,
         'LIC-001050490',
         'CATEGORIA_3',
@@ -342,36 +390,41 @@ VALUES (
     );
 -- Licencia vencida (para pruebas de validación)
 
--- 7. Coberturas de Seguro
+-- 7. Coberturas de Seguro (Tenant 1)
 INSERT INTO
     coberturas_seguro (
+        tenant_id,
         nombre,
         descripcion,
         costo_diario,
         porcentaje_deducible
     )
 VALUES (
+        1,
         'Básico Obligatorio',
         'Cubre responsabilidad civil frente a terceros según ley',
         8.00,
         20.00
     ),
     (
+        1,
         'Cobertura Amplia',
         'Colisión, robo total y daños a terceros con deducible moderado',
         15.00,
         10.00
     ),
     (
+        1,
         'Premium Cero Deducible',
         'Protección total ante cualquier daño físico, colisión o rotura sin deducible',
         25.00,
         0.00
     );
 
--- 8. Caso 1: Reserva Confirmada con Anticipo (Futura)
+-- 8. Caso 1: Reserva Confirmada con Anticipo (Futura - Tenant 1)
 INSERT INTO
     reservas (
+        tenant_id,
         codigo_reserva,
         id_cliente,
         id_categoria,
@@ -383,6 +436,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         'RES-2026-001',
         1,
         1,
@@ -396,6 +450,7 @@ VALUES (
 
 INSERT INTO
     pagos (
+        tenant_id,
         codigo_transaccion,
         id_reserva,
         tipo_movimiento,
@@ -405,6 +460,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         'TRX-ANT-001',
         1,
         'ANTICIPO_RESERVA',
@@ -414,9 +470,10 @@ VALUES (
         2
     );
 
--- 9. Caso 2: Contrato Activo en Curso (Vehículo en circulación)
+-- 9. Caso 2: Contrato Activo en Curso (Vehículo en circulación - Tenant 1)
 INSERT INTO
     contratos (
+        tenant_id,
         codigo_contrato,
         id_cliente,
         id_vehiculo,
@@ -433,6 +490,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         'CTR-2026-001',
         2,
         4,
@@ -451,6 +509,7 @@ VALUES (
 
 INSERT INTO
     pagos (
+        tenant_id,
         codigo_transaccion,
         id_contrato,
         tipo_movimiento,
@@ -460,6 +519,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         'TRX-GAR-001',
         1,
         'DEPOSITO_GARANTIA',
@@ -469,9 +529,10 @@ VALUES (
         2
     );
 
--- 10. Caso 3: Ciclo Completo Cerrado y Liquidado (Con Retorno, Daño e Inspección)
+-- 10. Caso 3: Ciclo Completo Cerrado y Liquidado (Con Retorno, Daño e Inspección - Tenant 1)
 INSERT INTO
     contratos (
+        tenant_id,
         codigo_contrato,
         id_cliente,
         id_vehiculo,
@@ -488,6 +549,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         'CTR-2026-HIST-01',
         1,
         2,
@@ -507,6 +569,7 @@ VALUES (
 -- Devolución registrada con 2 horas de retraso y combustible al 75%
 INSERT INTO
     devoluciones (
+        tenant_id,
         id_contrato,
         fecha_hora_retorno_real,
         kilometraje_retorno,
@@ -518,6 +581,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         2,
         CURRENT_TIMESTAMP - INTERVAL '7 days' + INTERVAL '2 hours',
         28400,
@@ -532,6 +596,7 @@ VALUES (
 -- Daño detectado en la inspección
 INSERT INTO
     danios (
+        tenant_id,
         id_devolucion,
         zona_carroceria,
         tipo_danio,
@@ -540,6 +605,7 @@ INSERT INTO
         costo_reparacion
     )
 VALUES (
+        1,
         1,
         'Puerta delantera derecha',
         'GOLPE',
@@ -551,6 +617,7 @@ VALUES (
 -- Liquidación financiera final
 INSERT INTO
     liquidaciones (
+        tenant_id,
         id_contrato,
         id_devolucion,
         fecha_liquidacion,
@@ -567,6 +634,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         2,
         1,
         CURRENT_TIMESTAMP - INTERVAL '7 days' + INTERVAL '3 hours',
@@ -586,6 +654,7 @@ VALUES (
 -- Pagos asociados a la liquidación
 INSERT INTO
     pagos (
+        tenant_id,
         codigo_transaccion,
         id_contrato,
         id_liquidacion,
@@ -596,6 +665,7 @@ INSERT INTO
         id_usuario
     )
 VALUES (
+        1,
         'TRX-LIQ-001',
         2,
         1,
@@ -606,6 +676,7 @@ VALUES (
         2
     ),
     (
+        1,
         'TRX-REF-001',
         2,
         1,
@@ -617,14 +688,25 @@ VALUES (
     );
 
 -- Cierre definitivo del contrato histórico y liberación del vehículo a DISPONIBLE
-UPDATE contratos SET estado = 'LIQUIDADO' WHERE id_contrato = 2;
-UPDATE vehiculos SET estado = 'DISPONIBLE' WHERE id_vehiculo = 2;
+UPDATE contratos
+SET
+    estado = 'LIQUIDADO'
+WHERE
+    id_contrato = 2
+    AND tenant_id = 1;
 
--- 11. Caso 4: Orden de Mantenimiento Activa
+UPDATE vehiculos
+SET
+    estado = 'DISPONIBLE'
+WHERE
+    id_vehiculo = 2
+    AND tenant_id = 1;
+
+-- 11. Caso 4: Orden de Mantenimiento Activa (Tenant 1)
 INSERT INTO mantenimientos (
-    id_vehiculo, tipo_mantenimiento, fecha_ingreso, fecha_salida_estimada,
+    tenant_id, id_vehiculo, tipo_mantenimiento, fecha_ingreso, fecha_salida_estimada,
     kilometraje_entrada, taller_servicio, descripcion_trabajo, costo_total, estado, id_usuario
 ) VALUES (
-    5, 'PREVENTIVO', CURRENT_TIMESTAMP - INTERVAL '1 day', (CURRENT_DATE + INTERVAL '2 days')::DATE,
+    1, 5, 'PREVENTIVO', CURRENT_TIMESTAMP - INTERVAL '1 day', (CURRENT_DATE + INTERVAL '2 days')::DATE,
     50050, 'Taller Central AutoServicio', 'Cambio de aceite sintético, filtro de aire, bujías y revisión de frenos', 180.00, 'EN_TALLER', 3
 );

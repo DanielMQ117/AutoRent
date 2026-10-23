@@ -1,5 +1,5 @@
 -- ============================================================================
--- SCRIPT DE PRUEBAS DE INTEGRIDAD Y VALIDACION DE REGLAS DE NEGOCIO
+-- SCRIPT DE PRUEBAS DE INTEGRIDAD Y VALIDACION DE REGLAS DE NEGOCIO (MULTI-TENANT)
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -11,12 +11,12 @@ DO $$
 BEGIN
     BEGIN
         INSERT INTO contratos (
-            codigo_contrato, id_cliente, id_vehiculo, id_cobertura,
+            tenant_id, codigo_contrato, id_cliente, id_vehiculo, id_cobertura,
             fecha_hora_inicio_pactada, fecha_hora_fin_pactada,
             kilometraje_salida, combustible_salida, tarifa_diaria_aplicada, monto_garantia,
             id_usuario
         ) VALUES (
-            'CTR-TEST-OVERBOOK', 1, 4, 1,
+            1, 'CTR-TEST-OVERBOOK', 1, 4, 1,
             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '2 days',
             35000, 1.00, 90.00, 600.00,
             2
@@ -36,12 +36,12 @@ DO $$
 BEGIN
     BEGIN
         INSERT INTO contratos (
-            codigo_contrato, id_cliente, id_vehiculo, id_cobertura,
+            tenant_id, codigo_contrato, id_cliente, id_vehiculo, id_cobertura,
             fecha_hora_inicio_pactada, fecha_hora_fin_pactada,
             kilometraje_salida, combustible_salida, tarifa_diaria_aplicada, monto_garantia,
             id_usuario
         ) VALUES (
-            'CTR-TEST-LICENCIA', 4, 1, 1,
+            1, 'CTR-TEST-LICENCIA', 4, 1, 1,
             CURRENT_TIMESTAMP + INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '3 days',
             15200, 1.00, 35.00, 250.00,
             2
@@ -60,10 +60,10 @@ DO $$
 BEGIN
     BEGIN
         INSERT INTO devoluciones (
-            id_contrato, fecha_hora_retorno_real, kilometraje_retorno, combustible_retorno,
+            tenant_id, id_contrato, fecha_hora_retorno_real, kilometraje_retorno, combustible_retorno,
             horas_retraso, limpieza_aprobada, accesorios_completos, id_usuario
         ) VALUES (
-            1, CURRENT_TIMESTAMP, 34000, 1.00, 0, TRUE, TRUE, 3
+            1, 1, CURRENT_TIMESTAMP, 34000, 1.00, 0, TRUE, TRUE, 3
         );
         RAISE EXCEPTION 'FALLO: El sistema permitió registrar un kilometraje de retorno menor al de salida.';
     EXCEPTION WHEN OTHERS THEN
@@ -72,10 +72,11 @@ BEGIN
 END $$;
 
 -- ----------------------------------------------------------------------------
--- CONSULTA 4: TRAZABILIDAD DEL CICLO COMPLETO DE ALQUILER
+-- CONSULTA 4: TRAZABILIDAD DEL CICLO COMPLETO DE ALQUILER (FILTRADO POR TENANT)
 -- Muestra el flujo completo desde Contrato hasta Liquidación con sus pagos
 -- ----------------------------------------------------------------------------
 SELECT
+    ag.codigo_agencia,
     c.codigo_contrato,
     cli.nombres || ' ' || cli.apellidos AS cliente,
     v.placa,
@@ -95,16 +96,20 @@ SELECT
     l.estado_liquidacion
 FROM
     contratos c
-    INNER JOIN clientes cli ON c.id_cliente = cli.id_cliente
-    INNER JOIN vehiculos v ON c.id_vehiculo = v.id_vehiculo
+    INNER JOIN agencias ag ON c.tenant_id = ag.id_agencia
+    INNER JOIN clientes cli ON c.id_cliente = cli.id_cliente AND c.tenant_id = cli.tenant_id
+    INNER JOIN vehiculos v ON c.id_vehiculo = v.id_vehiculo AND c.tenant_id = v.tenant_id
     INNER JOIN modelos m ON v.id_modelo = m.id_modelo
-    INNER JOIN devoluciones d ON c.id_contrato = d.id_contrato
-    INNER JOIN liquidaciones l ON c.id_contrato = l.id_contrato;
+    INNER JOIN devoluciones d ON c.id_contrato = d.id_contrato AND c.tenant_id = d.tenant_id
+    INNER JOIN liquidaciones l ON c.id_contrato = l.id_contrato AND c.tenant_id = l.tenant_id
+WHERE
+    c.tenant_id = 1;
 
 -- ----------------------------------------------------------------------------
--- CONSULTA 5: ESTADO Y DISPONIBILIDAD ACTUAL DE LA FLOTA
+-- CONSULTA 5: ESTADO Y DISPONIBILIDAD ACTUAL DE LA FLOTA (FILTRADO POR TENANT)
 -- ----------------------------------------------------------------------------
 SELECT
+    ag.codigo_agencia,
     v.placa,
     cat.nombre AS categoria,
     mar.nombre || ' ' || m.nombre || ' (' || m.anio || ')' AS vehiculo,
@@ -120,7 +125,10 @@ SELECT
     END AS alerta_servicio
 FROM
     vehiculos v
-    INNER JOIN categorias_vehiculo cat ON v.id_categoria = cat.id_categoria
+    INNER JOIN agencias ag ON v.tenant_id = ag.id_agencia
+    INNER JOIN categorias_vehiculo cat ON v.id_categoria = cat.id_categoria AND v.tenant_id = cat.tenant_id
     INNER JOIN modelos m ON v.id_modelo = m.id_modelo
     INNER JOIN marcas mar ON m.id_marca = mar.id_marca
+WHERE
+    v.tenant_id = 1
 ORDER BY v.estado, v.placa;
