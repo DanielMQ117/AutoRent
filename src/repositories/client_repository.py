@@ -15,10 +15,12 @@ class ClientRepository(BaseRepository[Client]):
     @staticmethod
     def _map_row_to_client(row: dict) -> Client:
         """Mapea una fila de base de datos con posible JOIN a un objeto Client con DriverLicense."""
+        tenant_val = row.get("tenant_id", 1)
         license_obj: Optional[DriverLicense] = None
         if row.get("id_licencia") is not None:
             license_obj = DriverLicense(
                 id_licencia=row["id_licencia"],
+                tenant_id=tenant_val,
                 id_cliente=row["id_cliente"],
                 numero_licencia=row["numero_licencia"],
                 categoria_licencia=row["categoria_licencia"],
@@ -29,6 +31,7 @@ class ClientRepository(BaseRepository[Client]):
 
         return Client(
             id_cliente=row["id_cliente"],
+            tenant_id=tenant_val,
             tipo_persona=ClientType(row["tipo_persona"]),
             identificacion=row["identificacion"],
             nombres=row["nombres"],
@@ -42,10 +45,11 @@ class ClientRepository(BaseRepository[Client]):
         )
 
     def get_by_id(self, id_cliente: int, conn: Any = None) -> Optional[Client]:
-        """Obtiene un cliente por su ID primario, incluyendo su licencia si existe."""
+        """Obtiene un cliente por su ID primario dentro de la agencia activa, incluyendo su licencia."""
         query = """
             SELECT 
                 c.id_cliente,
+                c.tenant_id,
                 c.tipo_persona,
                 c.identificacion,
                 c.nombres,
@@ -62,17 +66,18 @@ class ClientRepository(BaseRepository[Client]):
                 l.fecha_vencimiento,
                 l.pais_emision
             FROM clientes c
-            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente
-            WHERE c.id_cliente = %s;
+            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente AND c.tenant_id = l.tenant_id
+            WHERE c.id_cliente = %s AND c.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_cliente,), conn=conn)
+        row = self.execute_query_one(query, (id_cliente, self.current_tenant_id), conn=conn)
         return self._map_row_to_client(row) if row else None
 
     def get_by_identificacion(self, identificacion: str, conn: Any = None) -> Optional[Client]:
-        """Obtiene un cliente por su número de cédula o RUC."""
+        """Obtiene un cliente por su número de cédula o RUC dentro de la agencia activa."""
         query = """
             SELECT 
                 c.id_cliente,
+                c.tenant_id,
                 c.tipo_persona,
                 c.identificacion,
                 c.nombres,
@@ -89,17 +94,18 @@ class ClientRepository(BaseRepository[Client]):
                 l.fecha_vencimiento,
                 l.pais_emision
             FROM clientes c
-            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente
-            WHERE c.identificacion = %s;
+            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente AND c.tenant_id = l.tenant_id
+            WHERE c.identificacion = %s AND c.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (identificacion.strip(),), conn=conn)
+        row = self.execute_query_one(query, (identificacion.strip(), self.current_tenant_id), conn=conn)
         return self._map_row_to_client(row) if row else None
 
     def get_by_email(self, email: str, conn: Any = None) -> Optional[Client]:
-        """Obtiene un cliente por su correo electrónico."""
+        """Obtiene un cliente por su correo electrónico dentro de la agencia activa."""
         query = """
             SELECT 
                 c.id_cliente,
+                c.tenant_id,
                 c.tipo_persona,
                 c.identificacion,
                 c.nombres,
@@ -116,10 +122,10 @@ class ClientRepository(BaseRepository[Client]):
                 l.fecha_vencimiento,
                 l.pais_emision
             FROM clientes c
-            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente
-            WHERE LOWER(c.email) = LOWER(%s);
+            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente AND c.tenant_id = l.tenant_id
+            WHERE LOWER(c.email) = LOWER(%s) AND c.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (email.strip(),), conn=conn)
+        row = self.execute_query_one(query, (email.strip(), self.current_tenant_id), conn=conn)
         return self._map_row_to_client(row) if row else None
 
     def list_all(
@@ -128,9 +134,9 @@ class ClientRepository(BaseRepository[Client]):
         status: Optional[str] = None,
         conn: Any = None,
     ) -> List[Client]:
-        """Lista clientes con soporte para búsqueda textual y filtro de estado."""
-        conditions = []
-        params: List[Any] = []
+        """Lista clientes de la agencia activa con soporte para búsqueda textual y filtro de estado."""
+        conditions = ["c.tenant_id = %s"]
+        params: List[Any] = [self.current_tenant_id]
 
         if status and status.upper() != "TODOS":
             conditions.append("c.estado_cliente = %s")
@@ -148,11 +154,12 @@ class ClientRepository(BaseRepository[Client]):
             """)
             params.extend([term, term, term, term, term, term])
 
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where_clause = f"WHERE {' AND '.join(conditions)}"
 
         query = f"""
             SELECT 
                 c.id_cliente,
+                c.tenant_id,
                 c.tipo_persona,
                 c.identificacion,
                 c.nombres,
@@ -169,11 +176,11 @@ class ClientRepository(BaseRepository[Client]):
                 l.fecha_vencimiento,
                 l.pais_emision
             FROM clientes c
-            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente
+            LEFT JOIN licencias_conducir l ON c.id_cliente = l.id_cliente AND c.tenant_id = l.tenant_id
             {where_clause}
             ORDER BY c.id_cliente DESC;
         """
-        rows = self.execute_query(query, tuple(params) if params else None, conn=conn)
+        rows = self.execute_query(query, tuple(params), conn=conn)
         return [self._map_row_to_client(r) for r in rows]
 
     def create(
@@ -183,8 +190,10 @@ class ClientRepository(BaseRepository[Client]):
         conn: Any = None,
     ) -> Client:
         """Inserta un nuevo cliente y su licencia asociada de forma atómica."""
+        target_tenant = self.current_tenant_id
         query_client = """
             INSERT INTO clientes (
+                tenant_id,
                 tipo_persona,
                 identificacion,
                 nombres,
@@ -193,10 +202,11 @@ class ClientRepository(BaseRepository[Client]):
                 email,
                 direccion,
                 estado_cliente
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id_cliente, fecha_registro;
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id_cliente, tenant_id, fecha_registro;
         """
         params_client = (
+            target_tenant,
             client.tipo_persona.value if isinstance(client.tipo_persona, ClientType) else str(client.tipo_persona),
             client.identificacion.strip(),
             client.nombres.strip(),
@@ -212,22 +222,26 @@ class ClientRepository(BaseRepository[Client]):
             raise RuntimeError("No se pudo obtener el ID del cliente generado.")
 
         client.id_cliente = row["id_cliente"]
+        client.tenant_id = row["tenant_id"]
         client.fecha_registro = row["fecha_registro"]
 
         if license and license.numero_licencia.strip():
             license.id_cliente = client.id_cliente
+            license.tenant_id = target_tenant
             query_license = """
                 INSERT INTO licencias_conducir (
+                    tenant_id,
                     id_cliente,
                     numero_licencia,
                     categoria_licencia,
                     fecha_emision,
                     fecha_vencimiento,
                     pais_emision
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_licencia;
             """
             params_license = (
+                target_tenant,
                 client.id_cliente,
                 license.numero_licencia.strip(),
                 license.categoria_licencia.strip(),
@@ -250,6 +264,7 @@ class ClientRepository(BaseRepository[Client]):
         conn: Any = None,
     ) -> Client:
         """Actualiza un cliente existente y sus datos de licencia de conducir."""
+        target_tenant = self.current_tenant_id
         query_client = """
             UPDATE clientes SET
                 tipo_persona = %s,
@@ -260,7 +275,7 @@ class ClientRepository(BaseRepository[Client]):
                 email = %s,
                 direccion = %s,
                 estado_cliente = %s
-            WHERE id_cliente = %s;
+            WHERE id_cliente = %s AND tenant_id = %s;
         """
         params_client = (
             client.tipo_persona.value if isinstance(client.tipo_persona, ClientType) else str(client.tipo_persona),
@@ -272,13 +287,14 @@ class ClientRepository(BaseRepository[Client]):
             client.direccion.strip(),
             client.estado_cliente.value if isinstance(client.estado_cliente, ClientStatus) else str(client.estado_cliente),
             client.id_cliente,
+            target_tenant,
         )
         self.execute_non_query(query_client, params_client, conn=conn)
 
         if license and license.numero_licencia.strip():
             # Comprobar si ya tenía licencia registrada
-            check_query = "SELECT id_licencia FROM licencias_conducir WHERE id_cliente = %s;"
-            existing = self.execute_query_one(check_query, (client.id_cliente,), conn=conn)
+            check_query = "SELECT id_licencia FROM licencias_conducir WHERE id_cliente = %s AND tenant_id = %s;"
+            existing = self.execute_query_one(check_query, (client.id_cliente, target_tenant), conn=conn)
 
             if existing:
                 query_lic_update = """
@@ -288,7 +304,7 @@ class ClientRepository(BaseRepository[Client]):
                         fecha_emision = %s,
                         fecha_vencimiento = %s,
                         pais_emision = %s
-                    WHERE id_cliente = %s;
+                    WHERE id_cliente = %s AND tenant_id = %s;
                 """
                 params_lic_update = (
                     license.numero_licencia.strip(),
@@ -297,22 +313,25 @@ class ClientRepository(BaseRepository[Client]):
                     license.fecha_vencimiento,
                     license.pais_emision.strip() if license.pais_emision else "Nicaragua",
                     client.id_cliente,
+                    target_tenant,
                 )
                 self.execute_non_query(query_lic_update, params_lic_update, conn=conn)
                 license.id_licencia = existing["id_licencia"]
             else:
                 query_lic_insert = """
                     INSERT INTO licencias_conducir (
+                        tenant_id,
                         id_cliente,
                         numero_licencia,
                         categoria_licencia,
                         fecha_emision,
                         fecha_vencimiento,
                         pais_emision
-                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING id_licencia;
                 """
                 params_lic_insert = (
+                    target_tenant,
                     client.id_cliente,
                     license.numero_licencia.strip(),
                     license.categoria_licencia.strip(),
@@ -331,35 +350,37 @@ class ClientRepository(BaseRepository[Client]):
 
     def update_status(self, id_cliente: int, status: ClientStatus, conn: Any = None) -> bool:
         """Actualiza el estado de un cliente (ACTIVO, MOROSO, VETADO)."""
-        query = "UPDATE clientes SET estado_cliente = %s WHERE id_cliente = %s;"
+        query = "UPDATE clientes SET estado_cliente = %s WHERE id_cliente = %s AND tenant_id = %s;"
         val = status.value if isinstance(status, ClientStatus) else str(status)
-        count = self.execute_non_query(query, (val, id_cliente), conn=conn)
+        count = self.execute_non_query(query, (val, id_cliente, self.current_tenant_id), conn=conn)
         return count > 0
 
     def delete(self, id_cliente: int, conn: Any = None) -> bool:
         """Elimina físicamente un cliente (la licencia asociada se elimina en cascada)."""
-        query = "DELETE FROM clientes WHERE id_cliente = %s;"
-        count = self.execute_non_query(query, (id_cliente,), conn=conn)
+        query = "DELETE FROM clientes WHERE id_cliente = %s AND tenant_id = %s;"
+        count = self.execute_non_query(query, (id_cliente, self.current_tenant_id), conn=conn)
         return count > 0
 
     def has_active_commitments(self, id_cliente: int, conn: Any = None) -> bool:
         """Verifica si el cliente tiene contratos o reservas activos o pendientes."""
         query = """
             SELECT 
-                (SELECT COUNT(*) FROM contratos WHERE id_cliente = %s AND estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')) +
-                (SELECT COUNT(*) FROM reservas WHERE id_cliente = %s AND estado IN ('PENDIENTE', 'CONFIRMADA'))
+                (SELECT COUNT(*) FROM contratos WHERE id_cliente = %s AND tenant_id = %s AND estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')) +
+                (SELECT COUNT(*) FROM reservas WHERE id_cliente = %s AND tenant_id = %s AND estado IN ('PENDIENTE', 'CONFIRMADA'))
             AS total_activos;
         """
-        count = self.execute_scalar(query, (id_cliente, id_cliente), conn=conn)
+        t_id = self.current_tenant_id
+        count = self.execute_scalar(query, (id_cliente, t_id, id_cliente, t_id), conn=conn)
         return (count or 0) > 0
 
     def has_any_history(self, id_cliente: int, conn: Any = None) -> bool:
         """Verifica si el cliente tiene algún registro histórico en contratos o reservas."""
         query = """
             SELECT 
-                (SELECT COUNT(*) FROM contratos WHERE id_cliente = %s) +
-                (SELECT COUNT(*) FROM reservas WHERE id_cliente = %s)
+                (SELECT COUNT(*) FROM contratos WHERE id_cliente = %s AND tenant_id = %s) +
+                (SELECT COUNT(*) FROM reservas WHERE id_cliente = %s AND tenant_id = %s)
             AS total_historial;
         """
-        count = self.execute_scalar(query, (id_cliente, id_cliente), conn=conn)
+        t_id = self.current_tenant_id
+        count = self.execute_scalar(query, (id_cliente, t_id, id_cliente, t_id), conn=conn)
         return (count or 0) > 0

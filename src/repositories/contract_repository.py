@@ -20,6 +20,7 @@ class ContractRepository(BaseRepository[Contract]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Contract."""
         return Contract(
             id_contrato=row["id_contrato"],
+            tenant_id=row.get("tenant_id", 1),
             codigo_contrato=row["codigo_contrato"],
             id_reserva=row.get("id_reserva"),
             id_cliente=row["id_cliente"],
@@ -53,15 +54,16 @@ class ContractRepository(BaseRepository[Contract]):
     def _load_additional_drivers(self, id_contrato: int, conn: Any = None) -> List[AdditionalDriver]:
         """Recupera la lista de conductores adicionales registrados para un contrato."""
         query = """
-            SELECT id_conductor, id_contrato, nombre_completo, identificacion, numero_licencia, fecha_vencimiento_licencia
+            SELECT id_conductor, tenant_id, id_contrato, nombre_completo, identificacion, numero_licencia, fecha_vencimiento_licencia
             FROM conductores_adicionales
-            WHERE id_contrato = %s
+            WHERE id_contrato = %s AND tenant_id = %s
             ORDER BY id_conductor ASC;
         """
-        rows = self.execute_query(query, (id_contrato,), conn=conn)
+        rows = self.execute_query(query, (id_contrato, self.current_tenant_id), conn=conn)
         return [
             AdditionalDriver(
                 id_conductor=r["id_conductor"],
+                tenant_id=r.get("tenant_id", 1),
                 id_contrato=r["id_contrato"],
                 nombre_completo=r["nombre_completo"],
                 identificacion=r["identificacion"],
@@ -76,6 +78,7 @@ class ContractRepository(BaseRepository[Contract]):
         query = """
             SELECT 
                 p.id_pago,
+                p.tenant_id,
                 p.codigo_transaccion,
                 p.id_contrato,
                 p.id_reserva,
@@ -89,13 +92,14 @@ class ContractRepository(BaseRepository[Contract]):
                 u.nombre_completo AS usuario_nombre
             FROM pagos p
             INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-            WHERE p.id_contrato = %s
+            WHERE p.id_contrato = %s AND p.tenant_id = %s
             ORDER BY p.fecha_hora ASC;
         """
-        rows = self.execute_query(query, (id_contrato,), conn=conn)
+        rows = self.execute_query(query, (id_contrato, self.current_tenant_id), conn=conn)
         return [
             Payment(
                 id_pago=r["id_pago"],
+                tenant_id=r.get("tenant_id", 1),
                 codigo_transaccion=r["codigo_transaccion"],
                 id_contrato=r["id_contrato"],
                 id_reserva=r.get("id_reserva"),
@@ -116,6 +120,7 @@ class ContractRepository(BaseRepository[Contract]):
         query = """
             SELECT 
                 c.id_contrato,
+                c.tenant_id,
                 c.codigo_contrato,
                 c.id_reserva,
                 c.id_cliente,
@@ -153,9 +158,9 @@ class ContractRepository(BaseRepository[Contract]):
             INNER JOIN coberturas_seguro cob ON c.id_cobertura = cob.id_cobertura
             INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
             LEFT JOIN reservas r ON c.id_reserva = r.id_reserva
-            WHERE c.id_contrato = %s;
+            WHERE c.id_contrato = %s AND c.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_contrato,), conn=conn)
+        row = self.execute_query_one(query, (id_contrato, self.current_tenant_id), conn=conn)
         if not row:
             return None
 
@@ -169,6 +174,7 @@ class ContractRepository(BaseRepository[Contract]):
         query = """
             SELECT 
                 c.id_contrato,
+                c.tenant_id,
                 c.codigo_contrato,
                 c.id_reserva,
                 c.id_cliente,
@@ -206,9 +212,9 @@ class ContractRepository(BaseRepository[Contract]):
             INNER JOIN coberturas_seguro cob ON c.id_cobertura = cob.id_cobertura
             INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
             LEFT JOIN reservas r ON c.id_reserva = r.id_reserva
-            WHERE UPPER(c.codigo_contrato) = UPPER(%s);
+            WHERE UPPER(c.codigo_contrato) = UPPER(%s) AND c.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (codigo_contrato.strip(),), conn=conn)
+        row = self.execute_query_one(query, (codigo_contrato.strip(), self.current_tenant_id), conn=conn)
         if not row:
             return None
 
@@ -219,8 +225,8 @@ class ContractRepository(BaseRepository[Contract]):
 
     def get_by_reserva_id(self, id_reserva: int, conn: Any = None) -> Optional[Contract]:
         """Obtiene el contrato originado a partir de una reserva previa."""
-        query = "SELECT id_contrato FROM contratos WHERE id_reserva = %s;"
-        row = self.execute_query_one(query, (id_reserva,), conn=conn)
+        query = "SELECT id_contrato FROM contratos WHERE id_reserva = %s AND tenant_id = %s;"
+        row = self.execute_query_one(query, (id_reserva, self.current_tenant_id), conn=conn)
         if not row:
             return None
         return self.get_by_id(row["id_contrato"], conn=conn)
@@ -236,8 +242,8 @@ class ContractRepository(BaseRepository[Contract]):
         conn: Any = None,
     ) -> List[Contract]:
         """Lista contratos aplicando filtros opcionales de búsqueda, estado y período."""
-        conditions = ["1=1"]
-        params: list[Any] = []
+        conditions = ["c.tenant_id = %s"]
+        params: list[Any] = [self.current_tenant_id]
 
         if search and search.strip():
             term = f"%{search.strip()}%"
@@ -275,6 +281,7 @@ class ContractRepository(BaseRepository[Contract]):
         query = f"""
             SELECT 
                 c.id_contrato,
+                c.tenant_id,
                 c.codigo_contrato,
                 c.id_reserva,
                 c.id_cliente,
@@ -320,8 +327,11 @@ class ContractRepository(BaseRepository[Contract]):
 
     def create(self, contract: Contract, conn: Any = None) -> Contract:
         """Inserta un nuevo contrato y sus conductores adicionales en PostgreSQL."""
+        tenant_id = self.current_tenant_id
+        contract.tenant_id = tenant_id
         query_contract = """
             INSERT INTO contratos (
+                tenant_id,
                 codigo_contrato,
                 id_reserva,
                 id_cliente,
@@ -339,10 +349,11 @@ class ContractRepository(BaseRepository[Contract]):
                 costo_km_excedente,
                 estado,
                 id_usuario
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id_contrato, fecha_creacion;
         """
         params = (
+            tenant_id,
             contract.codigo_contrato,
             contract.id_reserva,
             contract.id_cliente,
@@ -372,17 +383,20 @@ class ContractRepository(BaseRepository[Contract]):
         if contract.conductores_adicionales:
             query_driver = """
                 INSERT INTO conductores_adicionales (
+                    tenant_id,
                     id_contrato,
                     nombre_completo,
                     identificacion,
                     numero_licencia,
                     fecha_vencimiento_licencia
-                ) VALUES (%s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id_conductor;
             """
             for driver in contract.conductores_adicionales:
+                driver.tenant_id = tenant_id
                 driver.id_contrato = contract.id_contrato
                 d_params = (
+                    tenant_id,
                     contract.id_contrato,
                     driver.nombre_completo.strip(),
                     driver.identificacion.strip(),
@@ -398,9 +412,9 @@ class ContractRepository(BaseRepository[Contract]):
 
     def update_status(self, id_contrato: int, status: ContractStatus, conn: Any = None) -> bool:
         """Actualiza el estado operativo de un contrato."""
-        query = "UPDATE contratos SET estado = %s WHERE id_contrato = %s;"
+        query = "UPDATE contratos SET estado = %s WHERE id_contrato = %s AND tenant_id = %s;"
         val = status.value if isinstance(status, ContractStatus) else str(status)
-        count = self.execute_non_query(query, (val, id_contrato), conn=conn)
+        count = self.execute_non_query(query, (val, id_contrato, self.current_tenant_id), conn=conn)
         return count > 0
 
     def check_vehicle_contract_conflict(
@@ -414,7 +428,8 @@ class ContractRepository(BaseRepository[Contract]):
         """Comprueba si un vehículo ya se encuentra bajo un contrato activo en el rango indicado."""
         query = """
             SELECT 1 FROM contratos
-            WHERE id_vehiculo = %s
+            WHERE tenant_id = %s
+              AND id_vehiculo = %s
               AND estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')
               AND tstzrange(fecha_hora_inicio_pactada, fecha_hora_fin_pactada, '[)') &&
                   tstzrange(%s::timestamptz, %s::timestamptz, '[)')
@@ -423,7 +438,7 @@ class ContractRepository(BaseRepository[Contract]):
         """
         row = self.execute_query_one(
             query,
-            (id_vehiculo, start_dt, end_dt, exclude_contract_id, exclude_contract_id),
+            (self.current_tenant_id, id_vehiculo, start_dt, end_dt, exclude_contract_id, exclude_contract_id),
             conn=conn,
         )
         return row is not None
@@ -432,16 +447,16 @@ class ContractRepository(BaseRepository[Contract]):
         """Retorna el contrato activo actualmente en curso para un vehículo específico."""
         query = """
             SELECT id_contrato FROM contratos 
-            WHERE id_vehiculo = %s AND estado = 'ACTIVO'
+            WHERE id_vehiculo = %s AND tenant_id = %s AND estado = 'ACTIVO'
             LIMIT 1;
         """
-        row = self.execute_query_one(query, (id_vehiculo,), conn=conn)
+        row = self.execute_query_one(query, (id_vehiculo, self.current_tenant_id), conn=conn)
         if not row:
             return None
         return self.get_by_id(row["id_contrato"], conn=conn)
 
     def count_contracts(self, conn: Any = None) -> int:
         """Retorna el número total de contratos para generación del código correlativo."""
-        query = "SELECT COUNT(*) AS total FROM contratos;"
-        row = self.execute_query_one(query, conn=conn)
+        query = "SELECT COUNT(*) AS total FROM contratos WHERE tenant_id = %s;"
+        row = self.execute_query_one(query, (self.current_tenant_id,), conn=conn)
         return row["total"] if row else 0

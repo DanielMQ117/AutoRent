@@ -19,6 +19,7 @@ class PaymentRepository(BaseRepository[Payment]):
         """Mapea una fila de base de datos a un objeto Payment."""
         return Payment(
             id_pago=row["id_pago"],
+            tenant_id=row.get("tenant_id", 1),
             codigo_transaccion=row["codigo_transaccion"],
             id_contrato=row.get("id_contrato"),
             id_reserva=row.get("id_reserva"),
@@ -34,8 +35,10 @@ class PaymentRepository(BaseRepository[Payment]):
 
     def create(self, payment: Payment, conn: Any = None) -> Payment:
         """Inserta un nuevo pago / movimiento financiero y retorna la entidad actualizada."""
+        target_tenant = self.current_tenant_id
         query = """
             INSERT INTO pagos (
+                tenant_id,
                 codigo_transaccion,
                 id_contrato,
                 id_reserva,
@@ -45,10 +48,11 @@ class PaymentRepository(BaseRepository[Payment]):
                 monto,
                 referencia,
                 id_usuario
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id_pago, fecha_hora;
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id_pago, tenant_id, fecha_hora;
         """
         params = (
+            target_tenant,
             payment.codigo_transaccion,
             payment.id_contrato,
             payment.id_reserva,
@@ -64,6 +68,7 @@ class PaymentRepository(BaseRepository[Payment]):
             raise RuntimeError("Error al registrar el pago: no se obtuvo fila generada.")
 
         payment.id_pago = row["id_pago"]
+        payment.tenant_id = row["tenant_id"]
         payment.fecha_hora = row["fecha_hora"]
         logger.info(
             "Pago registrado exitosamente [%s] Tipo: %s, Monto: $%s",
@@ -78,6 +83,7 @@ class PaymentRepository(BaseRepository[Payment]):
         query = """
             SELECT 
                 p.id_pago,
+                p.tenant_id,
                 p.codigo_transaccion,
                 p.id_contrato,
                 p.id_reserva,
@@ -91,10 +97,10 @@ class PaymentRepository(BaseRepository[Payment]):
                 u.nombre_completo AS usuario_nombre
             FROM pagos p
             INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-            WHERE p.id_contrato = %s
+            WHERE p.id_contrato = %s AND p.tenant_id = %s
             ORDER BY p.fecha_hora ASC;
         """
-        rows = self.execute_query(query, (id_contrato,), conn=conn)
+        rows = self.execute_query(query, (id_contrato, self.current_tenant_id), conn=conn)
         return [self._map_row_to_payment(r) for r in rows]
 
     def list_by_reservation(self, id_reserva: int, conn: Any = None) -> List[Payment]:
@@ -102,6 +108,7 @@ class PaymentRepository(BaseRepository[Payment]):
         query = """
             SELECT 
                 p.id_pago,
+                p.tenant_id,
                 p.codigo_transaccion,
                 p.id_contrato,
                 p.id_reserva,
@@ -115,14 +122,14 @@ class PaymentRepository(BaseRepository[Payment]):
                 u.nombre_completo AS usuario_nombre
             FROM pagos p
             INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-            WHERE p.id_reserva = %s
+            WHERE p.id_reserva = %s AND p.tenant_id = %s
             ORDER BY p.fecha_hora ASC;
         """
-        rows = self.execute_query(query, (id_reserva,), conn=conn)
+        rows = self.execute_query(query, (id_reserva, self.current_tenant_id), conn=conn)
         return [self._map_row_to_payment(r) for r in rows]
 
     def count_payments(self, conn: Any = None) -> int:
-        """Retorna el número total de pagos para generación de correlativos."""
-        query = "SELECT COUNT(*) AS total FROM pagos;"
-        row = self.execute_query_one(query, conn=conn)
+        """Retorna el número total de pagos de la agencia para generación de correlativos."""
+        query = "SELECT COUNT(*) AS total FROM pagos WHERE tenant_id = %s;"
+        row = self.execute_query_one(query, (self.current_tenant_id,), conn=conn)
         return row["total"] if row else 0

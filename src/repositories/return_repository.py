@@ -20,6 +20,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         """Mapea una fila relacional de la tabla danios a un objeto de dominio Damage."""
         return Damage(
             id_danio=row["id_danio"],
+            tenant_id=row.get("tenant_id", 1),
             id_devolucion=row["id_devolucion"],
             zona_carroceria=row["zona_carroceria"],
             tipo_danio=DamageType(row["tipo_danio"]),
@@ -33,6 +34,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         """Mapea una fila relacional con JOINs a un objeto ReturnInspection."""
         return ReturnInspection(
             id_devolucion=row["id_devolucion"],
+            tenant_id=row.get("tenant_id", 1),
             id_contrato=row["id_contrato"],
             fecha_hora_retorno_real=row["fecha_hora_retorno_real"],
             kilometraje_retorno=row["kilometraje_retorno"],
@@ -57,18 +59,21 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
     def _load_damages(self, id_devolucion: int, conn: Any = None) -> List[Damage]:
         """Recupera la lista de averías registradas para una devolución específica."""
         query = """
-            SELECT id_danio, id_devolucion, zona_carroceria, tipo_danio, gravedad, descripcion, costo_reparacion
+            SELECT id_danio, tenant_id, id_devolucion, zona_carroceria, tipo_danio, gravedad, descripcion, costo_reparacion
             FROM danios
-            WHERE id_devolucion = %s
+            WHERE id_devolucion = %s AND tenant_id = %s
             ORDER BY id_danio ASC;
         """
-        rows = self.execute_query(query, (id_devolucion,), conn=conn)
+        rows = self.execute_query(query, (id_devolucion, self.current_tenant_id), conn=conn)
         return [self._map_row_to_damage(r) for r in rows]
 
     def create(self, return_data: ReturnInspection, conn: Any = None) -> ReturnInspection:
         """Inserta la devolución física y sus daños asociados en la base de datos."""
+        tenant_id = self.current_tenant_id
+        return_data.tenant_id = tenant_id
         query_devolucion = """
             INSERT INTO devoluciones (
+                tenant_id,
                 id_contrato,
                 fecha_hora_retorno_real,
                 kilometraje_retorno,
@@ -79,6 +84,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
                 observaciones,
                 id_usuario
             ) VALUES (
+                %(tenant_id)s,
                 %(id_contrato)s,
                 %(fecha_hora_retorno_real)s,
                 %(kilometraje_retorno)s,
@@ -91,6 +97,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
             ) RETURNING id_devolucion;
         """
         params = {
+            "tenant_id": tenant_id,
             "id_contrato": return_data.id_contrato,
             "fecha_hora_retorno_real": return_data.fecha_hora_retorno_real or datetime.now(),
             "kilometraje_retorno": return_data.kilometraje_retorno,
@@ -109,17 +116,20 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         if return_data.danios:
             query_danio = """
                 INSERT INTO danios (
+                    tenant_id,
                     id_devolucion,
                     zona_carroceria,
                     tipo_danio,
                     gravedad,
                     descripcion,
                     costo_reparacion
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id_danio;
             """
             for danio in return_data.danios:
+                danio.tenant_id = tenant_id
                 danio_params = (
+                    tenant_id,
                     created_id,
                     danio.zona_carroceria,
                     danio.tipo_danio.value if hasattr(danio.tipo_danio, "value") else str(danio.tipo_danio),
@@ -143,6 +153,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         query = """
             SELECT 
                 d.id_devolucion,
+                d.tenant_id,
                 d.id_contrato,
                 d.fecha_hora_retorno_real,
                 d.kilometraje_retorno,
@@ -169,9 +180,9 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
             INNER JOIN modelos mo ON v.id_modelo = mo.id_modelo
             INNER JOIN marcas ma ON mo.id_marca = ma.id_marca
             INNER JOIN usuarios u ON d.id_usuario = u.id_usuario
-            WHERE d.id_devolucion = %s;
+            WHERE d.id_devolucion = %s AND d.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_devolucion,), conn=conn)
+        row = self.execute_query_one(query, (id_devolucion, self.current_tenant_id), conn=conn)
         if not row:
             return None
 
@@ -184,6 +195,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         query = """
             SELECT 
                 d.id_devolucion,
+                d.tenant_id,
                 d.id_contrato,
                 d.fecha_hora_retorno_real,
                 d.kilometraje_retorno,
@@ -210,9 +222,9 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
             INNER JOIN modelos mo ON v.id_modelo = mo.id_modelo
             INNER JOIN marcas ma ON mo.id_marca = ma.id_marca
             INNER JOIN usuarios u ON d.id_usuario = u.id_usuario
-            WHERE d.id_contrato = %s;
+            WHERE d.id_contrato = %s AND d.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_contrato,), conn=conn)
+        row = self.execute_query_one(query, (id_contrato, self.current_tenant_id), conn=conn)
         if not row:
             return None
 
@@ -230,6 +242,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         base_query = """
             SELECT 
                 d.id_devolucion,
+                d.tenant_id,
                 d.id_contrato,
                 d.fecha_hora_retorno_real,
                 d.kilometraje_retorno,
@@ -256,9 +269,9 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
             INNER JOIN modelos mo ON v.id_modelo = mo.id_modelo
             INNER JOIN marcas ma ON mo.id_marca = ma.id_marca
             INNER JOIN usuarios u ON d.id_usuario = u.id_usuario
-            WHERE 1=1
+            WHERE d.tenant_id = %s
         """
-        params: List[Any] = []
+        params: List[Any] = [self.current_tenant_id]
         if search:
             search_pattern = f"%{search.strip()}%"
             base_query += """
@@ -283,5 +296,5 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
 
     def count_returns(self, conn: Any = None) -> int:
         """Obtiene la cantidad total de devoluciones registradas."""
-        query = "SELECT COUNT(*) FROM devoluciones;"
-        return int(self.execute_scalar(query, conn=conn) or 0)
+        query = "SELECT COUNT(*) FROM devoluciones WHERE tenant_id = %s;"
+        return int(self.execute_scalar(query, (self.current_tenant_id,), conn=conn) or 0)

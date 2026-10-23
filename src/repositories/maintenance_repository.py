@@ -20,6 +20,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Maintenance."""
         return Maintenance(
             id_mantenimiento=row["id_mantenimiento"],
+            tenant_id=row.get("tenant_id", 1),
             id_vehiculo=row["id_vehiculo"],
             tipo_mantenimiento=MaintenanceType(row["tipo_mantenimiento"]),
             fecha_ingreso=row["fecha_ingreso"],
@@ -41,8 +42,11 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
 
     def create(self, maintenance: Maintenance, conn: Any = None) -> Maintenance:
         """Inserta una nueva orden de servicio en taller en la base de datos."""
+        tenant_id = self.current_tenant_id
+        maintenance.tenant_id = tenant_id
         query = """
             INSERT INTO mantenimientos (
+                tenant_id,
                 id_vehiculo,
                 tipo_mantenimiento,
                 fecha_ingreso,
@@ -54,6 +58,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
                 estado,
                 id_usuario
             ) VALUES (
+                %(tenant_id)s,
                 %(id_vehiculo)s,
                 %(tipo_mantenimiento)s,
                 %(fecha_ingreso)s,
@@ -67,6 +72,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
             ) RETURNING id_mantenimiento;
         """
         params = {
+            "tenant_id": tenant_id,
             "id_vehiculo": maintenance.id_vehiculo,
             "tipo_mantenimiento": maintenance.tipo_mantenimiento.value if hasattr(maintenance.tipo_mantenimiento, "value") else str(maintenance.tipo_mantenimiento),
             "fecha_ingreso": maintenance.fecha_ingreso or datetime.now(),
@@ -108,12 +114,12 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
                     THEN descripcion_trabajo || ' | Trabajos finales: ' || %s
                     ELSE descripcion_trabajo
                 END
-            WHERE id_mantenimiento = %s;
+            WHERE id_mantenimiento = %s AND tenant_id = %s;
         """
         desc_txt = descripcion_adicional or ""
         rows = self.execute_non_query(
             query,
-            (fecha_salida_real, costo_total, desc_txt, desc_txt, desc_txt, id_mantenimiento),
+            (fecha_salida_real, costo_total, desc_txt, desc_txt, desc_txt, id_mantenimiento, self.current_tenant_id),
             conn=conn,
         )
         return rows > 0
@@ -128,12 +134,12 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
                     THEN descripcion_trabajo || ' [Motivo cancelación: ' || %s || ']'
                     ELSE descripcion_trabajo
                 END
-            WHERE id_mantenimiento = %s;
+            WHERE id_mantenimiento = %s AND tenant_id = %s;
         """
         motivo_txt = motivo or ""
         rows = self.execute_non_query(
             query,
-            (motivo_txt, motivo_txt, motivo_txt, id_mantenimiento),
+            (motivo_txt, motivo_txt, motivo_txt, id_mantenimiento, self.current_tenant_id),
             conn=conn,
         )
         return rows > 0
@@ -143,6 +149,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
         query = """
             SELECT 
                 m.id_mantenimiento,
+                m.tenant_id,
                 m.id_vehiculo,
                 m.tipo_mantenimiento,
                 m.fecha_ingreso,
@@ -166,9 +173,9 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
             INNER JOIN marcas ma ON mo.id_marca = ma.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
             INNER JOIN usuarios u ON m.id_usuario = u.id_usuario
-            WHERE m.id_mantenimiento = %s;
+            WHERE m.id_mantenimiento = %s AND m.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_mantenimiento,), conn=conn)
+        row = self.execute_query_one(query, (id_mantenimiento, self.current_tenant_id), conn=conn)
         return self._map_row_to_maintenance(row) if row else None
 
     def get_active_by_vehicle(self, id_vehiculo: int, conn: Any = None) -> Optional[Maintenance]:
@@ -176,6 +183,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
         query = """
             SELECT 
                 m.id_mantenimiento,
+                m.tenant_id,
                 m.id_vehiculo,
                 m.tipo_mantenimiento,
                 m.fecha_ingreso,
@@ -199,11 +207,11 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
             INNER JOIN marcas ma ON mo.id_marca = ma.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
             INNER JOIN usuarios u ON m.id_usuario = u.id_usuario
-            WHERE m.id_vehiculo = %s AND m.estado = 'EN_TALLER'
+            WHERE m.id_vehiculo = %s AND m.tenant_id = %s AND m.estado = 'EN_TALLER'
             ORDER BY m.id_mantenimiento DESC
             LIMIT 1;
         """
-        row = self.execute_query_one(query, (id_vehiculo,), conn=conn)
+        row = self.execute_query_one(query, (id_vehiculo, self.current_tenant_id), conn=conn)
         return self._map_row_to_maintenance(row) if row else None
 
     def list_all(
@@ -219,6 +227,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
         query = """
             SELECT 
                 m.id_mantenimiento,
+                m.tenant_id,
                 m.id_vehiculo,
                 m.tipo_mantenimiento,
                 m.fecha_ingreso,
@@ -242,9 +251,9 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
             INNER JOIN marcas ma ON mo.id_marca = ma.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
             INNER JOIN usuarios u ON m.id_usuario = u.id_usuario
-            WHERE 1=1
+            WHERE m.tenant_id = %s
         """
-        params: list[Any] = []
+        params: list[Any] = [self.current_tenant_id]
 
         if search:
             query += """
@@ -280,13 +289,13 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
     def count_maintenances(self, status: Optional[str] = None, conn: Any = None) -> int:
         """Retorna el número total de órdenes de taller, opcionalmente filtradas por estado."""
         if status:
-            query = "SELECT COUNT(*) FROM mantenimientos WHERE estado = %s;"
-            return int(self.execute_scalar(query, (status,), conn=conn) or 0)
-        query = "SELECT COUNT(*) FROM mantenimientos;"
-        return int(self.execute_scalar(query, conn=conn) or 0)
+            query = "SELECT COUNT(*) FROM mantenimientos WHERE tenant_id = %s AND estado = %s;"
+            return int(self.execute_scalar(query, (self.current_tenant_id, status), conn=conn) or 0)
+        query = "SELECT COUNT(*) FROM mantenimientos WHERE tenant_id = %s;"
+        return int(self.execute_scalar(query, (self.current_tenant_id,), conn=conn) or 0)
 
     def get_total_expenses(self, conn: Any = None) -> Decimal:
         """Retorna la sumatoria económica invertida en mantenimiento y taller."""
-        query = "SELECT COALESCE(SUM(costo_total), 0) FROM mantenimientos WHERE estado = 'FINALIZADO';"
-        val = self.execute_scalar(query, conn=conn)
+        query = "SELECT COALESCE(SUM(costo_total), 0) FROM mantenimientos WHERE tenant_id = %s AND estado = 'FINALIZADO';"
+        val = self.execute_scalar(query, (self.current_tenant_id,), conn=conn)
         return Decimal(str(val or 0.00))

@@ -19,6 +19,7 @@ class ReservationRepository(BaseRepository[Reservation]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Reservation."""
         return Reservation(
             id_reserva=row["id_reserva"],
+            tenant_id=row.get("tenant_id", 1),
             codigo_reserva=row["codigo_reserva"],
             id_cliente=row["id_cliente"],
             id_categoria=row["id_categoria"],
@@ -43,6 +44,7 @@ class ReservationRepository(BaseRepository[Reservation]):
         query = """
             SELECT 
                 r.id_reserva,
+                r.tenant_id,
                 r.codigo_reserva,
                 r.id_cliente,
                 r.id_categoria,
@@ -67,16 +69,17 @@ class ReservationRepository(BaseRepository[Reservation]):
             LEFT JOIN modelos m ON v.id_modelo = m.id_modelo
             LEFT JOIN marcas mar ON m.id_marca = mar.id_marca
             INNER JOIN usuarios u ON r.id_usuario = u.id_usuario
-            WHERE r.id_reserva = %s;
+            WHERE r.id_reserva = %s AND r.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_reserva,), conn=conn)
+        row = self.execute_query_one(query, (id_reserva, self.current_tenant_id), conn=conn)
         return self._map_row_to_reservation(row) if row else None
 
     def get_by_codigo(self, codigo: str, conn: Any = None) -> Optional[Reservation]:
-        """Obtiene una reserva por su código alfanumérico único."""
+        """Obtiene una reserva por su código alfanumérico único dentro de la agencia activa."""
         query = """
             SELECT 
                 r.id_reserva,
+                r.tenant_id,
                 r.codigo_reserva,
                 r.id_cliente,
                 r.id_categoria,
@@ -101,9 +104,9 @@ class ReservationRepository(BaseRepository[Reservation]):
             LEFT JOIN modelos m ON v.id_modelo = m.id_modelo
             LEFT JOIN marcas mar ON m.id_marca = mar.id_marca
             INNER JOIN usuarios u ON r.id_usuario = u.id_usuario
-            WHERE UPPER(r.codigo_reserva) = UPPER(%s);
+            WHERE UPPER(r.codigo_reserva) = UPPER(%s) AND r.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (codigo.strip(),), conn=conn)
+        row = self.execute_query_one(query, (codigo.strip(), self.current_tenant_id), conn=conn)
         return self._map_row_to_reservation(row) if row else None
 
     def list_all(
@@ -116,9 +119,9 @@ class ReservationRepository(BaseRepository[Reservation]):
         to_date: Optional[datetime] = None,
         conn: Any = None,
     ) -> List[Reservation]:
-        """Lista reservas con soporte para filtros por búsqueda, estado, cliente, categoría y rango de fechas."""
-        conditions = ["1=1"]
-        params: list[Any] = []
+        """Lista reservas de la agencia activa con soporte para filtros."""
+        conditions = ["r.tenant_id = %s"]
+        params: list[Any] = [self.current_tenant_id]
 
         if search and search.strip():
             term = f"%{search.strip()}%"
@@ -156,6 +159,7 @@ class ReservationRepository(BaseRepository[Reservation]):
         query = f"""
             SELECT 
                 r.id_reserva,
+                r.tenant_id,
                 r.codigo_reserva,
                 r.id_cliente,
                 r.id_categoria,
@@ -188,8 +192,10 @@ class ReservationRepository(BaseRepository[Reservation]):
 
     def create(self, reservation: Reservation, conn: Any = None) -> Reservation:
         """Inserta una nueva reserva en PostgreSQL y retorna la entidad con su ID generado."""
+        target_tenant = self.current_tenant_id
         query = """
             INSERT INTO reservas (
+                tenant_id,
                 codigo_reserva,
                 id_cliente,
                 id_categoria,
@@ -199,10 +205,11 @@ class ReservationRepository(BaseRepository[Reservation]):
                 monto_anticipo,
                 estado,
                 id_usuario
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id_reserva, fecha_creacion;
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id_reserva, tenant_id, fecha_creacion;
         """
         params = (
+            target_tenant,
             reservation.codigo_reserva,
             reservation.id_cliente,
             reservation.id_categoria,
@@ -218,6 +225,7 @@ class ReservationRepository(BaseRepository[Reservation]):
             raise RuntimeError("Error al persistir la reserva: no se obtuvo fila de retorno.")
 
         reservation.id_reserva = row["id_reserva"]
+        reservation.tenant_id = row["tenant_id"]
         reservation.fecha_creacion = row["fecha_creacion"]
         return reservation
 
@@ -233,7 +241,7 @@ class ReservationRepository(BaseRepository[Reservation]):
                 fecha_hora_fin = %s,
                 monto_anticipo = %s,
                 estado = %s
-            WHERE id_reserva = %s;
+            WHERE id_reserva = %s AND tenant_id = %s;
         """
         params = (
             reservation.id_cliente,
@@ -244,14 +252,15 @@ class ReservationRepository(BaseRepository[Reservation]):
             reservation.monto_anticipo,
             reservation.estado.value,
             reservation.id_reserva,
+            self.current_tenant_id,
         )
         self.execute_non_query(query, params, conn=conn)
         return reservation
 
     def update_status(self, id_reserva: int, new_status: ReservationStatus, conn: Any = None) -> None:
         """Actualiza únicamente el estado de una reserva."""
-        query = "UPDATE reservas SET estado = %s WHERE id_reserva = %s;"
-        self.execute_non_query(query, (new_status.value, id_reserva), conn=conn)
+        query = "UPDATE reservas SET estado = %s WHERE id_reserva = %s AND tenant_id = %s;"
+        self.execute_non_query(query, (new_status.value, id_reserva, self.current_tenant_id), conn=conn)
 
     def check_vehicle_conflict(
         self,
@@ -261,15 +270,14 @@ class ReservationRepository(BaseRepository[Reservation]):
         exclude_reservation_id: Optional[int] = None,
         conn: Any = None,
     ) -> bool:
-        """Verifica si un vehículo específico presenta colisión de horario con reservas o contratos vigentes.
-
-        Retorna True si existe conflicto (vehículo ocupado), False si está libre.
-        """
+        """Verifica si un vehículo específico presenta colisión de horario con reservas o contratos vigentes."""
+        t_id = self.current_tenant_id
         query = """
             SELECT 1 FROM (
                 -- 1. Colisión con reservas confirmadas o pendientes
                 SELECT id_vehiculo FROM reservas
                 WHERE id_vehiculo = %s
+                  AND tenant_id = %s
                   AND estado IN ('CONFIRMADA', 'PENDIENTE')
                   AND (%s IS NULL OR id_reserva != %s)
                   AND tstzrange(fecha_hora_inicio, fecha_hora_fin, '[)') && tstzrange(%s, %s, '[)')
@@ -279,6 +287,7 @@ class ReservationRepository(BaseRepository[Reservation]):
                 -- 2. Colisión con contratos activos o en curso
                 SELECT id_vehiculo FROM contratos
                 WHERE id_vehiculo = %s
+                  AND tenant_id = %s
                   AND estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')
                   AND tstzrange(fecha_hora_inicio_pactada, fecha_hora_fin_pactada, '[)') && tstzrange(%s, %s, '[)')
             ) AS conflictos
@@ -286,11 +295,13 @@ class ReservationRepository(BaseRepository[Reservation]):
         """
         params = (
             id_vehiculo,
+            t_id,
             exclude_reservation_id,
             exclude_reservation_id,
             start_dt,
             end_dt,
             id_vehiculo,
+            t_id,
             start_dt,
             end_dt,
         )
@@ -306,9 +317,11 @@ class ReservationRepository(BaseRepository[Reservation]):
         conn: Any = None,
     ) -> List[Vehicle]:
         """Obtiene la lista de vehículos de una categoría que no tienen ningún traslape en el rango de fechas."""
+        t_id = self.current_tenant_id
         query = """
             SELECT 
                 v.id_vehiculo,
+                v.tenant_id,
                 v.id_modelo,
                 v.id_categoria,
                 v.placa,
@@ -328,7 +341,8 @@ class ReservationRepository(BaseRepository[Reservation]):
             INNER JOIN modelos m ON v.id_modelo = m.id_modelo
             INNER JOIN marcas mar ON m.id_marca = mar.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
-            WHERE v.id_categoria = %s
+            WHERE v.tenant_id = %s
+              AND v.id_categoria = %s
               AND v.activo = TRUE
               AND v.estado != 'DE_BAJA'
               AND v.estado != 'EN_MANTENIMIENTO'
@@ -336,7 +350,8 @@ class ReservationRepository(BaseRepository[Reservation]):
                   -- Vehículos con reservas solapadas
                   SELECT r.id_vehiculo 
                   FROM reservas r 
-                  WHERE r.id_vehiculo IS NOT NULL 
+                  WHERE r.tenant_id = %s
+                    AND r.id_vehiculo IS NOT NULL 
                     AND r.estado IN ('CONFIRMADA', 'PENDIENTE')
                     AND (%s IS NULL OR r.id_reserva != %s)
                     AND tstzrange(r.fecha_hora_inicio, r.fecha_hora_fin, '[)') && tstzrange(%s, %s, '[)')
@@ -346,17 +361,21 @@ class ReservationRepository(BaseRepository[Reservation]):
                   -- Vehículos con contratos solapados
                   SELECT ct.id_vehiculo 
                   FROM contratos ct 
-                  WHERE ct.estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')
+                  WHERE ct.tenant_id = %s
+                    AND ct.estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')
                     AND tstzrange(ct.fecha_hora_inicio_pactada, ct.fecha_hora_fin_pactada, '[)') && tstzrange(%s, %s, '[)')
               )
             ORDER BY v.placa ASC;
         """
         params = (
+            t_id,
             id_categoria,
+            t_id,
             exclude_reservation_id,
             exclude_reservation_id,
             start_dt,
             end_dt,
+            t_id,
             start_dt,
             end_dt,
         )
@@ -364,6 +383,7 @@ class ReservationRepository(BaseRepository[Reservation]):
         return [
             Vehicle(
                 id_vehiculo=r["id_vehiculo"],
+                tenant_id=r.get("tenant_id", 1),
                 id_modelo=r["id_modelo"],
                 id_categoria=r["id_categoria"],
                 placa=r["placa"],
@@ -384,6 +404,6 @@ class ReservationRepository(BaseRepository[Reservation]):
         ]
 
     def count_reservations(self, conn: Any = None) -> int:
-        """Retorna el total histórico de reservas creadas para generar correlativos secuenciales."""
-        query = "SELECT COUNT(*) FROM reservas;"
-        return int(self.execute_scalar(query, conn=conn) or 0)
+        """Retorna el total histórico de reservas de la agencia activa para generar correlativos."""
+        query = "SELECT COUNT(*) FROM reservas WHERE tenant_id = %s;"
+        return int(self.execute_scalar(query, (self.current_tenant_id,), conn=conn) or 0)

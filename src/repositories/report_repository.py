@@ -36,6 +36,7 @@ class ReportRepository(BaseRepository[Any]):
         """Obtiene las transacciones y consolida los indicadores financieros en el periodo."""
         dt_inicio = datetime.combine(fecha_inicio, time.min)
         dt_fin = datetime.combine(fecha_fin, time.max)
+        tenant_id = self.current_tenant_id
 
         # 1. Consulta detallada de transacciones
         query_items = """
@@ -63,9 +64,9 @@ class ReportRepository(BaseRepository[Any]):
             LEFT JOIN clientes cl ON c.id_cliente = cl.id_cliente
             LEFT JOIN clientes cl_r ON r.id_cliente = cl_r.id_cliente
             LEFT JOIN usuarios u ON p.id_usuario = u.id_usuario
-            WHERE p.fecha_hora >= %s AND p.fecha_hora <= %s
+            WHERE p.tenant_id = %s AND p.fecha_hora >= %s AND p.fecha_hora <= %s
         """
-        params: list[Any] = [dt_inicio, dt_fin]
+        params: list[Any] = [tenant_id, dt_inicio, dt_fin]
 
         if metodo_pago and metodo_pago.upper() != "TODOS":
             query_items += " AND p.metodo_pago = %s"
@@ -101,20 +102,20 @@ class ReportRepository(BaseRepository[Any]):
         query_inflows = """
             SELECT COALESCE(SUM(monto), 0)
             FROM pagos
-            WHERE fecha_hora >= %s AND fecha_hora <= %s
+            WHERE tenant_id = %s AND fecha_hora >= %s AND fecha_hora <= %s
               AND tipo_movimiento IN ('ANTICIPO_RESERVA', 'DEPOSITO_GARANTIA', 'COBRO_LIQUIDACION');
         """
-        val_inflows = self.execute_scalar(query_inflows, (dt_inicio, dt_fin), conn=conn) or Decimal("0.00")
+        val_inflows = self.execute_scalar(query_inflows, (tenant_id, dt_inicio, dt_fin), conn=conn) or Decimal("0.00")
         total_facturado = Decimal(str(val_inflows))
 
         # Reembolsos efectuados (salidas a clientes por garantía devuelta)
         query_refunds = """
             SELECT COALESCE(SUM(monto), 0)
             FROM pagos
-            WHERE fecha_hora >= %s AND fecha_hora <= %s
+            WHERE tenant_id = %s AND fecha_hora >= %s AND fecha_hora <= %s
               AND tipo_movimiento = 'REEMBOLSO_GARANTIA';
         """
-        val_refunds = self.execute_scalar(query_refunds, (dt_inicio, dt_fin), conn=conn) or Decimal("0.00")
+        val_refunds = self.execute_scalar(query_refunds, (tenant_id, dt_inicio, dt_fin), conn=conn) or Decimal("0.00")
         reembolsos_garantia = Decimal(str(val_refunds))
 
         # Renta base y penalizaciones desde liquidaciones cerradas en el periodo
@@ -123,9 +124,9 @@ class ReportRepository(BaseRepository[Any]):
                 COALESCE(SUM(subtotal_renta), 0) AS renta,
                 COALESCE(SUM(cargos_retraso + cargos_combustible + cargos_km_excedente + cargos_danios), 0) AS penalizaciones
             FROM liquidaciones
-            WHERE fecha_liquidacion >= %s AND fecha_liquidacion <= %s;
+            WHERE tenant_id = %s AND fecha_liquidacion >= %s AND fecha_liquidacion <= %s;
         """
-        liq_row = self.execute_query_one(query_liq, (dt_inicio, dt_fin), conn=conn) or {}
+        liq_row = self.execute_query_one(query_liq, (tenant_id, dt_inicio, dt_fin), conn=conn) or {}
         ingresos_renta = Decimal(str(liq_row.get("renta") or "0.00"))
         ingresos_penalizaciones = Decimal(str(liq_row.get("penalizaciones") or "0.00"))
 
@@ -133,10 +134,10 @@ class ReportRepository(BaseRepository[Any]):
         query_workshop = """
             SELECT COALESCE(SUM(costo_total), 0)
             FROM mantenimientos
-            WHERE fecha_ingreso >= %s AND fecha_ingreso <= %s
+            WHERE tenant_id = %s AND fecha_ingreso >= %s AND fecha_ingreso <= %s
               AND estado = 'FINALIZADO';
         """
-        val_workshop = self.execute_scalar(query_workshop, (dt_inicio, dt_fin), conn=conn) or Decimal("0.00")
+        val_workshop = self.execute_scalar(query_workshop, (tenant_id, dt_inicio, dt_fin), conn=conn) or Decimal("0.00")
         gastos_mantenimiento = Decimal(str(val_workshop))
 
         # Ingreso neto y métricas derivadas
@@ -175,8 +176,9 @@ class ReportRepository(BaseRepository[Any]):
         dt_inicio = datetime.combine(fecha_inicio, time.min)
         dt_fin = datetime.combine(fecha_fin, time.max)
         dias_periodo = max(1, (fecha_fin - fecha_inicio).days + 1)
+        tenant_id = self.current_tenant_id
 
-        # Consulta base de todos los vehículos activos
+        # Consulta base de todos los vehículos activos de la agencia actual
         query = """
             SELECT 
                 v.id_vehiculo,
@@ -190,6 +192,7 @@ class ReportRepository(BaseRepository[Any]):
                     SELECT COUNT(*)
                     FROM contratos ct
                     WHERE ct.id_vehiculo = v.id_vehiculo
+                      AND ct.tenant_id = v.tenant_id
                       AND ct.fecha_hora_inicio_pactada <= %s
                       AND ct.fecha_hora_fin_pactada >= %s
                       AND ct.estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION', 'LIQUIDADO')
@@ -203,6 +206,7 @@ class ReportRepository(BaseRepository[Any]):
                     ), 0)
                     FROM contratos ct
                     WHERE ct.id_vehiculo = v.id_vehiculo
+                      AND ct.tenant_id = v.tenant_id
                       AND ct.fecha_hora_inicio_pactada <= %s
                       AND ct.fecha_hora_fin_pactada >= %s
                       AND ct.estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION', 'LIQUIDADO')
@@ -213,6 +217,7 @@ class ReportRepository(BaseRepository[Any]):
                     FROM liquidaciones l
                     INNER JOIN contratos ct ON l.id_contrato = ct.id_contrato
                     WHERE ct.id_vehiculo = v.id_vehiculo
+                      AND l.tenant_id = v.tenant_id
                       AND l.fecha_liquidacion >= %s
                       AND l.fecha_liquidacion <= %s
                 ) AS ingresos_generados,
@@ -225,6 +230,7 @@ class ReportRepository(BaseRepository[Any]):
                     ), 0)
                     FROM mantenimientos m
                     WHERE m.id_vehiculo = v.id_vehiculo
+                      AND m.tenant_id = v.tenant_id
                       AND m.fecha_ingreso <= %s
                       AND (m.fecha_salida_real IS NULL OR m.fecha_salida_real >= %s)
                       AND m.estado IN ('EN_TALLER', 'FINALIZADO')
@@ -234,6 +240,7 @@ class ReportRepository(BaseRepository[Any]):
                     SELECT COALESCE(SUM(m.costo_total), 0)
                     FROM mantenimientos m
                     WHERE m.id_vehiculo = v.id_vehiculo
+                      AND m.tenant_id = v.tenant_id
                       AND m.fecha_ingreso >= %s
                       AND m.fecha_ingreso <= %s
                 ) AS gastos_taller
@@ -241,7 +248,7 @@ class ReportRepository(BaseRepository[Any]):
             INNER JOIN modelos mo ON v.id_modelo = mo.id_modelo
             INNER JOIN marcas mar ON mo.id_marca = mar.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
-            WHERE v.activo = TRUE
+            WHERE v.tenant_id = %s AND v.activo = TRUE
         """
         params: list[Any] = [
             dt_fin, dt_inicio,
@@ -249,6 +256,7 @@ class ReportRepository(BaseRepository[Any]):
             dt_inicio, dt_fin,
             dt_fin, dt_inicio, dt_fin, dt_inicio,
             dt_inicio, dt_fin,
+            tenant_id,
         ]
 
         if id_categoria and id_categoria > 0:
@@ -366,13 +374,14 @@ class ReportRepository(BaseRepository[Any]):
                     INNER JOIN devoluciones dev ON d.id_devolucion = dev.id_devolucion
                     INNER JOIN contratos c_d ON dev.id_contrato = c_d.id_contrato
                     WHERE c_d.id_cliente = cl.id_cliente
+                      AND d.tenant_id = cl.tenant_id
                 ) AS total_danos
             FROM clientes cl
-            LEFT JOIN contratos ct ON cl.id_cliente = ct.id_cliente
-            LEFT JOIN liquidaciones l ON ct.id_contrato = l.id_contrato
-            WHERE 1=1
+            LEFT JOIN contratos ct ON cl.id_cliente = ct.id_cliente AND ct.tenant_id = cl.tenant_id
+            LEFT JOIN liquidaciones l ON ct.id_contrato = l.id_contrato AND l.tenant_id = cl.tenant_id
+            WHERE cl.tenant_id = %s
         """
-        params: list[Any] = []
+        params: list[Any] = [self.current_tenant_id]
 
         if fecha_inicio and fecha_fin:
             dt_inicio = datetime.combine(fecha_inicio, time.min)

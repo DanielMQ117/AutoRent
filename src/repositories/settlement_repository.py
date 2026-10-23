@@ -20,6 +20,7 @@ class SettlementRepository(BaseRepository[Settlement]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Settlement."""
         return Settlement(
             id_liquidacion=row["id_liquidacion"],
+            tenant_id=row.get("tenant_id", 1),
             id_contrato=row["id_contrato"],
             id_devolucion=row["id_devolucion"],
             fecha_liquidacion=row["fecha_liquidacion"],
@@ -44,18 +45,19 @@ class SettlementRepository(BaseRepository[Settlement]):
     def _load_settlement_payments(self, id_liquidacion: int, conn: Any = None) -> List[Payment]:
         """Recupera los pagos o reembolsos generados en la liquidación."""
         query = """
-            SELECT id_pago, codigo_transaccion, id_contrato, id_reserva, id_liquidacion,
+            SELECT id_pago, tenant_id, codigo_transaccion, id_contrato, id_reserva, id_liquidacion,
                    tipo_movimiento, metodo_pago, monto, fecha_hora, referencia, id_usuario
             FROM pagos
-            WHERE id_liquidacion = %s
+            WHERE id_liquidacion = %s AND tenant_id = %s
             ORDER BY id_pago ASC;
         """
-        rows = self.execute_query(query, (id_liquidacion,), conn=conn)
+        rows = self.execute_query(query, (id_liquidacion, self.current_tenant_id), conn=conn)
         payments = []
         for r in rows:
             payments.append(
                 Payment(
                     id_pago=r["id_pago"],
+                    tenant_id=r.get("tenant_id", 1),
                     codigo_transaccion=r["codigo_transaccion"],
                     id_contrato=r.get("id_contrato"),
                     id_reserva=r.get("id_reserva"),
@@ -72,8 +74,11 @@ class SettlementRepository(BaseRepository[Settlement]):
 
     def create(self, settlement: Settlement, conn: Any = None) -> Settlement:
         """Inserta un registro de liquidación financiera en la base de datos."""
+        tenant_id = self.current_tenant_id
+        settlement.tenant_id = tenant_id
         query = """
             INSERT INTO liquidaciones (
+                tenant_id,
                 id_contrato,
                 id_devolucion,
                 fecha_liquidacion,
@@ -89,6 +94,7 @@ class SettlementRepository(BaseRepository[Settlement]):
                 estado_liquidacion,
                 id_usuario
             ) VALUES (
+                %(tenant_id)s,
                 %(id_contrato)s,
                 %(id_devolucion)s,
                 %(fecha_liquidacion)s,
@@ -106,6 +112,7 @@ class SettlementRepository(BaseRepository[Settlement]):
             ) RETURNING id_liquidacion;
         """
         params = {
+            "tenant_id": tenant_id,
             "id_contrato": settlement.id_contrato,
             "id_devolucion": settlement.id_devolucion,
             "fecha_liquidacion": settlement.fecha_liquidacion or datetime.now(),
@@ -138,6 +145,7 @@ class SettlementRepository(BaseRepository[Settlement]):
         query = """
             SELECT 
                 l.id_liquidacion,
+                l.tenant_id,
                 l.id_contrato,
                 l.id_devolucion,
                 l.fecha_liquidacion,
@@ -162,9 +170,9 @@ class SettlementRepository(BaseRepository[Settlement]):
             INNER JOIN clientes cl ON c.id_cliente = cl.id_cliente
             INNER JOIN vehiculos v ON c.id_vehiculo = v.id_vehiculo
             INNER JOIN usuarios u ON l.id_usuario = u.id_usuario
-            WHERE l.id_liquidacion = %s;
+            WHERE l.id_liquidacion = %s AND l.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_liquidacion,), conn=conn)
+        row = self.execute_query_one(query, (id_liquidacion, self.current_tenant_id), conn=conn)
         if not row:
             return None
         settlement = self._map_row_to_settlement(row)
@@ -176,6 +184,7 @@ class SettlementRepository(BaseRepository[Settlement]):
         query = """
             SELECT 
                 l.id_liquidacion,
+                l.tenant_id,
                 l.id_contrato,
                 l.id_devolucion,
                 l.fecha_liquidacion,
@@ -200,9 +209,9 @@ class SettlementRepository(BaseRepository[Settlement]):
             INNER JOIN clientes cl ON c.id_cliente = cl.id_cliente
             INNER JOIN vehiculos v ON c.id_vehiculo = v.id_vehiculo
             INNER JOIN usuarios u ON l.id_usuario = u.id_usuario
-            WHERE l.id_contrato = %s;
+            WHERE l.id_contrato = %s AND l.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_contrato,), conn=conn)
+        row = self.execute_query_one(query, (id_contrato, self.current_tenant_id), conn=conn)
         if not row:
             return None
         settlement = self._map_row_to_settlement(row)
@@ -219,6 +228,7 @@ class SettlementRepository(BaseRepository[Settlement]):
         base_query = """
             SELECT 
                 l.id_liquidacion,
+                l.tenant_id,
                 l.id_contrato,
                 l.id_devolucion,
                 l.fecha_liquidacion,
@@ -243,9 +253,9 @@ class SettlementRepository(BaseRepository[Settlement]):
             INNER JOIN clientes cl ON c.id_cliente = cl.id_cliente
             INNER JOIN vehiculos v ON c.id_vehiculo = v.id_vehiculo
             INNER JOIN usuarios u ON l.id_usuario = u.id_usuario
-            WHERE 1=1
+            WHERE l.tenant_id = %s
         """
-        params: List[Any] = []
+        params: List[Any] = [self.current_tenant_id]
         if search:
             search_pattern = f"%{search.strip()}%"
             base_query += """
@@ -266,5 +276,5 @@ class SettlementRepository(BaseRepository[Settlement]):
 
     def count_settlements(self, conn: Any = None) -> int:
         """Obtiene la cantidad total de liquidaciones registradas."""
-        query = "SELECT COUNT(*) FROM liquidaciones;"
-        return int(self.execute_scalar(query, conn=conn) or 0)
+        query = "SELECT COUNT(*) FROM liquidaciones WHERE tenant_id = %s;"
+        return int(self.execute_scalar(query, (self.current_tenant_id,), conn=conn) or 0)

@@ -18,6 +18,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         """Mapea una fila con JOINs de modelo, marca y categoría a un objeto Vehicle."""
         return Vehicle(
             id_vehiculo=row["id_vehiculo"],
+            tenant_id=row.get("tenant_id", 1),
             id_modelo=row["id_modelo"],
             id_categoria=row["id_categoria"],
             placa=row["placa"],
@@ -40,6 +41,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         query = """
             SELECT 
                 v.id_vehiculo,
+                v.tenant_id,
                 v.id_modelo,
                 v.id_categoria,
                 v.placa,
@@ -59,16 +61,17 @@ class VehicleRepository(BaseRepository[Vehicle]):
             INNER JOIN modelos m ON v.id_modelo = m.id_modelo
             INNER JOIN marcas mar ON m.id_marca = mar.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
-            WHERE v.id_vehiculo = %s;
+            WHERE v.id_vehiculo = %s AND v.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_vehiculo,), conn=conn)
+        row = self.execute_query_one(query, (id_vehiculo, self.current_tenant_id), conn=conn)
         return self._map_row_to_vehicle(row) if row else None
 
     def get_by_placa(self, placa: str, conn: Any = None) -> Optional[Vehicle]:
-        """Obtiene un vehículo por su número de placa única."""
+        """Obtiene un vehículo por su número de placa única dentro de la agencia activa."""
         query = """
             SELECT 
                 v.id_vehiculo,
+                v.tenant_id,
                 v.id_modelo,
                 v.id_categoria,
                 v.placa,
@@ -88,16 +91,17 @@ class VehicleRepository(BaseRepository[Vehicle]):
             INNER JOIN modelos m ON v.id_modelo = m.id_modelo
             INNER JOIN marcas mar ON m.id_marca = mar.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
-            WHERE UPPER(v.placa) = UPPER(%s);
+            WHERE UPPER(v.placa) = UPPER(%s) AND v.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (placa.strip(),), conn=conn)
+        row = self.execute_query_one(query, (placa.strip(), self.current_tenant_id), conn=conn)
         return self._map_row_to_vehicle(row) if row else None
 
     def get_by_vin(self, vin: str, conn: Any = None) -> Optional[Vehicle]:
-        """Obtiene un vehículo por su número VIN único."""
+        """Obtiene un vehículo por su número VIN único dentro de la agencia activa."""
         query = """
             SELECT 
                 v.id_vehiculo,
+                v.tenant_id,
                 v.id_modelo,
                 v.id_categoria,
                 v.placa,
@@ -117,9 +121,9 @@ class VehicleRepository(BaseRepository[Vehicle]):
             INNER JOIN modelos m ON v.id_modelo = m.id_modelo
             INNER JOIN marcas mar ON m.id_marca = mar.id_marca
             INNER JOIN categorias_vehiculo c ON v.id_categoria = c.id_categoria
-            WHERE UPPER(v.vin) = UPPER(%s);
+            WHERE UPPER(v.vin) = UPPER(%s) AND v.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (vin.strip(),), conn=conn)
+        row = self.execute_query_one(query, (vin.strip(), self.current_tenant_id), conn=conn)
         return self._map_row_to_vehicle(row) if row else None
 
     def list_all(
@@ -130,9 +134,9 @@ class VehicleRepository(BaseRepository[Vehicle]):
         active_only: bool = False,
         conn: Any = None,
     ) -> List[Vehicle]:
-        """Lista vehículos con filtros opcionales de búsqueda, estado, categoría y actividad."""
-        conditions = []
-        params: List[Any] = []
+        """Lista vehículos de la agencia activa con filtros opcionales de búsqueda, estado, categoría y actividad."""
+        conditions = ["v.tenant_id = %s"]
+        params: List[Any] = [self.current_tenant_id]
 
         if active_only:
             conditions.append("v.activo = TRUE")
@@ -157,11 +161,12 @@ class VehicleRepository(BaseRepository[Vehicle]):
             """)
             params.extend([term, term, term, term, term, term])
 
-        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        where_clause = f"WHERE {' AND '.join(conditions)}"
 
         query = f"""
             SELECT 
                 v.id_vehiculo,
+                v.tenant_id,
                 v.id_modelo,
                 v.id_categoria,
                 v.placa,
@@ -184,13 +189,15 @@ class VehicleRepository(BaseRepository[Vehicle]):
             {where_clause}
             ORDER BY v.id_vehiculo DESC;
         """
-        rows = self.execute_query(query, tuple(params) if params else None, conn=conn)
+        rows = self.execute_query(query, tuple(params), conn=conn)
         return [self._map_row_to_vehicle(r) for r in rows]
 
     def create(self, vehicle: Vehicle, conn: Any = None) -> Vehicle:
-        """Registra un nuevo vehículo en la base de datos."""
+        """Registra un nuevo vehículo en la base de datos para la agencia activa."""
+        target_tenant = self.current_tenant_id
         query = """
             INSERT INTO vehiculos (
+                tenant_id,
                 id_modelo,
                 id_categoria,
                 placa,
@@ -201,10 +208,11 @@ class VehicleRepository(BaseRepository[Vehicle]):
                 estado,
                 km_proximo_mantenimiento,
                 activo
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id_vehiculo;
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id_vehiculo, tenant_id;
         """
         params = (
+            target_tenant,
             vehicle.id_modelo,
             vehicle.id_categoria,
             vehicle.placa.strip().upper(),
@@ -221,6 +229,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
             raise RuntimeError("No se pudo obtener el ID del vehículo registrado.")
 
         vehicle.id_vehiculo = row["id_vehiculo"]
+        vehicle.tenant_id = row["tenant_id"]
         logger.info("Vehículo creado exitosamente ID %s: %s (VIN: %s)", vehicle.id_vehiculo, vehicle.placa, vehicle.vin)
         return vehicle
 
@@ -238,7 +247,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
                 estado = %s,
                 km_proximo_mantenimiento = %s,
                 activo = %s
-            WHERE id_vehiculo = %s;
+            WHERE id_vehiculo = %s AND tenant_id = %s;
         """
         params = (
             vehicle.id_modelo,
@@ -252,6 +261,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
             vehicle.km_proximo_mantenimiento,
             vehicle.activo,
             vehicle.id_vehiculo,
+            self.current_tenant_id,
         )
         self.execute_non_query(query, params, conn=conn)
         logger.info("Vehículo actualizado exitosamente ID %s: %s", vehicle.id_vehiculo, vehicle.placa)
@@ -259,9 +269,9 @@ class VehicleRepository(BaseRepository[Vehicle]):
 
     def update_status(self, id_vehiculo: int, new_status: VehicleStatus, conn: Any = None) -> bool:
         """Modifica exclusivamente el estado operativo de un vehículo."""
-        query = "UPDATE vehiculos SET estado = %s WHERE id_vehiculo = %s;"
+        query = "UPDATE vehiculos SET estado = %s WHERE id_vehiculo = %s AND tenant_id = %s;"
         status_val = new_status.value if isinstance(new_status, VehicleStatus) else str(new_status)
-        count = self.execute_non_query(query, (status_val, id_vehiculo), conn=conn)
+        count = self.execute_non_query(query, (status_val, id_vehiculo, self.current_tenant_id), conn=conn)
         logger.info("Estado del vehículo ID %s actualizado a '%s'", id_vehiculo, status_val)
         return count > 0
 
@@ -279,10 +289,14 @@ class VehicleRepository(BaseRepository[Vehicle]):
             SET kilometraje_actual = %s,
                 nivel_combustible_actual = %s,
                 estado = %s
-            WHERE id_vehiculo = %s;
+            WHERE id_vehiculo = %s AND tenant_id = %s;
         """
         status_val = new_status.value if isinstance(new_status, VehicleStatus) else str(new_status)
-        count = self.execute_non_query(query, (kilometraje, float(combustible), status_val, id_vehiculo), conn=conn)
+        count = self.execute_non_query(
+            query,
+            (kilometraje, float(combustible), status_val, id_vehiculo, self.current_tenant_id),
+            conn=conn,
+        )
         logger.info(
             "Vehículo ID %s actualizado en entrega: km=%s, comb=%s, estado=%s",
             id_vehiculo,
@@ -304,12 +318,16 @@ class VehicleRepository(BaseRepository[Vehicle]):
                 UPDATE vehiculos 
                 SET estado = 'DISPONIBLE',
                     km_proximo_mantenimiento = %s
-                WHERE id_vehiculo = %s;
+                WHERE id_vehiculo = %s AND tenant_id = %s;
             """
-            count = self.execute_non_query(query, (nuevo_km_proximo_mantenimiento, id_vehiculo), conn=conn)
+            count = self.execute_non_query(
+                query,
+                (nuevo_km_proximo_mantenimiento, id_vehiculo, self.current_tenant_id),
+                conn=conn,
+            )
         else:
-            query = "UPDATE vehiculos SET estado = 'DISPONIBLE' WHERE id_vehiculo = %s;"
-            count = self.execute_non_query(query, (id_vehiculo,), conn=conn)
+            query = "UPDATE vehiculos SET estado = 'DISPONIBLE' WHERE id_vehiculo = %s AND tenant_id = %s;"
+            count = self.execute_non_query(query, (id_vehiculo, self.current_tenant_id), conn=conn)
         logger.info(
             "Vehículo ID %s liberado de taller: estado=DISPONIBLE, km_proximo=%s",
             id_vehiculo,
@@ -319,37 +337,39 @@ class VehicleRepository(BaseRepository[Vehicle]):
 
     def soft_delete(self, id_vehiculo: int, conn: Any = None) -> bool:
         """Desactiva un vehículo y cambia su estado a DE_BAJA."""
-        query = "UPDATE vehiculos SET activo = FALSE, estado = 'DE_BAJA' WHERE id_vehiculo = %s;"
-        count = self.execute_non_query(query, (id_vehiculo,), conn=conn)
+        query = "UPDATE vehiculos SET activo = FALSE, estado = 'DE_BAJA' WHERE id_vehiculo = %s AND tenant_id = %s;"
+        count = self.execute_non_query(query, (id_vehiculo, self.current_tenant_id), conn=conn)
         return count > 0
 
     def delete(self, id_vehiculo: int, conn: Any = None) -> bool:
         """Elimina físicamente el vehículo de la base de datos si no tiene restricciones."""
-        query = "DELETE FROM vehiculos WHERE id_vehiculo = %s;"
-        count = self.execute_non_query(query, (id_vehiculo,), conn=conn)
+        query = "DELETE FROM vehiculos WHERE id_vehiculo = %s AND tenant_id = %s;"
+        count = self.execute_non_query(query, (id_vehiculo, self.current_tenant_id), conn=conn)
         return count > 0
 
     def has_active_commitments(self, id_vehiculo: int, conn: Any = None) -> bool:
         """Verifica si el vehículo está asignado a contratos o reservas vigentes."""
         query = """
             SELECT 
-                (SELECT COUNT(*) FROM contratos WHERE id_vehiculo = %s AND estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')) +
-                (SELECT COUNT(*) FROM reservas WHERE id_vehiculo = %s AND estado IN ('PENDIENTE', 'CONFIRMADA'))
+                (SELECT COUNT(*) FROM contratos WHERE id_vehiculo = %s AND tenant_id = %s AND estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION')) +
+                (SELECT COUNT(*) FROM reservas WHERE id_vehiculo = %s AND tenant_id = %s AND estado IN ('PENDIENTE', 'CONFIRMADA'))
             AS total_activos;
         """
-        count = self.execute_scalar(query, (id_vehiculo, id_vehiculo), conn=conn)
+        t_id = self.current_tenant_id
+        count = self.execute_scalar(query, (id_vehiculo, t_id, id_vehiculo, t_id), conn=conn)
         return (count or 0) > 0
 
     def has_any_history(self, id_vehiculo: int, conn: Any = None) -> bool:
         """Verifica si el vehículo posee historial en contratos, reservas o mantenimientos."""
         query = """
             SELECT 
-                (SELECT COUNT(*) FROM contratos WHERE id_vehiculo = %s) +
-                (SELECT COUNT(*) FROM reservas WHERE id_vehiculo = %s) +
-                (SELECT COUNT(*) FROM mantenimientos WHERE id_vehiculo = %s)
+                (SELECT COUNT(*) FROM contratos WHERE id_vehiculo = %s AND tenant_id = %s) +
+                (SELECT COUNT(*) FROM reservas WHERE id_vehiculo = %s AND tenant_id = %s) +
+                (SELECT COUNT(*) FROM mantenimientos WHERE id_vehiculo = %s AND tenant_id = %s)
             AS total_historial;
         """
-        count = self.execute_scalar(query, (id_vehiculo, id_vehiculo, id_vehiculo), conn=conn)
+        t_id = self.current_tenant_id
+        count = self.execute_scalar(query, (id_vehiculo, t_id, id_vehiculo, t_id, id_vehiculo, t_id), conn=conn)
         return (count or 0) > 0
 
     # ------------------------------------------------------------------------
@@ -396,16 +416,18 @@ class VehicleRepository(BaseRepository[Vehicle]):
         ]
 
     def list_categories(self, conn: Any = None) -> List[VehicleCategory]:
-        """Lista todas las categorías de vehículos con tarifas base."""
+        """Lista todas las categorías de vehículos con tarifas base de la agencia activa."""
         query = """
-            SELECT id_categoria, nombre, descripcion, deposito_garantia_sugerido, tarifa_base_diaria
+            SELECT id_categoria, tenant_id, nombre, descripcion, deposito_garantia_sugerido, tarifa_base_diaria
             FROM categorias_vehiculo
+            WHERE tenant_id = %s
             ORDER BY tarifa_base_diaria ASC;
         """
-        rows = self.execute_query(query, conn=conn)
+        rows = self.execute_query(query, (self.current_tenant_id,), conn=conn)
         return [
             VehicleCategory(
                 id_categoria=r["id_categoria"],
+                tenant_id=r.get("tenant_id", 1),
                 nombre=r["nombre"],
                 descripcion=r.get("descripcion"),
                 deposito_garantia_sugerido=Decimal(str(r["deposito_garantia_sugerido"])),
