@@ -3,6 +3,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -21,7 +22,7 @@ logger = get_logger(__name__)
 
 
 class LoginView(QWidget):
-    """Ventana de inicio de sesión moderna y minimalista."""
+    """Ventana de inicio de sesión moderna y minimalista con soporte Multi-Tenant."""
 
     # Señal emitida cuando la autenticación es exitosa
     login_success = Signal(object)
@@ -30,12 +31,13 @@ class LoginView(QWidget):
         super().__init__()
         self._password_visible = False
         self._init_ui()
+        self._load_agencies()
 
     def _init_ui(self) -> None:
         """Inicializa los componentes visuales y estilos del formulario de acceso."""
         self.setWindowTitle("AutoRent Pro — Inicio de Sesión")
-        self.resize(480, 620)
-        self.setMinimumSize(460, 580)
+        self.resize(480, 680)
+        self.setMinimumSize(460, 640)
         self.setStyleSheet("background-color: #0f172a;")  # Fondo oscuro elegante (Slate 900)
 
         # Layout principal centrado
@@ -101,6 +103,44 @@ class LoginView(QWidget):
         """)
         self.error_label.hide()
         card_layout.addWidget(self.error_label)
+
+        # 2.5. Selector de Agencia / Sucursal (Multi-Tenant)
+        agency_field_layout = QVBoxLayout()
+        agency_field_layout.setSpacing(6)
+
+        agency_title = QLabel("Agencia / Sucursal", card)
+        agency_title.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        agency_title.setStyleSheet("color: #cbd5e1; border: none;")
+
+        self.agency_combo = QComboBox(card)
+        self.agency_combo.setFont(QFont("Segoe UI", 10))
+        self.agency_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #0f172a;
+                color: #f8fafc;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 9px 14px;
+                min-height: 20px;
+            }
+            QComboBox:focus {
+                border: 1px solid #38bdf8;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 28px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1e293b;
+                color: #f8fafc;
+                selection-background-color: #0284c7;
+                selection-color: #ffffff;
+                border: 1px solid #334155;
+            }
+        """)
+        agency_field_layout.addWidget(agency_title)
+        agency_field_layout.addWidget(self.agency_combo)
+        card_layout.addLayout(agency_field_layout)
 
         # 3. Campo de Usuario
         user_field_layout = QVBoxLayout()
@@ -239,6 +279,22 @@ class LoginView(QWidget):
         # Enfocar campo de usuario por defecto
         self.username_input.setFocus()
 
+    def _load_agencies(self) -> None:
+        """Carga las agencias activas en el selector de inicio de sesión."""
+        self.agency_combo.clear()
+        try:
+            agencies = auth_service.list_agencies(only_active=True)
+            if agencies:
+                for ag in agencies:
+                    label = f"🏢 {ag.nombre_comercial} ({ag.codigo_agencia})"
+                    self.agency_combo.addItem(label, ag.id_agencia)
+                return
+        except Exception as e:
+            logger.debug("Usando agencia por defecto en selector de login: %s", e)
+
+        # Fallback por defecto (Tenant 1)
+        self.agency_combo.addItem("🏢 AutoRent Pro - Sede Central Managua (AUT-MGA-01)", 1)
+
     def _toggle_password_visibility(self) -> None:
         """Alterna el modo de visualización de la contraseña entre texto y máscara."""
         self._password_visible = not self._password_visible
@@ -254,6 +310,7 @@ class LoginView(QWidget):
         self.error_label.hide()
         username = self.username_input.text().strip()
         password = self.password_input.text()
+        tenant_id = self.agency_combo.currentData() or 1
 
         # Validación visual inmediata
         if not username:
@@ -272,9 +329,13 @@ class LoginView(QWidget):
         self.setCursor(Qt.CursorShape.WaitCursor)
 
         try:
-            # Delegación exclusiva a la capa de servicios (BLL)
-            user = auth_service.login(username=username, password=password)
-            logger.info("Login exitoso en UI para: %s", user.username)
+            # Delegación exclusiva a la capa de servicios (BLL) incluyendo el tenant_id
+            user = auth_service.login(
+                username=username,
+                password=password,
+                tenant_id=int(tenant_id),
+            )
+            logger.info("Login exitoso en UI para: %s (Agencia ID: %s)", user.username, user.tenant_id)
             self.login_success.emit(user)
 
         except (ValidationError, AuthenticationError) as e:

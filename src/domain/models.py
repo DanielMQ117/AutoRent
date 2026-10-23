@@ -23,6 +23,20 @@ from src.domain.enums import (
 
 
 @dataclass
+class Agency:
+    """Representa una agencia o sucursal arrendadora (Inquilino / Tenant)."""
+    id_agencia: Optional[int] = None
+    codigo_agencia: str = ""
+    nombre_comercial: str = ""
+    ruc_nit: str = ""
+    telefono: str = ""
+    email: Optional[str] = None
+    direccion: str = ""
+    activo: bool = True
+    fecha_creacion: Optional[datetime] = None
+
+
+@dataclass
 class Role:
     id_rol: Optional[int] = None
     nombre: str = ""
@@ -32,6 +46,7 @@ class Role:
 @dataclass
 class User:
     id_usuario: Optional[int] = None
+    tenant_id: int = 1
     id_rol: int = 0
     username: str = ""
     password_hash: str = ""
@@ -40,11 +55,14 @@ class User:
     activo: bool = True
     fecha_creacion: Optional[datetime] = None
     rol_nombre: Optional[str] = None  # Atributo informativo cargado por join
+    agencia_nombre: Optional[str] = None
+    agencia_codigo: Optional[str] = None
 
 
 @dataclass
 class AuditLog:
     id_auditoria: Optional[int] = None
+    tenant_id: int = 1
     id_usuario: Optional[int] = None
     username: str = ""
     accion: str = ""
@@ -58,6 +76,7 @@ class AuditLog:
 @dataclass
 class VehicleCategory:
     id_categoria: Optional[int] = None
+    tenant_id: int = 1
     nombre: str = ""
     descripcion: Optional[str] = None
     deposito_garantia_sugerido: Decimal = Decimal("300.00")
@@ -84,6 +103,7 @@ class VehicleModel:
 @dataclass
 class Vehicle:
     id_vehiculo: Optional[int] = None
+    tenant_id: int = 1
     id_modelo: int = 0
     id_categoria: int = 0
     placa: str = ""
@@ -104,6 +124,7 @@ class Vehicle:
 @dataclass
 class DriverLicense:
     id_licencia: Optional[int] = None
+    tenant_id: int = 1
     id_cliente: int = 0
     numero_licencia: str = ""
     categoria_licencia: str = ""
@@ -115,6 +136,7 @@ class DriverLicense:
 @dataclass
 class Client:
     id_cliente: Optional[int] = None
+    tenant_id: int = 1
     tipo_persona: ClientType = ClientType.NATURAL
     identificacion: str = ""
     nombres: str = ""
@@ -134,6 +156,7 @@ class Client:
 @dataclass
 class InsuranceCoverage:
     id_cobertura: Optional[int] = None
+    tenant_id: int = 1
     nombre: str = ""
     descripcion: str = ""
     costo_diario: Decimal = Decimal("0.00")
@@ -143,6 +166,7 @@ class InsuranceCoverage:
 @dataclass
 class Reservation:
     id_reserva: Optional[int] = None
+    tenant_id: int = 1
     codigo_reserva: str = ""
     id_cliente: int = 0
     id_categoria: int = 0
@@ -185,6 +209,7 @@ class Reservation:
 @dataclass
 class AdditionalDriver:
     id_conductor: Optional[int] = None
+    tenant_id: int = 1
     id_contrato: Optional[int] = None
     nombre_completo: str = ""
     identificacion: str = ""
@@ -195,6 +220,7 @@ class AdditionalDriver:
 @dataclass
 class Payment:
     id_pago: Optional[int] = None
+    tenant_id: int = 1
     codigo_transaccion: str = ""
     id_contrato: Optional[int] = None
     id_reserva: Optional[int] = None
@@ -211,6 +237,7 @@ class Payment:
 @dataclass
 class Contract:
     id_contrato: Optional[int] = None
+    tenant_id: int = 1
     codigo_contrato: str = ""
     id_reserva: Optional[int] = None
     id_cliente: int = 0
@@ -279,6 +306,7 @@ class Contract:
 class Damage:
     """Representa un daño físico registrado durante la inspección de retorno."""
     id_danio: Optional[int] = None
+    tenant_id: int = 1
     id_devolucion: Optional[int] = None
     zona_carroceria: str = ""
     tipo_danio: DamageType = DamageType.RAYON
@@ -291,6 +319,7 @@ class Damage:
 class ReturnInspection:
     """Representa el acta de devolución física e inspección técnica de un vehículo."""
     id_devolucion: Optional[int] = None
+    tenant_id: int = 1
     id_contrato: int = 0
     fecha_hora_retorno_real: Optional[datetime] = None
     kilometraje_retorno: int = 0
@@ -341,6 +370,7 @@ class ReturnInspection:
 class Settlement:
     """Representa la liquidación financiera final y balance contable de un contrato."""
     id_liquidacion: Optional[int] = None
+    tenant_id: int = 1
     id_contrato: int = 0
     id_devolucion: int = 0
     fecha_liquidacion: Optional[datetime] = None
@@ -369,6 +399,7 @@ class Settlement:
 class Maintenance:
     """Representa una orden de servicio en taller mecánico (preventivo o correctivo)."""
     id_mantenimiento: Optional[int] = None
+    tenant_id: int = 1
     id_vehiculo: int = 0
     tipo_mantenimiento: MaintenanceType = MaintenanceType.PREVENTIVO
     fecha_ingreso: Optional[datetime] = None

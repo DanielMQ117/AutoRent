@@ -196,11 +196,25 @@ class DashboardView(QMainWindow):
         bar_layout.addLayout(nav_container)
         bar_layout.addStretch()
 
-        # Datos del usuario autenticado
+        # Datos del usuario autenticado y agencia activa (Multi-Tenant)
         user = session.current_user
         nombre = user.nombre_completo if user else "Usuario del Sistema"
         username = f"@{user.username}" if user else "@anon"
         rol = session.role_name
+        agencia_cod = session.agency_code
+
+        # Badge de la Agencia Activa (Tenant)
+        tenant_badge = QLabel(f" 🏢 {agencia_cod} ")
+        tenant_badge.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        tenant_badge.setToolTip(f"Agencia Activa: {session.agency_name} (Tenant ID: {session.tenant_id})")
+        tenant_badge.setStyleSheet("""
+            background-color: rgba(14, 165, 233, 0.12);
+            color: #7dd3fc;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+            border-radius: 4px;
+            padding: 3px 8px;
+        """)
+        bar_layout.addWidget(tenant_badge)
 
         user_info_layout = QVBoxLayout()
         user_info_layout.setSpacing(1)
@@ -632,7 +646,7 @@ class DashboardView(QMainWindow):
 
         login_time_str = session.login_time.strftime("%H:%M:%S") if session.login_time else "--:--"
         status_bar.showMessage(
-            f"Sesión iniciada a las: {login_time_str} | Base de datos: {self.settings.database.name} ({self.settings.database.host}) | Entorno: {self.settings.app.env.upper()}"
+            f"Agencia: {session.agency_name} ({session.agency_code}) | Sesión iniciada a las: {login_time_str} | Base de datos: {self.settings.database.name} ({self.settings.database.host}) | Entorno: {self.settings.app.env.upper()}"
         )
 
     @staticmethod

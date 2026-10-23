@@ -16,6 +16,7 @@ class AuditRepository(BaseRepository[AuditLog]):
         """Mapea una fila de base de datos a un objeto de dominio AuditLog."""
         return AuditLog(
             id_auditoria=row["id_auditoria"],
+            tenant_id=row.get("tenant_id", 1),
             id_usuario=row.get("id_usuario"),
             username=row["username"],
             accion=row["accion"],
@@ -35,17 +36,20 @@ class AuditRepository(BaseRepository[AuditLog]):
         id_registro: Optional[int] = None,
         detalles: Optional[str] = None,
         ip_origen: str = "127.0.0.1",
+        tenant_id: Optional[int] = None,
         conn: Any = None,
     ) -> int:
         """Inserta un nuevo registro inmutable en la bitácora de auditoría."""
+        target_tenant = tenant_id if tenant_id is not None else self.current_tenant_id
         query = """
             INSERT INTO auditoria (
-                id_usuario, username, accion, tabla_afectada, id_registro, detalles, ip_origen
+                tenant_id, id_usuario, username, accion, tabla_afectada, id_registro, detalles, ip_origen
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id_auditoria;
         """
         params = (
+            target_tenant,
             id_usuario,
             username.strip(),
             accion.strip().upper(),
@@ -63,11 +67,14 @@ class AuditRepository(BaseRepository[AuditLog]):
         accion: Optional[str] = None,
         username: Optional[str] = None,
         tabla_afectada: Optional[str] = None,
+        tenant_id: Optional[int] = None,
     ) -> List[AuditLog]:
         """Consulta los eventos de auditoría más recientes con filtros opcionales."""
+        target_tenant = tenant_id if tenant_id is not None else self.current_tenant_id
         query = """
             SELECT 
                 id_auditoria,
+                tenant_id,
                 id_usuario,
                 username,
                 accion,
@@ -77,9 +84,9 @@ class AuditRepository(BaseRepository[AuditLog]):
                 ip_origen,
                 fecha_registro
             FROM auditoria
-            WHERE 1=1
+            WHERE tenant_id = %s
         """
-        params: list[Any] = []
+        params: list[Any] = [target_tenant]
 
         if accion:
             query += " AND accion = %s"
@@ -99,7 +106,8 @@ class AuditRepository(BaseRepository[AuditLog]):
         rows = self.execute_query(query, tuple(params))
         return [self._map_row_to_audit(r) for r in rows]
 
-    def count_total_logs(self) -> int:
-        """Retorna la cantidad total de eventos registrados en la bitácora."""
-        query = "SELECT COUNT(*) FROM auditoria;"
-        return int(self.execute_scalar(query) or 0)
+    def count_total_logs(self, tenant_id: Optional[int] = None) -> int:
+        """Retorna la cantidad total de eventos registrados en la bitácora de la agencia."""
+        target_tenant = tenant_id if tenant_id is not None else self.current_tenant_id
+        query = "SELECT COUNT(*) FROM auditoria WHERE tenant_id = %s;"
+        return int(self.execute_scalar(query, (target_tenant,)) or 0)

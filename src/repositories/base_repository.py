@@ -15,6 +15,7 @@ from src.core.exceptions import (
     RecordNotFoundError,
 )
 from src.core.logger import get_logger
+from src.core.session import session
 
 logger = get_logger(__name__)
 
@@ -26,6 +27,11 @@ class BaseRepository(ABC, Generic[T]):
 
     def __init__(self, manager: Optional[DatabaseManager] = None) -> None:
         self.db = manager or db_manager
+
+    @property
+    def current_tenant_id(self) -> int:
+        """Retorna el identificador de la agencia (tenant) activa en la sesión actual."""
+        return session.tenant_id
 
     def _translate_db_error(self, error: Exception, context: str = "") -> Exception:
         """Traduce excepciones de bajo nivel de PostgreSQL a excepciones de dominio tipadas."""

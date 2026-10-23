@@ -62,6 +62,7 @@ class UserSession:
                 cls._instance = super().__new__(cls)
                 cls._instance._user = None
                 cls._instance._login_time = None
+                cls._instance._default_tenant_id = 1
             return cls._instance
 
     @property
@@ -73,6 +74,32 @@ class UserSession:
     def current_user(self) -> Optional[User]:
         """Retorna el usuario actualmente autenticado."""
         return self._user
+
+    @property
+    def tenant_id(self) -> int:
+        """Retorna el identificador de la agencia (tenant) activa en sesión."""
+        if self._user and getattr(self._user, "tenant_id", None):
+            return int(self._user.tenant_id)
+        return getattr(self, "_default_tenant_id", 1)
+
+    @property
+    def agency_name(self) -> str:
+        """Retorna el nombre comercial de la agencia activa en sesión."""
+        if self._user and getattr(self._user, "agencia_nombre", None):
+            return str(self._user.agencia_nombre)
+        return "AutoRent Pro - Sede Central Managua"
+
+    @property
+    def agency_code(self) -> str:
+        """Retorna el código identificador de la agencia activa en sesión."""
+        if self._user and getattr(self._user, "agencia_codigo", None):
+            return str(self._user.agencia_codigo)
+        return "AUT-MGA-01"
+
+    def set_default_tenant(self, tenant_id: int) -> None:
+        """Fija el tenant por defecto cuando se opera fuera de una sesión interactiva."""
+        with self._lock:
+            self._default_tenant_id = int(tenant_id)
 
     @property
     def role_name(self) -> str:
@@ -90,8 +117,9 @@ class UserSession:
             self._user = user
             self._login_time = datetime.now()
             logger.info(
-                "Sesión iniciada exitosamente para '%s' (Rol: %s, ID: %s)",
+                "Sesión iniciada exitosamente para '%s' (Agencia ID: %s, Rol: %s, ID: %s)",
                 user.username,
+                user.tenant_id,
                 user.rol_nombre,
                 user.id_usuario,
             )
