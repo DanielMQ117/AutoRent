@@ -1,5 +1,6 @@
 -- ============================================================================
--- SCRIPT DDL COMPLETO DE BASE DE DATOS (POSTGRESQL 15+)
+-- SCRIPT DDL COMPLETO DE BASE DE DATOS MULTI-TENANT (POSTGRESQL 15+)
+-- PATRON: ESQUEMA COMPARTIDO CON COLUMNA DISCRIMINADORA (tenant_id)
 -- ============================================================================
 
 -- Habilitar extensión para restricciones de exclusión GiST con tipos escalares
@@ -42,6 +43,24 @@ DROP TABLE IF EXISTS usuarios CASCADE;
 
 DROP TABLE IF EXISTS roles CASCADE;
 
+DROP TABLE IF EXISTS agencias CASCADE;
+
+-- ----------------------------------------------------------------------------
+-- 0. MODULO MULTI-TENANCY (AGENCIAS / INQUILINOS)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE agencias (
+    id_agencia BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    codigo_agencia VARCHAR(20) NOT NULL UNIQUE,
+    nombre_comercial VARCHAR(100) NOT NULL,
+    ruc_nit VARCHAR(30) NOT NULL UNIQUE,
+    telefono VARCHAR(25) NOT NULL,
+    email VARCHAR(100),
+    direccion TEXT NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ----------------------------------------------------------------------------
 -- 1. MODULO DE SEGURIDAD Y USUARIOS
 -- ----------------------------------------------------------------------------
@@ -62,18 +81,23 @@ CREATE TABLE roles (
 
 CREATE TABLE usuarios (
     id_usuario BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_rol BIGINT NOT NULL,
-    username VARCHAR(50) NOT NULL UNIQUE,
+    username VARCHAR(50) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     nombre_completo VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL,
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_usuarios_roles FOREIGN KEY (id_rol) REFERENCES roles (id_rol) ON DELETE RESTRICT
+    CONSTRAINT fk_usuarios_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
+    CONSTRAINT fk_usuarios_roles FOREIGN KEY (id_rol) REFERENCES roles (id_rol) ON DELETE RESTRICT,
+    CONSTRAINT uq_usuarios_tenant_username UNIQUE (tenant_id, username),
+    CONSTRAINT uq_usuarios_tenant_email UNIQUE (tenant_id, email)
 );
 
 CREATE TABLE auditoria (
     id_auditoria BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_usuario BIGINT REFERENCES usuarios (id_usuario) ON DELETE SET NULL,
     username VARCHAR(50) NOT NULL,
     accion VARCHAR(60) NOT NULL,
@@ -81,9 +105,11 @@ CREATE TABLE auditoria (
     id_registro BIGINT,
     detalles TEXT,
     ip_origen VARCHAR(45) NOT NULL DEFAULT '127.0.0.1',
-    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_auditoria_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT
 );
 
+CREATE INDEX idx_auditoria_tenant ON auditoria (tenant_id);
 CREATE INDEX idx_auditoria_fecha ON auditoria (fecha_registro DESC);
 CREATE INDEX idx_auditoria_usuario ON auditoria (id_usuario);
 
@@ -122,10 +148,13 @@ CREATE TABLE modelos (
 
 CREATE TABLE categorias_vehiculo (
     id_categoria BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    nombre VARCHAR(50) NOT NULL,
     descripcion TEXT,
     deposito_garantia_sugerido NUMERIC(12, 2) NOT NULL DEFAULT 300.00,
     tarifa_base_diaria NUMERIC(12, 2) NOT NULL,
+    CONSTRAINT fk_categorias_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
+    CONSTRAINT uq_categorias_tenant_nombre UNIQUE (tenant_id, nombre),
     CONSTRAINT chk_categoria_garantia CHECK (
         deposito_garantia_sugerido >= 0
     ),
@@ -134,18 +163,22 @@ CREATE TABLE categorias_vehiculo (
 
 CREATE TABLE vehiculos (
     id_vehiculo BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_modelo BIGINT NOT NULL,
     id_categoria BIGINT NOT NULL,
-    placa VARCHAR(20) NOT NULL UNIQUE,
-    vin VARCHAR(17) NOT NULL UNIQUE,
+    placa VARCHAR(20) NOT NULL,
+    vin VARCHAR(17) NOT NULL,
     color VARCHAR(30) NOT NULL,
     kilometraje_actual INTEGER NOT NULL DEFAULT 0,
     nivel_combustible_actual NUMERIC(3, 2) NOT NULL DEFAULT 1.00,
     estado VARCHAR(25) NOT NULL DEFAULT 'DISPONIBLE',
     km_proximo_mantenimiento INTEGER NOT NULL,
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    CONSTRAINT fk_vehiculos_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_vehiculos_modelos FOREIGN KEY (id_modelo) REFERENCES modelos (id_modelo) ON DELETE RESTRICT,
     CONSTRAINT fk_vehiculos_categorias FOREIGN KEY (id_categoria) REFERENCES categorias_vehiculo (id_categoria) ON DELETE RESTRICT,
+    CONSTRAINT uq_vehiculos_tenant_placa UNIQUE (tenant_id, placa),
+    CONSTRAINT uq_vehiculos_tenant_vin UNIQUE (tenant_id, vin),
     CONSTRAINT chk_vehiculo_km CHECK (kilometraje_actual >= 0),
     CONSTRAINT chk_vehiculo_combustible CHECK (
         nivel_combustible_actual >= 0.00
@@ -170,15 +203,19 @@ CREATE TABLE vehiculos (
 
 CREATE TABLE clientes (
     id_cliente BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     tipo_persona VARCHAR(15) NOT NULL DEFAULT 'NATURAL',
-    identificacion VARCHAR(30) NOT NULL UNIQUE,
+    identificacion VARCHAR(30) NOT NULL,
     nombres VARCHAR(80) NOT NULL,
     apellidos VARCHAR(80) NOT NULL,
     telefono VARCHAR(25) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL,
     direccion TEXT NOT NULL,
     estado_cliente VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
     fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_clientes_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
+    CONSTRAINT uq_clientes_tenant_identificacion UNIQUE (tenant_id, identificacion),
+    CONSTRAINT uq_clientes_tenant_email UNIQUE (tenant_id, email),
     CONSTRAINT chk_cliente_tipo CHECK (
         tipo_persona IN ('NATURAL', 'JURIDICA')
     ),
@@ -189,13 +226,16 @@ CREATE TABLE clientes (
 
 CREATE TABLE licencias_conducir (
     id_licencia BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_cliente BIGINT NOT NULL UNIQUE,
-    numero_licencia VARCHAR(40) NOT NULL UNIQUE,
+    numero_licencia VARCHAR(40) NOT NULL,
     categoria_licencia VARCHAR(30) NOT NULL,
     fecha_emision DATE NOT NULL,
     fecha_vencimiento DATE NOT NULL,
     pais_emision VARCHAR(50) NOT NULL DEFAULT 'Nicaragua',
+    CONSTRAINT fk_licencias_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_licencias_clientes FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON DELETE CASCADE,
+    CONSTRAINT uq_licencias_tenant_numero UNIQUE (tenant_id, numero_licencia),
     CONSTRAINT chk_licencia_fechas CHECK (
         fecha_vencimiento > fecha_emision
     )
@@ -203,10 +243,13 @@ CREATE TABLE licencias_conducir (
 
 CREATE TABLE coberturas_seguro (
     id_cobertura BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    nombre VARCHAR(50) NOT NULL,
     descripcion TEXT NOT NULL,
     costo_diario NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     porcentaje_deducible NUMERIC(5, 2) NOT NULL DEFAULT 10.00,
+    CONSTRAINT fk_coberturas_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
+    CONSTRAINT uq_coberturas_tenant_nombre UNIQUE (tenant_id, nombre),
     CONSTRAINT chk_seguro_costo CHECK (costo_diario >= 0.00),
     CONSTRAINT chk_seguro_deducible CHECK (
         porcentaje_deducible >= 0.00
@@ -220,7 +263,8 @@ CREATE TABLE coberturas_seguro (
 
 CREATE TABLE reservas (
     id_reserva BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    codigo_reserva VARCHAR(20) NOT NULL UNIQUE,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    codigo_reserva VARCHAR(20) NOT NULL,
     id_cliente BIGINT NOT NULL,
     id_categoria BIGINT NOT NULL,
     id_vehiculo BIGINT NULL,
@@ -230,10 +274,12 @@ CREATE TABLE reservas (
     estado VARCHAR(25) NOT NULL DEFAULT 'PENDIENTE',
     id_usuario BIGINT NOT NULL,
     fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reservas_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_reservas_clientes FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON DELETE RESTRICT,
     CONSTRAINT fk_reservas_categorias FOREIGN KEY (id_categoria) REFERENCES categorias_vehiculo (id_categoria) ON DELETE RESTRICT,
     CONSTRAINT fk_reservas_vehiculos FOREIGN KEY (id_vehiculo) REFERENCES vehiculos (id_vehiculo) ON DELETE RESTRICT,
     CONSTRAINT fk_reservas_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE RESTRICT,
+    CONSTRAINT uq_reservas_tenant_codigo UNIQUE (tenant_id, codigo_reserva),
     CONSTRAINT chk_reserva_fechas CHECK (
         fecha_hora_fin > fecha_hora_inicio
     ),
@@ -247,18 +293,15 @@ CREATE TABLE reservas (
             'CONVERTIDA_A_CONTRATO'
         )
     ),
-    -- REGLA POSTGRESQL: Evitar solapamiento de reservas confirmadas para el mismo vehiculo especifico
+    -- REGLA POSTGRESQL: Evitar solapamiento de reservas confirmadas para el mismo vehiculo dentro de la agencia
     CONSTRAINT excl_reserva_vehiculo_solapado EXCLUDE USING gist (
-        id_vehiculo
-        WITH
-            =,
-            tstzrange (
-                fecha_hora_inicio,
-                fecha_hora_fin,
-                '[)'
-            )
-        WITH
-            &&
+        tenant_id WITH =,
+        id_vehiculo WITH =,
+        tstzrange (
+            fecha_hora_inicio,
+            fecha_hora_fin,
+            '[)'
+        ) WITH &&
     )
     WHERE (
             id_vehiculo IS NOT NULL
@@ -272,7 +315,8 @@ CREATE TABLE reservas (
 
 CREATE TABLE contratos (
     id_contrato BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    codigo_contrato VARCHAR(20) NOT NULL UNIQUE,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    codigo_contrato VARCHAR(20) NOT NULL,
     id_reserva BIGINT NULL UNIQUE,
     id_cliente BIGINT NOT NULL,
     id_vehiculo BIGINT NOT NULL,
@@ -290,11 +334,13 @@ CREATE TABLE contratos (
     estado VARCHAR(25) NOT NULL DEFAULT 'ACTIVO',
     id_usuario BIGINT NOT NULL,
     fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_contratos_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_contratos_reservas FOREIGN KEY (id_reserva) REFERENCES reservas (id_reserva) ON DELETE RESTRICT,
     CONSTRAINT fk_contratos_clientes FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON DELETE RESTRICT,
     CONSTRAINT fk_contratos_vehiculos FOREIGN KEY (id_vehiculo) REFERENCES vehiculos (id_vehiculo) ON DELETE RESTRICT,
     CONSTRAINT fk_contratos_coberturas FOREIGN KEY (id_cobertura) REFERENCES coberturas_seguro (id_cobertura) ON DELETE RESTRICT,
     CONSTRAINT fk_contratos_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE RESTRICT,
+    CONSTRAINT uq_contratos_tenant_codigo UNIQUE (tenant_id, codigo_contrato),
     CONSTRAINT chk_contrato_fechas CHECK (
         fecha_hora_fin_pactada > fecha_hora_inicio_pactada
     ),
@@ -322,18 +368,15 @@ CREATE TABLE contratos (
             'ANULADO'
         )
     ),
-    -- REGLA POSTGRESQL CORE: Imposible alquilar el mismo vehiculo en periodos solapados
+    -- REGLA POSTGRESQL CORE: Imposible alquilar el mismo vehiculo en periodos solapados dentro de la agencia
     CONSTRAINT excl_contrato_vehiculo_solapado EXCLUDE USING gist (
-        id_vehiculo
-        WITH
-            =,
-            tstzrange (
-                fecha_hora_inicio_pactada,
-                fecha_hora_fin_pactada,
-                '[)'
-            )
-        WITH
-            &&
+        tenant_id WITH =,
+        id_vehiculo WITH =,
+        tstzrange (
+            fecha_hora_inicio_pactada,
+            fecha_hora_fin_pactada,
+            '[)'
+        ) WITH &&
     )
     WHERE (
             estado IN (
@@ -346,11 +389,13 @@ CREATE TABLE contratos (
 
 CREATE TABLE conductores_adicionales (
     id_conductor BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_contrato BIGINT NOT NULL,
     nombre_completo VARCHAR(120) NOT NULL,
     identificacion VARCHAR(30) NOT NULL,
     numero_licencia VARCHAR(40) NOT NULL,
     fecha_vencimiento_licencia DATE NOT NULL,
+    CONSTRAINT fk_conductores_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_conductores_contratos FOREIGN KEY (id_contrato) REFERENCES contratos (id_contrato) ON DELETE CASCADE
 );
 
@@ -360,6 +405,7 @@ CREATE TABLE conductores_adicionales (
 
 CREATE TABLE devoluciones (
     id_devolucion BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_contrato BIGINT NOT NULL UNIQUE,
     fecha_hora_retorno_real TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     kilometraje_retorno INTEGER NOT NULL,
@@ -369,6 +415,7 @@ CREATE TABLE devoluciones (
     accesorios_completos BOOLEAN NOT NULL DEFAULT TRUE,
     observaciones TEXT,
     id_usuario BIGINT NOT NULL,
+    CONSTRAINT fk_devoluciones_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_devoluciones_contratos FOREIGN KEY (id_contrato) REFERENCES contratos (id_contrato) ON DELETE RESTRICT,
     CONSTRAINT fk_devoluciones_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE RESTRICT,
     CONSTRAINT chk_devolucion_km CHECK (kilometraje_retorno >= 0),
@@ -381,12 +428,14 @@ CREATE TABLE devoluciones (
 
 CREATE TABLE danios (
     id_danio BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_devolucion BIGINT NOT NULL,
     zona_carroceria VARCHAR(50) NOT NULL,
     tipo_danio VARCHAR(30) NOT NULL,
     gravedad VARCHAR(20) NOT NULL,
     descripcion TEXT NOT NULL,
     costo_reparacion NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    CONSTRAINT fk_danios_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_danios_devoluciones FOREIGN KEY (id_devolucion) REFERENCES devoluciones (id_devolucion) ON DELETE CASCADE,
     CONSTRAINT chk_danio_tipo CHECK (
         tipo_danio IN (
@@ -409,6 +458,7 @@ CREATE TABLE danios (
 
 CREATE TABLE liquidaciones (
     id_liquidacion BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_contrato BIGINT NOT NULL UNIQUE,
     id_devolucion BIGINT NOT NULL UNIQUE,
     fecha_liquidacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -423,6 +473,7 @@ CREATE TABLE liquidaciones (
     saldo_cliente NUMERIC(12, 2) NOT NULL,
     estado_liquidacion VARCHAR(20) NOT NULL DEFAULT 'CERRADA',
     id_usuario BIGINT NOT NULL,
+    CONSTRAINT fk_liquidaciones_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_liquidaciones_contratos FOREIGN KEY (id_contrato) REFERENCES contratos (id_contrato) ON DELETE RESTRICT,
     CONSTRAINT fk_liquidaciones_devoluciones FOREIGN KEY (id_devolucion) REFERENCES devoluciones (id_devolucion) ON DELETE RESTRICT,
     CONSTRAINT fk_liquidaciones_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE RESTRICT,
@@ -443,7 +494,8 @@ CREATE TABLE liquidaciones (
 
 CREATE TABLE pagos (
     id_pago BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    codigo_transaccion VARCHAR(30) NOT NULL UNIQUE,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
+    codigo_transaccion VARCHAR(30) NOT NULL,
     id_contrato BIGINT NULL,
     id_reserva BIGINT NULL,
     id_liquidacion BIGINT NULL,
@@ -453,10 +505,12 @@ CREATE TABLE pagos (
     fecha_hora TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     referencia VARCHAR(60),
     id_usuario BIGINT NOT NULL,
+    CONSTRAINT fk_pagos_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_pagos_contratos FOREIGN KEY (id_contrato) REFERENCES contratos (id_contrato) ON DELETE RESTRICT,
     CONSTRAINT fk_pagos_reservas FOREIGN KEY (id_reserva) REFERENCES reservas (id_reserva) ON DELETE RESTRICT,
     CONSTRAINT fk_pagos_liquidaciones FOREIGN KEY (id_liquidacion) REFERENCES liquidaciones (id_liquidacion) ON DELETE RESTRICT,
     CONSTRAINT fk_pagos_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE RESTRICT,
+    CONSTRAINT uq_pagos_tenant_codigo UNIQUE (tenant_id, codigo_transaccion),
     CONSTRAINT chk_pago_tipo CHECK (
         tipo_movimiento IN (
             'ANTICIPO_RESERVA',
@@ -482,6 +536,7 @@ CREATE TABLE pagos (
 
 CREATE TABLE mantenimientos (
     id_mantenimiento BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id BIGINT NOT NULL DEFAULT 1,
     id_vehiculo BIGINT NOT NULL,
     tipo_mantenimiento VARCHAR(20) NOT NULL,
     fecha_ingreso TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -493,6 +548,7 @@ CREATE TABLE mantenimientos (
     costo_total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     estado VARCHAR(20) NOT NULL DEFAULT 'EN_TALLER',
     id_usuario BIGINT NOT NULL,
+    CONSTRAINT fk_mantenimientos_agencias FOREIGN KEY (tenant_id) REFERENCES agencias (id_agencia) ON DELETE RESTRICT,
     CONSTRAINT fk_mantenimientos_vehiculos FOREIGN KEY (id_vehiculo) REFERENCES vehiculos (id_vehiculo) ON DELETE RESTRICT,
     CONSTRAINT fk_mantenimientos_usuarios FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE RESTRICT,
     CONSTRAINT chk_mant_tipo CHECK (
@@ -510,35 +566,66 @@ CREATE TABLE mantenimientos (
 );
 
 -- ----------------------------------------------------------------------------
--- 9. INDICES ESTRATEGICOS PARA OPTIMIZACION DE CONSULTAS
+-- 9. INDICES ESTRATEGICOS PARA OPTIMIZACION DE CONSULTAS Y MULTI-TENANCY
 -- ----------------------------------------------------------------------------
 
+-- Indices de aislamiento por inquilino (tenant_id)
+CREATE INDEX idx_usuarios_tenant ON usuarios (tenant_id);
+
+CREATE INDEX idx_categorias_tenant ON categorias_vehiculo (tenant_id);
+
+CREATE INDEX idx_vehiculos_tenant ON vehiculos (tenant_id);
+
+CREATE INDEX idx_clientes_tenant ON clientes (tenant_id);
+
+CREATE INDEX idx_licencias_tenant ON licencias_conducir (tenant_id);
+
+CREATE INDEX idx_coberturas_tenant ON coberturas_seguro (tenant_id);
+
+CREATE INDEX idx_reservas_tenant ON reservas (tenant_id);
+
+CREATE INDEX idx_contratos_tenant ON contratos (tenant_id);
+
+CREATE INDEX idx_conductores_tenant ON conductores_adicionales (tenant_id);
+
+CREATE INDEX idx_devoluciones_tenant ON devoluciones (tenant_id);
+
+CREATE INDEX idx_danios_tenant ON danios (tenant_id);
+
+CREATE INDEX idx_liquidaciones_tenant ON liquidaciones (tenant_id);
+
+CREATE INDEX idx_pagos_tenant ON pagos (tenant_id);
+
+CREATE INDEX idx_mantenimientos_tenant ON mantenimientos (tenant_id);
+
+-- Indices operativos de negocio
 CREATE INDEX idx_usuarios_rol ON usuarios (id_rol);
 
 CREATE INDEX idx_modelos_marca ON modelos (id_marca);
 
 CREATE INDEX idx_vehiculos_categoria ON vehiculos (id_categoria);
 
-CREATE INDEX idx_vehiculos_estado ON vehiculos (estado);
+CREATE INDEX idx_vehiculos_estado ON vehiculos (tenant_id, estado);
 
-CREATE INDEX idx_clientes_identificacion ON clientes (identificacion);
+CREATE INDEX idx_clientes_identificacion ON clientes (tenant_id, identificacion);
 
-CREATE INDEX idx_clientes_estado ON clientes (estado_cliente);
+CREATE INDEX idx_clientes_estado ON clientes (tenant_id, estado_cliente);
 
 CREATE INDEX idx_reservas_cliente ON reservas (id_cliente);
 
 CREATE INDEX idx_reservas_fechas ON reservas (
+    tenant_id,
     fecha_hora_inicio,
     fecha_hora_fin
 );
 
-CREATE INDEX idx_reservas_estado ON reservas (estado);
+CREATE INDEX idx_reservas_estado ON reservas (tenant_id, estado);
 
 CREATE INDEX idx_contratos_cliente ON contratos (id_cliente);
 
 CREATE INDEX idx_contratos_vehiculo ON contratos (id_vehiculo);
 
-CREATE INDEX idx_contratos_estado ON contratos (estado);
+CREATE INDEX idx_contratos_estado ON contratos (tenant_id, estado);
 
 CREATE INDEX idx_devoluciones_contrato ON devoluciones (id_contrato);
 
@@ -546,14 +633,14 @@ CREATE INDEX idx_danios_devolucion ON danios (id_devolucion);
 
 CREATE INDEX idx_pagos_contrato ON pagos (id_contrato);
 
-CREATE INDEX idx_pagos_fecha ON pagos (fecha_hora);
+CREATE INDEX idx_pagos_fecha ON pagos (tenant_id, fecha_hora);
 
 CREATE INDEX idx_mantenimientos_vehiculo ON mantenimientos (id_vehiculo);
 
-CREATE INDEX idx_mantenimientos_estado ON mantenimientos (estado);
+CREATE INDEX idx_mantenimientos_estado ON mantenimientos (tenant_id, estado);
 
 -- ----------------------------------------------------------------------------
--- 10. TRIGGERS Y FUNCIONES DE INTEGRIDAD OPERATIVA
+-- 10. TRIGGERS Y FUNCIONES DE INTEGRIDAD OPERATIVA (MULTI-TENANT)
 -- ----------------------------------------------------------------------------
 
 -- A. Validar que el kilometraje de retorno sea mayor o igual al de salida
@@ -563,7 +650,13 @@ DECLARE
     v_km_salida INTEGER;
 BEGIN
     SELECT kilometraje_salida INTO v_km_salida
-    FROM contratos WHERE id_contrato = NEW.id_contrato;
+    FROM contratos
+    WHERE id_contrato = NEW.id_contrato
+      AND tenant_id = NEW.tenant_id;
+
+    IF v_km_salida IS NULL THEN
+        RAISE EXCEPTION 'Contrato no encontrado para la agencia especificada (tenant_id=%).', NEW.tenant_id;
+    END IF;
 
     IF NEW.kilometraje_retorno < v_km_salida THEN
         RAISE EXCEPTION 'Incoherencia de odómetro: El kilometraje de retorno (%) no puede ser menor al de salida (%)',
@@ -587,10 +680,14 @@ DECLARE
     v_km_proximo_mant INTEGER;
 BEGIN
     SELECT id_vehiculo INTO v_id_vehiculo
-    FROM contratos WHERE id_contrato = NEW.id_contrato;
+    FROM contratos
+    WHERE id_contrato = NEW.id_contrato
+      AND tenant_id = NEW.tenant_id;
 
     SELECT km_proximo_mantenimiento INTO v_km_proximo_mant
-    FROM vehiculos WHERE id_vehiculo = v_id_vehiculo;
+    FROM vehiculos
+    WHERE id_vehiculo = v_id_vehiculo
+      AND tenant_id = NEW.tenant_id;
 
     -- Si el vehículo requiere mantenimiento preventivo por kilometraje, pasa a EN_MANTENIMIENTO
     IF NEW.kilometraje_retorno >= v_km_proximo_mant THEN
@@ -598,19 +695,22 @@ BEGIN
         SET kilometraje_actual = NEW.kilometraje_retorno,
             nivel_combustible_actual = NEW.combustible_retorno,
             estado = 'EN_MANTENIMIENTO'
-        WHERE id_vehiculo = v_id_vehiculo;
+        WHERE id_vehiculo = v_id_vehiculo
+          AND tenant_id = NEW.tenant_id;
     ELSE
         UPDATE vehiculos 
         SET kilometraje_actual = NEW.kilometraje_retorno,
             nivel_combustible_actual = NEW.combustible_retorno,
             estado = 'EN_INSPECCION'
-        WHERE id_vehiculo = v_id_vehiculo;
+        WHERE id_vehiculo = v_id_vehiculo
+          AND tenant_id = NEW.tenant_id;
     END IF;
 
     -- Actualizar estado del contrato a EN_LIQUIDACION
     UPDATE contratos 
     SET estado = 'EN_LIQUIDACION' 
-    WHERE id_contrato = NEW.id_contrato;
+    WHERE id_contrato = NEW.id_contrato
+      AND tenant_id = NEW.tenant_id;
 
     RETURN NEW;
 END;
@@ -628,10 +728,12 @@ DECLARE
     v_vencimiento DATE;
 BEGIN
     SELECT fecha_vencimiento INTO v_vencimiento
-    FROM licencias_conducir WHERE id_cliente = NEW.id_cliente;
+    FROM licencias_conducir
+    WHERE id_cliente = NEW.id_cliente
+      AND tenant_id = NEW.tenant_id;
 
     IF v_vencimiento IS NULL THEN
-        RAISE EXCEPTION 'El cliente ID % no posee una licencia de conducir registrada', NEW.id_cliente;
+        RAISE EXCEPTION 'El cliente ID % no posee una licencia de conducir registrada en esta agencia', NEW.id_cliente;
     END IF;
 
     IF v_vencimiento < NEW.fecha_hora_fin_pactada::DATE THEN
