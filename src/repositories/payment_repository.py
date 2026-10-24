@@ -19,7 +19,7 @@ class PaymentRepository(BaseRepository[Payment]):
         """Mapea una fila de base de datos a un objeto Payment."""
         return Payment(
             id_pago=row["id_pago"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             codigo_transaccion=row["codigo_transaccion"],
             id_contrato=row.get("id_contrato"),
             id_reserva=row.get("id_reserva"),

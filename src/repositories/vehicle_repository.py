@@ -18,7 +18,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         """Mapea una fila con JOINs de modelo, marca y categoría a un objeto Vehicle."""
         return Vehicle(
             id_vehiculo=row["id_vehiculo"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             id_modelo=row["id_modelo"],
             id_categoria=row["id_categoria"],
             placa=row["placa"],
@@ -427,7 +427,7 @@ class VehicleRepository(BaseRepository[Vehicle]):
         return [
             VehicleCategory(
                 id_categoria=r["id_categoria"],
-                tenant_id=r.get("tenant_id", 1),
+                tenant_id=r["tenant_id"],
                 nombre=r["nombre"],
                 descripcion=r.get("descripcion"),
                 deposito_garantia_sugerido=Decimal(str(r["deposito_garantia_sugerido"])),

@@ -16,7 +16,7 @@ class AuditRepository(BaseRepository[AuditLog]):
         """Mapea una fila de base de datos a un objeto de dominio AuditLog."""
         return AuditLog(
             id_auditoria=row["id_auditoria"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             id_usuario=row.get("id_usuario"),
             username=row["username"],
             accion=row["accion"],

@@ -20,7 +20,7 @@ class ContractRepository(BaseRepository[Contract]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Contract."""
         return Contract(
             id_contrato=row["id_contrato"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             codigo_contrato=row["codigo_contrato"],
             id_reserva=row.get("id_reserva"),
             id_cliente=row["id_cliente"],
@@ -63,7 +63,7 @@ class ContractRepository(BaseRepository[Contract]):
         return [
             AdditionalDriver(
                 id_conductor=r["id_conductor"],
-                tenant_id=r.get("tenant_id", 1),
+                tenant_id=r["tenant_id"],
                 id_contrato=r["id_contrato"],
                 nombre_completo=r["nombre_completo"],
                 identificacion=r["identificacion"],
@@ -99,7 +99,7 @@ class ContractRepository(BaseRepository[Contract]):
         return [
             Payment(
                 id_pago=r["id_pago"],
-                tenant_id=r.get("tenant_id", 1),
+                tenant_id=r["tenant_id"],
                 codigo_transaccion=r["codigo_transaccion"],
                 id_contrato=r["id_contrato"],
                 id_reserva=r.get("id_reserva"),

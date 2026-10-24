@@ -20,7 +20,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         """Mapea una fila relacional de la tabla danios a un objeto de dominio Damage."""
         return Damage(
             id_danio=row["id_danio"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             id_devolucion=row["id_devolucion"],
             zona_carroceria=row["zona_carroceria"],
             tipo_danio=DamageType(row["tipo_danio"]),
@@ -34,7 +34,7 @@ class ReturnRepository(BaseRepository[ReturnInspection]):
         """Mapea una fila relacional con JOINs a un objeto ReturnInspection."""
         return ReturnInspection(
             id_devolucion=row["id_devolucion"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             id_contrato=row["id_contrato"],
             fecha_hora_retorno_real=row["fecha_hora_retorno_real"],
             kilometraje_retorno=row["kilometraje_retorno"],

@@ -13,7 +13,7 @@ class UserRepository(BaseRepository[User]):
         """Mapea una fila de base de datos a un objeto de dominio User."""
         return User(
             id_usuario=row["id_usuario"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             id_rol=row["id_rol"],
             username=row["username"],
             password_hash=row["password_hash"],
@@ -297,16 +297,17 @@ class UserRepository(BaseRepository[User]):
 
     def has_operational_records(self, id_usuario: int) -> bool:
         """Comprueba si el usuario tiene registros vinculados en contratos, reservas, mantenimientos o devoluciones."""
+        t_id = self.current_tenant_id
         queries = [
-            "SELECT 1 FROM contratos WHERE id_usuario = %s LIMIT 1;",
-            "SELECT 1 FROM reservas WHERE id_usuario = %s LIMIT 1;",
-            "SELECT 1 FROM devoluciones WHERE id_usuario = %s LIMIT 1;",
-            "SELECT 1 FROM mantenimientos WHERE id_usuario = %s LIMIT 1;",
-            "SELECT 1 FROM liquidaciones WHERE id_usuario = %s LIMIT 1;",
-            "SELECT 1 FROM pagos WHERE id_usuario = %s LIMIT 1;",
+            "SELECT 1 FROM contratos WHERE id_usuario = %s AND tenant_id = %s LIMIT 1;",
+            "SELECT 1 FROM reservas WHERE id_usuario = %s AND tenant_id = %s LIMIT 1;",
+            "SELECT 1 FROM devoluciones WHERE id_usuario = %s AND tenant_id = %s LIMIT 1;",
+            "SELECT 1 FROM mantenimientos WHERE id_usuario = %s AND tenant_id = %s LIMIT 1;",
+            "SELECT 1 FROM liquidaciones WHERE id_usuario = %s AND tenant_id = %s LIMIT 1;",
+            "SELECT 1 FROM pagos WHERE id_usuario = %s AND tenant_id = %s LIMIT 1;",
         ]
         for q in queries:
-            if self.execute_query_one(q, (id_usuario,)):
+            if self.execute_query_one(q, (id_usuario, t_id)):
                 return True
         return False
 

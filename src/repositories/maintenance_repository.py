@@ -20,7 +20,7 @@ class MaintenanceRepository(BaseRepository[Maintenance]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Maintenance."""
         return Maintenance(
             id_mantenimiento=row["id_mantenimiento"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             id_vehiculo=row["id_vehiculo"],
             tipo_mantenimiento=MaintenanceType(row["tipo_mantenimiento"]),
             fecha_ingreso=row["fecha_ingreso"],

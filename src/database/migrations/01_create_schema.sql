@@ -81,7 +81,7 @@ CREATE TABLE roles (
 
 CREATE TABLE usuarios (
     id_usuario BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_rol BIGINT NOT NULL,
     username VARCHAR(50) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE usuarios (
 
 CREATE TABLE auditoria (
     id_auditoria BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_usuario BIGINT REFERENCES usuarios (id_usuario) ON DELETE SET NULL,
     username VARCHAR(50) NOT NULL,
     accion VARCHAR(60) NOT NULL,
@@ -148,7 +148,7 @@ CREATE TABLE modelos (
 
 CREATE TABLE categorias_vehiculo (
     id_categoria BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     nombre VARCHAR(50) NOT NULL,
     descripcion TEXT,
     deposito_garantia_sugerido NUMERIC(12, 2) NOT NULL DEFAULT 300.00,
@@ -163,7 +163,7 @@ CREATE TABLE categorias_vehiculo (
 
 CREATE TABLE vehiculos (
     id_vehiculo BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_modelo BIGINT NOT NULL,
     id_categoria BIGINT NOT NULL,
     placa VARCHAR(20) NOT NULL,
@@ -203,7 +203,7 @@ CREATE TABLE vehiculos (
 
 CREATE TABLE clientes (
     id_cliente BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     tipo_persona VARCHAR(15) NOT NULL DEFAULT 'NATURAL',
     identificacion VARCHAR(30) NOT NULL,
     nombres VARCHAR(80) NOT NULL,
@@ -226,7 +226,7 @@ CREATE TABLE clientes (
 
 CREATE TABLE licencias_conducir (
     id_licencia BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_cliente BIGINT NOT NULL UNIQUE,
     numero_licencia VARCHAR(40) NOT NULL,
     categoria_licencia VARCHAR(30) NOT NULL,
@@ -243,7 +243,7 @@ CREATE TABLE licencias_conducir (
 
 CREATE TABLE coberturas_seguro (
     id_cobertura BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     nombre VARCHAR(50) NOT NULL,
     descripcion TEXT NOT NULL,
     costo_diario NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
@@ -263,7 +263,7 @@ CREATE TABLE coberturas_seguro (
 
 CREATE TABLE reservas (
     id_reserva BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     codigo_reserva VARCHAR(20) NOT NULL,
     id_cliente BIGINT NOT NULL,
     id_categoria BIGINT NOT NULL,
@@ -315,7 +315,7 @@ CREATE TABLE reservas (
 
 CREATE TABLE contratos (
     id_contrato BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     codigo_contrato VARCHAR(20) NOT NULL,
     id_reserva BIGINT NULL UNIQUE,
     id_cliente BIGINT NOT NULL,
@@ -389,7 +389,7 @@ CREATE TABLE contratos (
 
 CREATE TABLE conductores_adicionales (
     id_conductor BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_contrato BIGINT NOT NULL,
     nombre_completo VARCHAR(120) NOT NULL,
     identificacion VARCHAR(30) NOT NULL,
@@ -405,7 +405,7 @@ CREATE TABLE conductores_adicionales (
 
 CREATE TABLE devoluciones (
     id_devolucion BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_contrato BIGINT NOT NULL UNIQUE,
     fecha_hora_retorno_real TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     kilometraje_retorno INTEGER NOT NULL,
@@ -428,7 +428,7 @@ CREATE TABLE devoluciones (
 
 CREATE TABLE danios (
     id_danio BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_devolucion BIGINT NOT NULL,
     zona_carroceria VARCHAR(50) NOT NULL,
     tipo_danio VARCHAR(30) NOT NULL,
@@ -458,7 +458,7 @@ CREATE TABLE danios (
 
 CREATE TABLE liquidaciones (
     id_liquidacion BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_contrato BIGINT NOT NULL UNIQUE,
     id_devolucion BIGINT NOT NULL UNIQUE,
     fecha_liquidacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -494,7 +494,7 @@ CREATE TABLE liquidaciones (
 
 CREATE TABLE pagos (
     id_pago BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     codigo_transaccion VARCHAR(30) NOT NULL,
     id_contrato BIGINT NULL,
     id_reserva BIGINT NULL,
@@ -536,7 +536,7 @@ CREATE TABLE pagos (
 
 CREATE TABLE mantenimientos (
     id_mantenimiento BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 1,
+    tenant_id BIGINT NOT NULL,
     id_vehiculo BIGINT NOT NULL,
     tipo_mantenimiento VARCHAR(20) NOT NULL,
     fecha_ingreso TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

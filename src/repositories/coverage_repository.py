@@ -18,7 +18,7 @@ class CoverageRepository(BaseRepository[InsuranceCoverage]):
         """Convierte un registro relacional en una entidad InsuranceCoverage."""
         return InsuranceCoverage(
             id_cobertura=row["id_cobertura"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             nombre=row["nombre"],
             descripcion=row["descripcion"],
             costo_diario=Decimal(str(row["costo_diario"])),

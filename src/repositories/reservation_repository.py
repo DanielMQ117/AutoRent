@@ -19,7 +19,7 @@ class ReservationRepository(BaseRepository[Reservation]):
         """Mapea una fila relacional con JOINs a un objeto de dominio Reservation."""
         return Reservation(
             id_reserva=row["id_reserva"],
-            tenant_id=row.get("tenant_id", 1),
+            tenant_id=row["tenant_id"],
             codigo_reserva=row["codigo_reserva"],
             id_cliente=row["id_cliente"],
             id_categoria=row["id_categoria"],
@@ -383,7 +383,7 @@ class ReservationRepository(BaseRepository[Reservation]):
         return [
             Vehicle(
                 id_vehiculo=r["id_vehiculo"],
-                tenant_id=r.get("tenant_id", 1),
+                tenant_id=r["tenant_id"],
                 id_modelo=r["id_modelo"],
                 id_categoria=r["id_categoria"],
                 placa=r["placa"],

@@ -15,7 +15,7 @@ class ClientRepository(BaseRepository[Client]):
     @staticmethod
     def _map_row_to_client(row: dict) -> Client:
         """Mapea una fila de base de datos con posible JOIN a un objeto Client con DriverLicense."""
-        tenant_val = row.get("tenant_id", 1)
+        tenant_val = row["tenant_id"]
         license_obj: Optional[DriverLicense] = None
         if row.get("id_licencia") is not None:
             license_obj = DriverLicense(
