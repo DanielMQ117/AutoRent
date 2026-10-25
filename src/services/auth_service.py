@@ -80,20 +80,23 @@ class AuthService(BaseService):
         # 2. Verificar existencia y estado activo de la Agencia (Tenant)
         agency = self.user_repo.get_agency_by_id(target_tenant)
         if agency is None:
-            self.logger.warning("Fallo de autenticación: Agencia inexistente ID %s", target_tenant)
+            self.logger.warning(
+                "Fallo de autenticación: Agencia inexistente ID %s", target_tenant)
             raise AuthenticationError(
                 message="La agencia o sucursal seleccionada no existe.",
                 code="TENANT_NOT_FOUND",
             )
         if not agency.activo:
-            self.logger.warning("Fallo de autenticación: Agencia deshabilitada ID %s", target_tenant)
+            self.logger.warning(
+                "Fallo de autenticación: Agencia deshabilitada ID %s", target_tenant)
             raise AuthenticationError(
                 message="La agencia o sucursal seleccionada se encuentra inhabilitada temporalmente.",
                 code="TENANT_DISABLED",
             )
 
         # 3. Consultar usuario en persistencia filtrado por agencia (tenant_id)
-        user = self.user_repo.get_by_username(clean_username, tenant_id=target_tenant)
+        user = self.user_repo.get_by_username(
+            clean_username, tenant_id=target_tenant)
 
         if user is None:
             self.logger.warning(
@@ -108,35 +111,52 @@ class AuthService(BaseService):
 
         # 4. Verificar estado de habilitación
         if not user.activo:
-            self.logger.warning("Fallo de autenticación: Usuario deshabilitado '%s'", clean_username)
+            self.logger.warning(
+                "Fallo de autenticación: Usuario deshabilitado '%s'", clean_username)
             raise AuthenticationError(
                 message="Su cuenta de usuario se encuentra deshabilitada. Contacte al Administrador.",
                 code="USER_DISABLED",
             )
 
+        # Verificar existencia de ID de usuario
+        id_usuario = user.id_usuario
+        if id_usuario is None:
+            self.logger.error(
+                "No se puede bloquear la cuenta '%s' en agencia %s porque falta el identificador del usuario.",
+                clean_username,
+                target_tenant,
+            )
+            raise AuthenticationError(
+                message="No se pudo bloquear la cuenta por una inconsistencia de datos del usuario.",
+                code="USER_ID_MISSING",
+            )
+
         # 5. Verificar contraseña con hash bcrypt
         if not verify_password(password, user.password_hash):
-            self.logger.warning("Fallo de autenticación: Contraseña incorrecta para '%s'", clean_username)
-            attempts = self.increment_failed_attempts(clean_username, tenant_id=target_tenant)
+            self.logger.warning(
+                "Fallo de autenticación: Contraseña incorrecta para '%s'", clean_username)
+            attempts = self.increment_failed_attempts(
+                clean_username, tenant_id=target_tenant)
 
             if attempts >= self.MAX_FAILED_ATTEMPTS:
                 # RF-03: Inhabilitar automáticamente la cuenta dentro de su agencia
                 prev_default = getattr(session, "_default_tenant_id", None)
                 try:
                     session.set_default_tenant(target_tenant)
-                    self.user_repo.set_active_status(user.id_usuario, False)
+                    self.user_repo.set_active_status(id_usuario, False)
                     self.audit_repo.record_action(
-                        id_usuario=user.id_usuario,
+                        id_usuario=id_usuario,
                         username=user.username,
                         accion="BLOQUEO_AUTOMATICO_INTENTOS",
                         tabla_afectada="usuarios",
-                        id_registro=user.id_usuario,
+                        id_registro=id_usuario,
                         detalles=f"Bloqueo automático de cuenta tras {attempts} intentos fallidos consecutivos.",
                         tenant_id=target_tenant,
                     )
                 finally:
                     session.set_default_tenant(prev_default)
-                self.logger.error("Cuenta bloqueada por fuerza bruta: '%s' (%d intentos)", clean_username, attempts)
+                self.logger.error(
+                    "Cuenta bloqueada por fuerza bruta: '%s' (%d intentos)", clean_username, attempts)
                 raise AuthenticationError(
                     message=f"Su cuenta ha sido bloqueada tras {attempts} intentos fallidos consecutivos. Contacte al Administrador.",
                     code="ACCOUNT_LOCKED",
@@ -154,16 +174,17 @@ class AuthService(BaseService):
         # Registrar evento de inicio de sesión en bitácora de auditoría (RF-05)
         try:
             self.audit_repo.record_action(
-                id_usuario=user.id_usuario,
+                id_usuario=id_usuario,
                 username=user.username,
                 accion="LOGIN_EXITOSO",
                 tabla_afectada="usuarios",
-                id_registro=user.id_usuario,
+                id_registro=id_usuario,
                 detalles=f"Inicio de sesión exitoso en agencia '{session.agency_code}' con rol '{user.rol_nombre}'.",
                 tenant_id=target_tenant,
             )
         except Exception as e:
-            self.logger.warning("No se pudo registrar log de auditoría para login: %s", e)
+            self.logger.warning(
+                "No se pudo registrar log de auditoría para login: %s", e)
 
         self.logger.info(
             "Inicio de sesión exitoso para '%s' en agencia '%s' con rol '%s'",
@@ -187,7 +208,8 @@ class AuthService(BaseService):
                     detalles="Cierre voluntario de sesión.",
                 )
             except Exception as e:
-                self.logger.warning("No se pudo registrar log de auditoría para logout: %s", e)
+                self.logger.warning(
+                    "No se pudo registrar log de auditoría para logout: %s", e)
         session.logout()
 
     def get_current_user(self) -> Optional[User]:
