@@ -422,6 +422,31 @@ def run_tests() -> None:
     assert reembolso_payments[0].monto == Decimal("400.00")
     print(f" -> PASO: Movimiento de reembolso de garantía registrado: {reembolso_payments[0].codigo_transaccion}")
 
+    # ------------------------------------------------------------------------
+    # TEST 7: Generación y Exportación de Documento PDF Legal para Firma
+    # ------------------------------------------------------------------------
+    print("\n[TEST 7] Generando documento PDF del contrato para descarga, impresión y firma...")
+    import os
+    html_doc = contract_service.build_contract_document_html(formalized_ctr.id_contrato)
+    assert formalized_ctr.codigo_contrato in html_doc
+    assert "FIRMA DEL ARRENDATARIO (CLIENTE)" in html_doc
+    assert "POR LA AGENCIA ARRENDADORA" in html_doc
+    assert client.nombre_completo in html_doc
+    assert vehicle2.placa in html_doc
+
+    pdf_path = str(ROOT_DIR / "tests" / f"test_contrato_{formalized_ctr.codigo_contrato}.pdf")
+    try:
+        saved_pdf = contract_service.export_contract_pdf(formalized_ctr.id_contrato, pdf_path)
+        assert os.path.exists(saved_pdf), "El archivo PDF del contrato debe existir en disco."
+        assert os.path.getsize(saved_pdf) > 1000, "El archivo PDF generado no debe estar vacío."
+        with open(saved_pdf, "rb") as f_pdf:
+            header_bytes = f_pdf.read(5)
+            assert header_bytes == b"%PDF-", f"Cabecera PDF inválida: {header_bytes}"
+        print(f" -> PASO: Documento PDF '{os.path.basename(saved_pdf)}' generado exitosamente ({os.path.getsize(saved_pdf):,} bytes).")
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+
     # Limpieza final
     cleanup_test_contracts_data(test_cedulas, test_placas)
 

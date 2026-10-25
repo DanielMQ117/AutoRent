@@ -1,13 +1,16 @@
 """Vista principal para la gestión de Contratos de Alquiler, Salidas y Entregas (Fase 5)."""
 
 from datetime import datetime
+import os
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QFont, QPageLayout, QPageSize, QTextDocument
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -251,6 +254,16 @@ class ContractsView(QWidget):
         self.btn_view.clicked.connect(self._on_view_clicked)
         actions_bar.addWidget(self.btn_view)
 
+        self.btn_pdf = QPushButton("📄 Descargar PDF")
+        self._style_action_button(self.btn_pdf, "#0284c7", "#0369a1")
+        self.btn_pdf.clicked.connect(self._on_pdf_clicked)
+        actions_bar.addWidget(self.btn_pdf)
+
+        self.btn_print = QPushButton("🖨 Imprimir para Firma")
+        self._style_action_button(self.btn_print, "#0f766e", "#115e59")
+        self.btn_print.clicked.connect(self._on_print_clicked)
+        actions_bar.addWidget(self.btn_print)
+
         self.btn_return = QPushButton("📥 Registrar Devolución")
         self._style_action_button(self.btn_return, "#059669", "#047857")
         self.btn_return.clicked.connect(self._on_return_clicked)
@@ -391,6 +404,79 @@ class ContractsView(QWidget):
         full_contract = contract_service.get_contract(c.id_contrato)
         dlg = ContractFormDialog(contract=full_contract, parent=self)
         dlg.exec()
+
+    def _on_pdf_clicked(self) -> None:
+        """Exporta el contrato seleccionado a un documento PDF listo para firma."""
+        c = self._get_selected_contract()
+        if not c or not c.id_contrato:
+            QMessageBox.information(
+                self,
+                "Selección Requerida",
+                "Seleccione un contrato de la lista para descargar su documento PDF.",
+            )
+            return
+
+        default_filename = f"Contrato_{c.codigo_contrato}.pdf"
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Guardar Contrato en PDF para Firma",
+            default_filename,
+            "Documento PDF (*.pdf)",
+        )
+        if not filepath:
+            return
+
+        try:
+            saved_path = contract_service.export_contract_pdf(c.id_contrato, filepath)
+            reply = QMessageBox.question(
+                self,
+                "PDF Generado Exitosamente",
+                f"El documento legal del contrato '{c.codigo_contrato}' se guardó en:\n{saved_path}\n\n"
+                "¿Desea abrir el documento PDF ahora para revisarlo o imprimirlo?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                if hasattr(os, "startfile"):
+                    os.startfile(saved_path)
+                else:
+                    QDesktopServices.openUrl(QUrl.fromLocalFile(saved_path))
+        except Exception as e:
+            logger.error("Error al exportar contrato PDF desde ContractsView: %s", e)
+            QMessageBox.critical(self, "Error al Generar PDF", f"No se pudo generar el archivo PDF:\n{e}")
+
+    def _on_print_clicked(self) -> None:
+        """Envía el contrato seleccionado al diálogo de impresión del sistema para firma del cliente."""
+        c = self._get_selected_contract()
+        if not c or not c.id_contrato:
+            QMessageBox.information(
+                self,
+                "Selección Requerida",
+                "Seleccione un contrato de la lista para imprimir.",
+            )
+            return
+
+        try:
+            html_content = contract_service.build_contract_document_html(c.id_contrato)
+            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+            printer.setPageSize(QPageSize(QPageSize.PageSizeId.Letter))
+            printer.setPageOrientation(QPageLayout.Orientation.Portrait)
+            printer.setDocName(f"Contrato_{c.codigo_contrato}")
+
+            print_dialog = QPrintDialog(printer, self)
+            print_dialog.setWindowTitle(f"Imprimir Contrato — {c.codigo_contrato}")
+            if print_dialog.exec() == QDialog.DialogCode.Accepted:
+                doc = QTextDocument()
+                doc.setHtml(html_content)
+                doc.print_(printer)
+                QMessageBox.information(
+                    self,
+                    "Impresión Enviada",
+                    f"El contrato '{c.codigo_contrato}' ha sido enviado a la impresora para firma del cliente.",
+                )
+        except Exception as e:
+            logger.error("Error al imprimir contrato desde ContractsView: %s", e)
+            QMessageBox.critical(self, "Error de Impresión", f"No se pudo imprimir el contrato:\n{e}")
 
     def _on_return_clicked(self) -> None:
         """Abre el diálogo de recepción e inspección para el contrato seleccionado."""

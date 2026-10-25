@@ -86,13 +86,20 @@ def run_ui_checks():
     from src.ui.views.contracts_view import ContractsView
     contracts_view = ContractsView()
     assert contracts_view.table.columnCount() == 11
-    print(" -> PASO: ContractsView inicializada con 11 columnas.")
+    assert hasattr(contracts_view, "btn_pdf")
+    assert hasattr(contracts_view, "btn_print")
+    print(" -> PASO: ContractsView inicializada con 11 columnas y botones de PDF/Impresión.")
 
     print("\n[CHECK 9] Inicializando ContractFormDialog...")
     from src.ui.views.contract_form_dialog import ContractFormDialog
     contract_dlg = ContractFormDialog()
     assert "Apertura de Contrato" in contract_dlg.windowTitle()
-    print(" -> PASO: ContractFormDialog inicializado correctamente.")
+    from src.services.contract_service import contract_service
+    existing_ctr = contract_service.get_contract(1)
+    view_contract_dlg = ContractFormDialog(contract=existing_ctr)
+    assert hasattr(view_contract_dlg, "pdf_btn")
+    assert hasattr(view_contract_dlg, "print_btn")
+    print(" -> PASO: ContractFormDialog inicializado correctamente (alta y consulta con botones PDF/Imprimir).")
 
     print("\n[CHECK 10] Inicializando DashboardView integrado...")
     dashboard = DashboardView()

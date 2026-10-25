@@ -33,6 +33,7 @@ from src.repositories.contract_repository import ContractRepository
 from src.repositories.coverage_repository import CoverageRepository
 from src.repositories.payment_repository import PaymentRepository
 from src.repositories.reservation_repository import ReservationRepository
+from src.repositories.user_repository import UserRepository
 from src.repositories.vehicle_repository import VehicleRepository
 from src.services.base_service import BaseService
 
@@ -58,6 +59,7 @@ class ContractService(BaseService):
         self.vehicle_repo = vehicle_repo or VehicleRepository(self.db)
         self.client_repo = client_repo or ClientRepository(self.db)
         self.reservation_repo = reservation_repo or ReservationRepository(self.db)
+        self.user_repo = UserRepository(self.db)
 
     def _generate_contract_code(self) -> str:
         """Genera un código único correlativo para el contrato: CTR-YYYYMM-XXXX."""
@@ -413,6 +415,344 @@ class ContractService(BaseService):
         if not coverage:
             raise RecordNotFoundError(f"Cobertura con ID {id_cobertura} no encontrada.", code="COVERAGE_NOT_FOUND")
         return coverage
+
+    # ------------------------------------------------------------------------
+    # Generación de Documento Legal de Contrato (HTML Imprimible y PDF)
+    # ------------------------------------------------------------------------
+
+    def build_contract_document_html(self, id_contrato: int) -> str:
+        """Construye el documento legal del contrato en formato HTML/CSS listo para impresión o exportación a PDF."""
+        contract = self.get_contract(id_contrato)
+        client = self.client_repo.get_by_id(contract.id_cliente)
+        vehicle = self.vehicle_repo.get_by_id(contract.id_vehiculo)
+        coverage = self.coverage_repo.get_by_id(contract.id_cobertura)
+        target_tid = contract.tenant_id or session.tenant_id
+        agency = self.user_repo.get_agency_by_id(target_tid)
+
+        # Datos de la Agencia Arrendadora
+        ag_nombre = agency.nombre_comercial if agency else session.agency_name
+        ag_codigo = agency.codigo_agencia if agency else session.agency_code
+        ag_ruc = agency.ruc_nit if agency else "J0310000000000"
+        ag_tel = agency.telefono if agency else "+505-2200-0000"
+        ag_email = (agency.email if agency and agency.email else "contacto@autorentpro.com.ni")
+        ag_dir = agency.direccion if agency else "Managua, Nicaragua"
+
+        # Datos del Cliente y Licencia
+        cli_nombre = client.nombre_completo if client else (contract.cliente_nombre or f"ID #{contract.id_cliente}")
+        cli_ident = client.identificacion if client else (contract.cliente_identificacion or "—")
+        cli_tipo = client.tipo_persona.value if client else "NATURAL"
+        cli_tel = client.telefono if client else (contract.cliente_telefono or "—")
+        cli_email = client.email if client else "—"
+        cli_dir = client.direccion if client else "—"
+
+        if client and client.licencia:
+            lic_num = client.licencia.numero_licencia
+            lic_cat = client.licencia.categoria_licencia
+            lic_pais = client.licencia.pais_emision
+            lic_venc = (
+                client.licencia.fecha_vencimiento.strftime("%d/%m/%Y")
+                if client.licencia.fecha_vencimiento
+                else "—"
+            )
+        else:
+            lic_num, lic_cat, lic_pais, lic_venc = "Registrada en expediente", "—", "Nicaragua", "—"
+
+        # Datos del Vehículo
+        veh_placa = vehicle.placa if vehicle else (contract.vehiculo_placa or "—")
+        veh_marca_modelo = (
+            f"{vehicle.marca_nombre or ''} {vehicle.modelo_nombre or ''} ({vehicle.anio or ''})".strip()
+            if vehicle
+            else (contract.vehiculo_modelo or "—")
+        )
+        veh_cat = vehicle.categoria_nombre if vehicle else (contract.vehiculo_categoria or "—")
+        veh_vin = vehicle.vin if vehicle else "—"
+        veh_color = vehicle.color if vehicle else "—"
+        fuel_pct = int((contract.combustible_salida or Decimal("1.00")) * 100)
+        km_regimen = (
+            "ILIMITADO"
+            if contract.kilometraje_ilimitado
+            else f"Límite: {contract.limite_km_diario or 0} km/día (${contract.costo_km_excedente:.2f}/km extra)"
+        )
+
+        # Fechas
+        f_inicio = (
+            contract.fecha_hora_inicio_pactada.strftime("%d/%m/%Y %H:%M")
+            if contract.fecha_hora_inicio_pactada
+            else "—"
+        )
+        f_fin = (
+            contract.fecha_hora_fin_pactada.strftime("%d/%m/%Y %H:%M")
+            if contract.fecha_hora_fin_pactada
+            else "—"
+        )
+        f_salida_real = (
+            contract.fecha_hora_salida_real.strftime("%d/%m/%Y %H:%M")
+            if contract.fecha_hora_salida_real
+            else f_inicio
+        )
+        f_emision = (
+            contract.fecha_creacion.strftime("%d/%m/%Y %H:%M")
+            if contract.fecha_creacion
+            else datetime.now().strftime("%d/%m/%Y %H:%M")
+        )
+
+        # Cobertura y Costos
+        cov_nombre = coverage.nombre if coverage else (contract.cobertura_nombre or "Básica")
+        cov_costo_dia = coverage.costo_diario if coverage else (contract.cobertura_costo_diario or Decimal("0.00"))
+        cov_deducible = coverage.porcentaje_deducible if coverage else Decimal("10.00")
+
+        dias = contract.duracion_dias
+        subtotal_renta = contract.tarifa_diaria_aplicada * Decimal(dias)
+        subtotal_seguro = cov_costo_dia * Decimal(dias)
+        total_alquiler = subtotal_renta + subtotal_seguro
+        total_con_garantia = total_alquiler + contract.monto_garantia
+
+        agente_emisor = contract.usuario_nombre or (
+            session.current_user.nombre_completo if session.current_user else "Agente Autorizado"
+        )
+
+        # Conductores adicionales HTML
+        if contract.conductores_adicionales:
+            drivers_rows = ""
+            for idx, d in enumerate(contract.conductores_adicionales, start=1):
+                venc_d = (
+                    d.fecha_vencimiento_licencia.strftime("%d/%m/%Y")
+                    if d.fecha_vencimiento_licencia
+                    else "—"
+                )
+                drivers_rows += f"""
+                <tr>
+                    <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center;">{idx}</td>
+                    <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">{d.nombre_completo}</td>
+                    <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">{d.identificacion}</td>
+                    <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">{d.numero_licencia}</td>
+                    <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center;">{venc_d}</td>
+                </tr>
+                """
+            drivers_html = f"""
+            <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin-top: 6px; font-size: 9pt;">
+                <thead>
+                    <tr style="background-color: #f1f5f9; color: #1e293b;">
+                        <th style="padding: 5px 8px; border: 1px solid #cbd5e1; width: 35px;">#</th>
+                        <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Nombre Completo</th>
+                        <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Identificación</th>
+                        <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Nº Licencia</th>
+                        <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center;">Vencimiento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {drivers_rows}
+                </tbody>
+            </table>
+            """
+        else:
+            drivers_html = (
+                '<div style="font-size: 8.5pt; color: #475569; padding: 4px 0;">'
+                "No se registraron conductores adicionales autorizados. Únicamente el arrendatario titular está facultado para conducir el vehículo."
+                "</div>"
+            )
+
+        return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato de Arrendamiento — {contract.codigo_contrato}</title>
+</head>
+<body style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; font-size: 9.5pt; line-height: 1.35; margin: 0; padding: 0;">
+
+    <!-- ENCABEZADO INSTITUCIONAL -->
+    <table width="100%" cellspacing="0" cellpadding="0" style="border-bottom: 2px solid #0284c7; padding-bottom: 10px; margin-bottom: 12px;">
+        <tr>
+            <td width="62%" valign="top">
+                <div style="font-size: 15pt; font-weight: bold; color: #0284c7;">{ag_nombre}</div>
+                <div style="font-size: 8.5pt; color: #334155; margin-top: 2px;">
+                    <b>Sucursal:</b> {ag_codigo} &nbsp;|&nbsp; <b>RUC/NIT:</b> {ag_ruc}
+                </div>
+                <div style="font-size: 8.5pt; color: #475569;">
+                    <b>Dirección:</b> {ag_dir}
+                </div>
+                <div style="font-size: 8.5pt; color: #475569;">
+                    <b>Teléfono:</b> {ag_tel} &nbsp;|&nbsp; <b>Email:</b> {ag_email}
+                </div>
+            </td>
+            <td width="38%" valign="top" align="right">
+                <div style="background-color: #0f172a; color: #ffffff; padding: 8px 12px; border-radius: 6px; text-align: right;">
+                    <div style="font-size: 8pt; color: #94a3b8; text-transform: uppercase;">Contrato de Arrendamiento</div>
+                    <div style="font-size: 13pt; font-weight: bold; color: #38bdf8;">{contract.codigo_contrato}</div>
+                    <div style="font-size: 8pt; color: #e2e8f0; margin-top: 2px;">Estado: <b>{contract.estado.value}</b></div>
+                    <div style="font-size: 8pt; color: #cbd5e1;">Emisión: {f_emision}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 1: DATOS DEL ARRENDATARIO Y CONDUCTORES -->
+    <div style="background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 9.5pt; padding: 5px 10px; margin-bottom: 6px;">
+        I. DATOS DEL ARRENDATARIO (CLIENTE TITULAR) Y LICENCIA DE CONDUCIR
+    </div>
+    <table width="100%" cellspacing="0" cellpadding="5" style="border-collapse: collapse; margin-bottom: 8px; font-size: 9pt;">
+        <tr>
+            <td width="50%" style="border: 1px solid #cbd5e1;"><b>Cliente / Razón Social:</b> {cli_nombre} ({cli_tipo})</td>
+            <td width="50%" style="border: 1px solid #cbd5e1;"><b>Cédula / RUC / Pasaporte:</b> {cli_ident}</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>Teléfono:</b> {cli_tel} &nbsp;|&nbsp; <b>Correo:</b> {cli_email}</td>
+            <td style="border: 1px solid #cbd5e1;"><b>Dirección Domiciliar:</b> {cli_dir}</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>Licencia de Conducir Nº:</b> {lic_num} ({lic_cat})</td>
+            <td style="border: 1px solid #cbd5e1;"><b>País / Vencimiento Licencia:</b> {lic_pais} — Vence: <b>{lic_venc}</b></td>
+        </tr>
+    </table>
+
+    <div style="font-weight: bold; font-size: 9pt; color: #1e293b; margin-top: 4px;">Conductores Adicionales Facultados:</div>
+    {drivers_html}
+
+    <!-- SECCIÓN 2: VEHÍCULO E INSPECCIÓN DE SALIDA -->
+    <div style="background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 9.5pt; padding: 5px 10px; margin-top: 12px; margin-bottom: 6px;">
+        II. IDENTIFICACIÓN DEL VEHÍCULO Y ACTA DE ENTREGA FÍSICA DE SALIDA
+    </div>
+    <table width="100%" cellspacing="0" cellpadding="5" style="border-collapse: collapse; margin-bottom: 10px; font-size: 9pt;">
+        <tr>
+            <td width="34%" style="border: 1px solid #cbd5e1;"><b>Placa:</b> <span style="font-size: 10pt; font-weight: bold; color: #0284c7;">{veh_placa}</span></td>
+            <td width="33%" style="border: 1px solid #cbd5e1;"><b>Marca / Modelo:</b> {veh_marca_modelo}</td>
+            <td width="33%" style="border: 1px solid #cbd5e1;"><b>Categoría / Color:</b> {veh_cat} / {veh_color}</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>Chasis (VIN):</b> {veh_vin}</td>
+            <td style="border: 1px solid #cbd5e1;"><b>Odómetro Salida:</b> <b>{contract.kilometraje_salida:,} km</b></td>
+            <td style="border: 1px solid #cbd5e1;"><b>Combustible Salida:</b> <b>{fuel_pct}%</b> ({contract.combustible_salida})</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>Inicio Pactado:</b> {f_inicio}</td>
+            <td style="border: 1px solid #cbd5e1;"><b>Fin Pactado:</b> <b>{f_fin}</b></td>
+            <td style="border: 1px solid #cbd5e1;"><b>Entrega Física Real:</b> {f_salida_real}</td>
+        </tr>
+        <tr>
+            <td colspan="2" style="border: 1px solid #cbd5e1;">
+                <b>Inventario Entregado:</b> [✓] Llave encendido &nbsp; [✓] Llanta auxilio &nbsp; [✓] Gata y herramientas &nbsp; [✓] Circulación y Seguro
+            </td>
+            <td style="border: 1px solid #cbd5e1;"><b>Régimen Km:</b> {km_regimen}</td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 3: DESGLOSE ECONÓMICO Y GARANTÍA -->
+    <div style="background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 9.5pt; padding: 5px 10px; margin-bottom: 6px;">
+        III. DESGLOSE FINANCIERO, COBERTURA DE SEGURO Y DEPÓSITO EN GARANTÍA
+    </div>
+    <table width="100%" cellspacing="0" cellpadding="6" style="border-collapse: collapse; margin-bottom: 10px; font-size: 9pt;">
+        <tr style="background-color: #f1f5f9;">
+            <th align="left" style="border: 1px solid #cbd5e1;">Concepto Financiero</th>
+            <th align="left" style="border: 1px solid #cbd5e1;">Detalle / Base de Cálculo</th>
+            <th align="right" style="border: 1px solid #cbd5e1; width: 120px;">Importe (USD)</th>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>1. Arrendamiento Base de Vehículo</b></td>
+            <td style="border: 1px solid #cbd5e1;">{dias} día(s) pactado(s) × ${contract.tarifa_diaria_aplicada:,.2f} / día</td>
+            <td align="right" style="border: 1px solid #cbd5e1;"><b>${subtotal_renta:,.2f}</b></td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>2. Póliza de Cobertura: {cov_nombre}</b></td>
+            <td style="border: 1px solid #cbd5e1;">{dias} día(s) × ${cov_costo_dia:,.2f} / día (Deducible por siniestro: {cov_deducible}%)</td>
+            <td align="right" style="border: 1px solid #cbd5e1;"><b>${subtotal_seguro:,.2f}</b></td>
+        </tr>
+        <tr style="background-color: #f8fafc;">
+            <td colspan="2" align="right" style="border: 1px solid #cbd5e1;"><b>SUBTOTAL ESTIMADO DEL ALQUILER (RENTA + SEGURO):</b></td>
+            <td align="right" style="border: 1px solid #cbd5e1; font-size: 10pt; color: #0284c7;"><b>${total_alquiler:,.2f}</b></td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #cbd5e1;"><b>3. Depósito en Garantía Reembolsable</b></td>
+            <td style="border: 1px solid #cbd5e1;">Custodia por daños, faltante de combustible, multas o mora en retorno</td>
+            <td align="right" style="border: 1px solid #cbd5e1;"><b>${contract.monto_garantia:,.2f}</b></td>
+        </tr>
+        <tr style="background-color: #e0f2fe;">
+            <td colspan="2" align="right" style="border: 1px solid #0284c7;"><b>TOTAL GENERAL FORMALIZADO EN APERTURA:</b></td>
+            <td align="right" style="border: 1px solid #0284c7; font-size: 10.5pt; font-weight: bold; color: #0369a1;">${total_con_garantia:,.2f}</td>
+        </tr>
+    </table>
+
+    <!-- SECCIÓN 4: CLÁUSULAS CONTRACTUALES -->
+    <div style="background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 9.5pt; padding: 5px 10px; margin-bottom: 6px;">
+        IV. TÉRMINOS, CLÁUSULAS Y CONDICIONES LEGALES DEL ARRENDAMIENTO
+    </div>
+    <div style="border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 8pt; color: #334155; text-align: justify; margin-bottom: 18px;">
+        <b>PRIMERA (Objeto y Estado del Vehículo):</b> EL ARRENDATARIO declara recibir el vehículo descrito en la Sección II en óptimas condiciones mecánicas, de carrocería y con el inventario completo detallado, obligándose a restituirlo en el mismo estado en la fecha y hora pactadas.<br>
+        <b>SEGUNDA (Uso Autorizado y Prohibiciones):</b> Queda estrictamente prohibido: (a) permitir la conducción a personas no registradas en este contrato; (b) subarrendar el vehículo, utilizarlo para transporte remunerado, competencias o actividades ilícitas; (c) conducir bajo efectos del alcohol o estupefacientes; y (d) sacar el vehículo fuera del territorio nacional sin autorización escrita de LA AGENCIA.<br>
+        <b>TERCERA (Retraso, Combustible y Siniestros):</b> La devolución posterior a la hora pactada generará el recargo horario establecido según la categoría del vehículo. Toda diferencia en el nivel de combustible respecto a la salida será liquidada en el acta de retorno. En caso de colisión, robo o daño físico, EL ARRENDATARIO deberá notificar de inmediato a LA AGENCIA y a la autoridad de tránsito, asumiendo el deducible correspondiente a la póliza contratada.<br>
+        <b>CUARTA (Depósito en Garantía y Liquidación Final):</b> El depósito en garantía respalda cualquier saldo por días adicionales, daños físicos, limpieza extraordinaria, multas de tránsito o faltante de combustible. De no existir cargos pendientes al cierre de la inspección técnica de retorno, dicho depósito será reembolsado íntegramente a EL ARRENDATARIO.
+    </div>
+
+    <!-- SECCIÓN 5: BLOQUE DE FIRMAS -->
+    <table width="100%" cellspacing="0" cellpadding="0" style="margin-top: 28px;">
+        <tr>
+            <td width="46%" align="center" valign="bottom">
+                <div style="border-top: 1px solid #0f172a; width: 88%; padding-top: 6px; margin: 0 auto;">
+                    <div style="font-weight: bold; font-size: 9.5pt;">FIRMA DEL ARRENDATARIO (CLIENTE)</div>
+                    <div style="font-size: 8.5pt; color: #334155;">{cli_nombre}</div>
+                    <div style="font-size: 8pt; color: #64748b;">Identificación: {cli_ident}</div>
+                </div>
+            </td>
+            <td width="8%"></td>
+            <td width="46%" align="center" valign="bottom">
+                <div style="border-top: 1px solid #0f172a; width: 88%; padding-top: 6px; margin: 0 auto;">
+                    <div style="font-weight: bold; font-size: 9.5pt;">POR LA AGENCIA ARRENDADORA</div>
+                    <div style="font-size: 8.5pt; color: #334155;">{agente_emisor}</div>
+                    <div style="font-size: 8pt; color: #64748b;">{ag_nombre} ({ag_codigo}) — Sello y Firma</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 6px; font-size: 7.5pt; color: #64748b; text-align: center;">
+        Documento oficial generado por AutoRent Pro — Contrato Nº {contract.codigo_contrato} | Reserva vinculada: {contract.reserva_codigo or 'Directo en Mostrador'} | Impreso el {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+    </div>
+
+</body>
+</html>
+"""
+
+    def export_contract_pdf(self, id_contrato: int, filepath: str) -> str:
+        """Renderiza y guarda el documento legal del contrato en un archivo PDF listo para descargar e imprimir."""
+        if not filepath or not filepath.strip():
+            raise ValidationError("Debe especificar una ruta válida para guardar el archivo PDF.", code="INVALID_PDF_PATH")
+
+        clean_path = filepath.strip()
+        if not clean_path.lower().endswith(".pdf"):
+            clean_path += ".pdf"
+
+        html_content = self.build_contract_document_html(id_contrato)
+
+        try:
+            from PySide6.QtGui import QPageLayout, QPageSize, QTextDocument
+            from PySide6.QtPrintSupport import QPrinter
+            from PySide6.QtWidgets import QApplication
+
+            app = QApplication.instance()
+            if not app:
+                app = QApplication(["--platform", "offscreen"])
+
+            printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+            printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+            printer.setOutputFileName(clean_path)
+            printer.setPageSize(QPageSize(QPageSize.PageSizeId.Letter))
+            printer.setPageOrientation(QPageLayout.Orientation.Portrait)
+
+            doc = QTextDocument()
+            doc.setHtml(html_content)
+            doc.print_(printer)
+
+            self.logger.info(
+                "Contrato ID %s exportado exitosamente a PDF en: %s",
+                id_contrato,
+                clean_path,
+            )
+            return clean_path
+        except Exception as e:
+            self.logger.exception("Error al generar el PDF del contrato ID %s en '%s'", id_contrato, clean_path)
+            raise ValidationError(
+                f"No se pudo generar el documento PDF del contrato: {e}",
+                code="EXPORT_CONTRACT_PDF_ERROR",
+            ) from e
 
 
 # Instancia singleton del servicio de contratos

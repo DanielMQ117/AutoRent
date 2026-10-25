@@ -7,12 +7,13 @@ Pila Tecnológica: Python 3.12+ | PySide6 (Qt) | PostgreSQL 15+
 
 ÍNDICE DE REQUISITOS FUNCIONALES:
 ----------------------------------------------------------------------------------------------------
-MÓDULO 1: AUTENTICACIÓN Y SEGURIDAD
-  - RF-01: Autenticación e Inicio de Sesión (Login)
+MÓDULO 1: AUTENTICACIÓN, SEGURIDAD Y TENENCIA MÚLTIPLE
+  - RF-01: Autenticación e Inicio de Sesión Multi-Agencia (Login Multi-Tenant)
   - RF-02: Cierre de Sesión de Usuario (Logout) [Nuevo]
   - RF-03: Bloqueo de Cuenta por Intentos Fallidos Consecutivos
   - RF-04: Control de Acceso Basado en Roles (RBAC) y Permisos
   - RF-05: Registro en Bitácora de Auditoría de Acciones Críticas
+  - RF-38: Selección de Agencia y Aislamiento Operativo Multi-Tenant (Tenencia Múltiple) [Nuevo]
 
 MÓDULO 2: GESTIÓN DE FLOTA DE VEHÍCULOS
   - RF-06: Registro y Actualización de Vehículos (Catálogo de Flota)
@@ -37,6 +38,7 @@ MÓDULO 5: CONTRATOS Y DESPACHO (ENTREGA / CHECK-IN)
   - RF-19: Selección de Pólizas de Cobertura de Seguros y Depósito de Garantía
   - RF-20: Inspección Física de Entrega (Check-in) y Acta de Estado Inicial
   - RF-21: Despacho del Vehículo y Activación Atómica del Contrato
+  - RF-39: Emisión, Descarga e Impresión de Contrato Legal en PDF para Firma del Cliente [Nuevo]
 
 MÓDULO 6: DEVOLUCIÓN E INSPECCIÓN FÍSICA (CHECK-OUT)
   - RF-22: Registro de Recepción Física y Fecha/Hora Real de Retorno
@@ -65,15 +67,15 @@ MÓDULO 9: REPORTES, ESTADÍSTICAS Y ANALÍTICA
 
 
 ====================================================================================================
-MÓDULO 1: AUTENTICACIÓN Y SEGURIDAD
+MÓDULO 1: AUTENTICACIÓN, SEGURIDAD Y TENENCIA MÚLTIPLE
 ====================================================================================================
 
 Plantilla de Especificación de Requisito Funcional (RF-01)
-Código y Nombre: RF-01: Autenticación e Inicio de Sesión (Login)
-Propósito: Permite validar la identidad de los usuarios mediante credenciales seguras para autorizar el ingreso al sistema y cargar el perfil operativo correspondiente.
-Entradas (Inputs): Campos del formulario de inicio de sesión (Nombre de usuario en QLineEdit, Contraseña en QLineEdit en modo Password/EchoMode, Clic en botón "Iniciar Sesión").
-Proceso (Lógica / ORM): Captura las credenciales ingresadas, valida que los campos no se encuentren vacíos, consulta el usuario activo en la base de datos (tabla usuarios) mediante consulta parametrizada a través del repositorio/ORM. Si el usuario existe y está activo, verifica la contraseña comparando el hash almacenado utilizando bcrypt.checkpw(). Al ser correcta la verificación, inicializa el singleton de sesión de usuario (UserSession) con los datos del usuario, rol y permisos autorizados, reinicia el contador de intentos fallidos a cero y actualiza la fecha/hora de último ingreso en la base de datos. Si la verificación falla, invoca la lógica de incremento de intentos erróneos.
-Salidas (Outputs): Cuadro de diálogo de confirmación o alerta (QMessageBox), cierre de la ventana de Login, despliegue de la ventana principal (DashboardView) personalizada según el rol del usuario autenticado, y registro del evento de acceso en el archivo de log.
+Código y Nombre: RF-01: Autenticación e Inicio de Sesión Multi-Agencia (Login Multi-Tenant)
+Propósito: Permite validar la identidad de los usuarios mediante credenciales seguras y su pertenencia a una agencia/sucursal activa para autorizar el ingreso al sistema y cargar el perfil operativo aislado por tenencia (tenant_id).
+Entradas (Inputs): Campos del formulario de inicio de sesión LoginView (Selector de Agencia/Sucursal activa en QComboBox [agency_combo], Nombre de usuario en QLineEdit, Contraseña en QLineEdit en modo Password/EchoMode, Clic en botón "Iniciar Sesión").
+Proceso (Lógica / ORM): Al cargar la ventana, consulta las agencias activas mediante AuthService.get_active_agencies() (tabla agencias). Al enviar el formulario, captura el tenant_id seleccionado y las credenciales ingresadas, valida que los campos no se encuentren vacíos ni carezcan de agencia válida, verifica que la agencia exista y esté activa (rechazando con códigos TENANT_NOT_FOUND o TENANT_DISABLED si no lo está), y consulta el usuario estrictamente dentro de dicho tenant_id (tabla usuarios filtrada por username y tenant_id) mediante consulta parametrizada. Si el usuario existe y está activo en esa agencia, verifica la contraseña comparando el hash almacenado utilizando bcrypt.checkpw(). Al ser correcta la verificación, inicializa el singleton de sesión de usuario (UserSession) inyectando obligatoriamente el tenant_id, datos del usuario, rol y permisos autorizados, reinicia el contador de intentos fallidos a cero y actualiza la fecha/hora de último ingreso en la base de datos. Si la verificación falla, invoca la lógica de incremento de intentos erróneos acotada al tenant_id.
+Salidas (Outputs): Cuadro de diálogo de confirmación o alerta (QMessageBox), cierre de la ventana de Login, despliegue de la ventana principal (DashboardView) personalizada según el rol y la agencia autenticada, y registro del evento de acceso con su respectivo tenant_id en la tabla auditoria y archivo de log.
 Prototipado de la GUI: Ver en Anexos.
 
 ----------------------------------------------------------------------------------------------------
@@ -114,6 +116,16 @@ Propósito: Mantener un registro cronológico e inmutable de las operaciones sen
 Entradas (Inputs): Datos del evento operativo ejecutado (identificador de usuario en sesión, acción realizada, nombre de la tabla o entidad afectada, identificador del registro, valores anteriores y valores nuevos en formato estructurado JSONB, dirección IP/hostname).
 Proceso (Lógica / ORM): Al completarse cualquier operación catalogada como crítica (anulación de contratos, cambio de estado de clientes, alteración de tarifas, exoneración de penalizaciones o bloqueo de usuarios), la capa de servicios o los triggers de PostgreSQL insertan un registro en la tabla auditoria mediante una consulta parametrizada. La capa de persistencia asegura que la tabla de auditoría sea de solo inserción (inmutable), restringiendo permisos de modificación (UPDATE) o eliminación (DELETE).
 Salidas (Outputs): Nuevo registro persistido de forma permanente en la base de datos (tabla auditoria), mensaje registrado en el archivo de log (app.log) y actualización de la vista de auditoría disponible para el rol Administrador.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-38)
+Código y Nombre: RF-38: Selección de Agencia y Aislamiento Operativo Multi-Tenant (Tenencia Múltiple)
+Propósito: Permitir que múltiples agencias o sucursales de alquiler operen sobre una misma infraestructura de base de datos compartida manteniendo un aislamiento lógico total de sus usuarios, flota de vehículos, clientes, reservas, contratos, devoluciones, mantenimientos, pagos y reportes.
+Entradas (Inputs): Identificador de agencia (tenant_id) seleccionado en el inicio de sesión y mantenido en el contexto de sesión activa (UserSession.tenant_id) o suministrado explícitamente a los servicios de negocio.
+Proceso (Lógica / ORM): Todo servicio y repositorio del sistema resuelve el tenant_id activo a través de BaseRepository._resolve_tenant_id() y los métodos _resolve_tenant_id() de cada servicio de negocio. Todas las consultas de lectura (SELECT), inserción (INSERT) y actualización (UPDATE) incluyen de manera obligatoria el predicado WHERE tenant_id = %s. En la creación de registros transaccionales compuestos (reservas, contratos, devoluciones, mantenimientos y liquidaciones), los servicios validan que las entidades relacionadas (cliente, vehículo, reserva previa, contrato) pertenezcan exactamente al mismo tenant_id antes de operar, rechazando cualquier cruce entre agencias. Asimismo, los códigos correlativos y restricciones de unicidad operativa (placa, VIN, documento de identidad, username) se evalúan en llaves compuestas por (tenant_id, campo).
+Salidas (Outputs): Vistas, tablas (QTableWidget), selectores (QComboBox), indicadores KPI y reportes filtrados exclusivamente con la información de la agencia en sesión, impidiendo que un operador visualice o modifique registros de otra agencia.
 Prototipado de la GUI: Ver en Anexos.
 
 
@@ -292,6 +304,20 @@ Proceso (Lógica / ORM): La capa de servicios (ContractService.create_contract()
 5. Si se estipuló garantía, inserta el registro del depósito en la tabla pagos.
 Si ocurre un error en cualquier punto, se produce un ROLLBACK automático total.
 Salidas (Outputs): Cuadro de diálogo de confirmación (QMessageBox.information), cierre del formulario, actualización de la vista de contratos y actualización del vehículo a estado ALQUILADO en el módulo de flota.
+Prototipado de la GUI: Ver en Anexos.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito Funcional (RF-39)
+Código y Nombre: RF-39: Emisión, Descarga e Impresión de Contrato Legal en PDF para Firma del Cliente
+Propósito: Generar un documento legal formal en formato PDF al consolidar o consultar un contrato de alquiler, permitiendo su descarga en disco y su impresión directa en papel para recabar la firma autógrafa del cliente (arrendatario) y del agente de despacho (arrendador).
+Entradas (Inputs):
+1. Al consolidar un contrato nuevo en ContractFormDialog: Confirmación en el cuadro de diálogo post-apertura ("¿Desea descargar o imprimir el documento PDF del contrato ahora para que el cliente lo firme?") con botones "Descargar PDF", "Imprimir Ahora", "Descargar e Imprimir" o "Más tarde".
+2. Desde el listado general de contratos (ContractsView): Selección de un contrato en la tabla y clic en los botones de la barra inferior "Descargar PDF" (btn_pdf) o "Imprimir para Firma" (btn_print).
+3. Desde el detalle de un contrato existente (ContractFormDialog en modo consulta): Clic en los botones "Descargar PDF para Firma" (pdf_btn) o "Imprimir Contrato" (print_btn).
+4. Selección de ruta de guardado en QFileDialog.getSaveFileName (para descarga) o selección y configuración de impresora física/virtual en QPrintDialog (para impresión).
+Proceso (Lógica / ORM): La capa de servicios (ContractService.build_contract_document_html(id_contrato) y ContractService.export_contract_pdf(id_contrato, filepath)) recupera de forma segura (validando el tenant_id activo) los datos consolidados del contrato, los datos completos de la agencia emisora (nombre comercial, RUC/NIT, dirección, teléfono y correo en la tabla agencias), los datos identificatorios y de licencia del arrendatario, las especificaciones técnicas del vehículo (marca, modelo, placa, VIN, color, año), el acta de entrega Check-in (odómetro y fracción de combustible de salida), la nómina de conductores adicionales autorizados, el desglose financiero (tarifa diaria, días pactados, póliza de seguro, deducible, subtotal estimado y depósito en garantía) y el clausulado legal de arrendamiento. Con esta información construye una plantilla HTML/CSS con tipografía formal (Times New Roman / Arial) e incorpora bloques de firma con líneas de rúbrica para "EL ARRENDADOR (AGENCIA)" y "EL ARRENDATARIO (CLIENTE)" (incluyendo documento de identidad y espacio de huella/sello). Finalmente, renderiza el documento mediante QTextDocument y QPrinter (en modo QPrinter.HighResolution y tamaño de página A4 con márgenes milimétricos) hacia un archivo PDF nativo (QPrinter.PdfFormat) o hacia el dispositivo de impresión seleccionado en el sistema operativo.
+Salidas (Outputs): Archivo PDF legal generado en la ruta seleccionada por el usuario (con opción de abrirlo inmediatamente mediante QDesktopServices.openUrl), trabajo de impresión enviado a la cola de la impresora seleccionada a través de QPrintDialog, y cuadro de diálogo de confirmación (QMessageBox.information) notificando la emisión exitosa del contrato para firma.
 Prototipado de la GUI: Ver en Anexos.
 
 
@@ -502,6 +528,8 @@ ESPECIFICACIÓN DE REQUISITOS NO FUNCIONALES (RNF)
   - RNF-06: Mantenibilidad, Arquitectura en Capas y Tipado Estricto
   - RNF-07: Portabilidad y Empaquetado en Entornos Windows
   - RNF-08: Trazabilidad, Auditoría e Inmutabilidad de Registros Críticos
+  - RNF-09: Arquitectura Multi-Tenant (Aislamiento Lógico por Agencia) y Principio Fail-Fast [Nuevo]
+  - RNF-10: Fidelidad Legal y Formato Estándar de Impresión de Contratos en PDF [Nuevo]
 ====================================================================================================
 
 
@@ -582,6 +610,26 @@ Categoria: Seguridad / Integridad, Auditoría y No Repudio
 Criterio / Métrica Objetivo: 0% de eliminaciones físicas (DELETE) admitidas en tablas de soporte contractual y contable (contratos, devoluciones, liquidaciones, pagos, auditoria); 100% de operaciones sensibles (anulación de contratos, cambios de tarifas, veto de clientes) registradas con timestamp, ID de usuario, IP y estado previo/nuevo en formato JSONB.
 Método de Verificación: Intentos controlados de ejecución de sentencias DELETE directas sobre tablas históricas desde la consola de base de datos para comprobar que sean bloqueadas por constraints de clave foránea con ON DELETE RESTRICT o reglas de base de datos; comprobación de que los flujos de anulación empleen borrado lógico (actualización de estado a ANULADO) y registren automáticamente la entrada correspondiente en la tabla auditoria.
 Prueba Técnica: Consultas de auditoría a la base de datos "SELECT * FROM auditoria ORDER BY fecha_hora DESC;" evidenciando los registros con sus snapshots de datos antes y después; logs de excepciones controladas "IntegrityError: update or delete on table violates foreign key constraint" al intentar borrar registros con dependencias históricas.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-09)
+Código y Nombre: RNF-09: Arquitectura Multi-Tenant (Aislamiento Lógico por Agencia) y Principio Fail-Fast
+Propósito: Garantizar el aislamiento absoluto de los datos entre distintas agencias (tenants) que comparten la base de datos y asegurar que el sistema falle de forma inmediata y segura (Fail-Fast) ante cualquier ausencia o ambigüedad del identificador de tenencia (tenant_id), previniendo fugas de información o asignaciones por defecto a otra agencia.
+Categoria: Seguridad / Arquitectura de Datos y Confiabilidad (Multi-Tenancy & Fail-Fast)
+Criterio / Métrica Objetivo: 0% de valores por defecto silenciosos para tenant_id (prohibición absoluta de fallbacks como tenant_id = 1) en modelos de dominio, sesión, servicios y repositorios; 100% de las tablas operativas y de auditoría provistas de columna "tenant_id INT NOT NULL REFERENCES agencias(id_agencia)" e índices compuestos encabezados por tenant_id; interrupción inmediata con excepción explícita (ValueError / KeyError / BusinessRuleViolationError) en menos de 1 milisegundo si se invoca una operación sin sesión activa o si una fila de base de datos carece de la columna tenant_id.
+Método de Verificación: Auditoría estática sobre src/domain/models.py, src/core/session.py, src/repositories/ y src/services/ verificando el uso de lectura estricta row["tenant_id"] en los mapeadores _row_to_entity y validación obligatoria en constructores (__post_init__); ejecución de pruebas de penetración lógica e inyección de fallos en tests/test_multitenancy.py intentando: (a) instanciar entidades con tenant_id nulo o inválido, (b) consultar o modificar registros sin sesión ni tenant_id explícito, y (c) cruzar vehículos, clientes, reservas o contratos de la Agencia A desde una sesión autenticada en la Agencia B.
+Prueba Técnica: Ejecución exitosa al 100% de la suite automatizada tests/test_multitenancy.py (validando Fail-Fast sin sesión, rechazo en modelos sin tenant_id, aislamiento cruzado entre Agencia 1 y Agencia 2 en vehículos, clientes, reservas, contratos, devoluciones y mantenimientos, y bloqueo de operaciones inter-agencia) integrada en tests/run_all.py.
+
+----------------------------------------------------------------------------------------------------
+
+Plantilla de Especificación de Requisito No Funcional (RNF-10)
+Código y Nombre: RNF-10: Fidelidad Legal y Formato Estándar de Impresión de Contratos en PDF
+Propósito: Asegurar que los documentos de contrato de arrendamiento generados para firma física mantengan una presentación tipográfica formal, íntegra, legible y estandarizada en formato A4 tanto en exportación digital PDF como en impresión directa en papel.
+Categoria: Usabilidad / Interoperabilidad Documental y Cumplimiento Legal
+Criterio / Métrica Objetivo: Generación de documentos PDF 100% conformes al estándar PDF 1.4+ (cabecera binaria %PDF-) con resolución de impresión de alta densidad (QPrinter.HighResolution) en formato de hoja A4 (210 x 297 mm) y márgenes simétricos de 12 mm; tiempo de generación y escritura en disco del contrato PDF menor o igual a 1.5 segundos; inclusión obligatoria del 100% de los elementos contractuales (encabezado de la agencia emisora, código de contrato, tabla de partes, ficha de vehículo y acta Check-in, desglose económico, cláusulas legales y bloques de firma con líneas de rúbrica para Arrendador y Arrendatario).
+Método de Verificación: Generación automatizada y validación estructural del archivo PDF e inspección del HTML renderizado mediante pruebas de integración en tests/test_contracts.py ([TEST 7]) comprobando que el archivo resultante no esté vacío, posea firma binaria %PDF- y contenga los identificadores de contrato, cliente, placa del vehículo y bloques de firma.
+Prueba Técnica: Ejecución automatizada de tests/test_contracts.py ([TEST 7: Generación y exportación de Contrato en PDF para firma]) y tests/test_ui_components.py verificando la presencia de los controles de descarga e impresión en ContractsView y ContractFormDialog.
 
 ====================================================================================================
 FIN DEL DOCUMENTO DE ESPECIFICACIÓN DE REQUISITOS (RF Y RNF)
