@@ -284,16 +284,11 @@ class LoginView(QWidget):
         self.agency_combo.clear()
         try:
             agencies = auth_service.list_agencies(only_active=True)
-            if agencies:
-                for ag in agencies:
-                    label = f"🏢 {ag.nombre_comercial} ({ag.codigo_agencia})"
-                    self.agency_combo.addItem(label, ag.id_agencia)
-                return
+            for ag in agencies:
+                label = f"🏢 {ag.nombre_comercial} ({ag.codigo_agencia})"
+                self.agency_combo.addItem(label, ag.id_agencia)
         except Exception as e:
-            logger.debug("Usando agencia por defecto en selector de login: %s", e)
-
-        # Fallback por defecto (Tenant 1)
-        self.agency_combo.addItem("🏢 AutoRent Pro - Sede Central Managua (AUT-MGA-01)", 1)
+            logger.error("No se pudieron cargar las agencias en el selector de login: %s", e)
 
     def _toggle_password_visibility(self) -> None:
         """Alterna el modo de visualización de la contraseña entre texto y máscara."""
@@ -310,7 +305,12 @@ class LoginView(QWidget):
         self.error_label.hide()
         username = self.username_input.text().strip()
         password = self.password_input.text()
-        tenant_id = self.agency_combo.currentData() or 1
+        tenant_id = self.agency_combo.currentData()
+
+        if tenant_id is None:
+            self._show_error("Por favor seleccione una agencia / sucursal válida.")
+            self.agency_combo.setFocus()
+            return
 
         # Validación visual inmediata
         if not username:

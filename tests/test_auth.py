@@ -34,12 +34,14 @@ def run_tests() -> None:
     # PRUEBA 1: LOGIN CORRECTO (ADMINISTRADOR)
     # ------------------------------------------------------------------------
     print("\n[TEST 1] Verificando login correcto para 'admin'...")
-    user = auth_service.login("admin", "Admin123*")
+    user = auth_service.login("admin", "Admin123*", tenant_id=1)
     assert user is not None, "El usuario retornado no debe ser None"
     assert user.username == "admin"
+    assert user.tenant_id == 1
     assert user.rol_nombre == UserRole.ADMINISTRADOR.value
     assert session.is_authenticated, "La sesión debe estar activa"
     assert session.current_user.username == "admin"
+    assert session.tenant_id == 1
     print(" -> PASO: Login correcto y sesión establecida.")
 
     # ------------------------------------------------------------------------
@@ -47,7 +49,7 @@ def run_tests() -> None:
     # ------------------------------------------------------------------------
     print("\n[TEST 2] Verificando rechazo por contraseña incorrecta...")
     try:
-        auth_service.login("admin", "PasswordErronea123*")
+        auth_service.login("admin", "PasswordErronea123*", tenant_id=1)
         assert False, "Debió lanzar AuthenticationError por contraseña errónea"
     except AuthenticationError as e:
         assert e.code == "INVALID_PASSWORD"
@@ -58,7 +60,7 @@ def run_tests() -> None:
     # ------------------------------------------------------------------------
     print("\n[TEST 3] Verificando rechazo por usuario inexistente...")
     try:
-        auth_service.login("usuario_que_no_existe", "CualquierPass123*")
+        auth_service.login("usuario_que_no_existe", "CualquierPass123*", tenant_id=1)
         assert False, "Debió lanzar AuthenticationError por usuario no encontrado"
     except AuthenticationError as e:
         assert e.code == "USER_NOT_FOUND"
@@ -69,7 +71,7 @@ def run_tests() -> None:
     # ------------------------------------------------------------------------
     print("\n[TEST 4] Verificando rechazo por usuario deshabilitado (activo = FALSE)...")
     try:
-        auth_service.login("inactivo", "Inactivo123*")
+        auth_service.login("inactivo", "Inactivo123*", tenant_id=1)
         assert False, "Debió lanzar AuthenticationError por usuario deshabilitado"
     except AuthenticationError as e:
         assert e.code == "USER_DISABLED"
@@ -81,14 +83,14 @@ def run_tests() -> None:
     print("\n[TEST 5] Verificando matriz de permisos RBAC para diferentes roles...")
 
     # A. Administrador (acceso total)
-    auth_service.login("admin", "Admin123*")
+    auth_service.login("admin", "Admin123*", tenant_id=1)
     assert session.has_permission("usuarios"), "ADMIN debe tener acceso a usuarios"
     assert session.has_permission("flota"), "ADMIN debe tener acceso a flota"
     assert session.has_permission("reportes"), "ADMIN debe tener acceso a reportes"
     print(" -> Subprueba 5.1: Rol ADMINISTRADOR tiene acceso total verificado.")
 
     # B. Agente de Ventas (acceso a contratos, reservas, clientes; NO a usuarios ni mantenimientos)
-    auth_service.login("agente1", "Agente123*")
+    auth_service.login("agente1", "Agente123*", tenant_id=1)
     assert session.has_permission("contratos"), "AGENTE debe tener acceso a contratos"
     assert session.has_permission("reservas"), "AGENTE debe tener acceso a reservas"
     assert session.has_permission("clientes"), "AGENTE debe tener acceso a clientes"
@@ -97,7 +99,7 @@ def run_tests() -> None:
     print(" -> Subprueba 5.2: Rol AGENTE_VENTAS tiene permisos operativos y restricciones verificadas.")
 
     # C. Inspector de Taller (acceso a devoluciones, mantenimientos; NO a clientes ni contratos)
-    auth_service.login("taller1", "Taller123*")
+    auth_service.login("taller1", "Taller123*", tenant_id=1)
     assert session.has_permission("mantenimientos"), "TALLER debe tener acceso a mantenimientos"
     assert session.has_permission("devoluciones"), "TALLER debe tener acceso a devoluciones"
     assert not session.has_permission("clientes"), "TALLER NO debe tener acceso a clientes"

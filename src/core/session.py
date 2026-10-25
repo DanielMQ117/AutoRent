@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, Set
 import threading
 
+from src.core.exceptions import AuthenticationError
 from src.core.logger import get_logger
 from src.domain.enums import UserRole
 from src.domain.models import User
@@ -62,7 +63,7 @@ class UserSession:
                 cls._instance = super().__new__(cls)
                 cls._instance._user = None
                 cls._instance._login_time = None
-                cls._instance._default_tenant_id = 1
+                cls._instance._default_tenant_id = None
             return cls._instance
 
     @property
@@ -77,29 +78,35 @@ class UserSession:
 
     @property
     def tenant_id(self) -> int:
-        """Retorna el identificador de la agencia (tenant) activa en sesión."""
-        if self._user and getattr(self._user, "tenant_id", None):
+        """Retorna el identificador de la agencia (tenant) activa en sesión (Fail-Fast si no hay sesión)."""
+        if self._user and getattr(self._user, "tenant_id", None) is not None:
             return int(self._user.tenant_id)
-        return getattr(self, "_default_tenant_id", 1)
+        default_tid = getattr(self, "_default_tenant_id", None)
+        if default_tid is not None:
+            return int(default_tid)
+        raise AuthenticationError(
+            message="Operación denegada: No existe una agencia (tenant) activa en la sesión actual.",
+            code="NO_ACTIVE_TENANT",
+        )
 
     @property
     def agency_name(self) -> str:
         """Retorna el nombre comercial de la agencia activa en sesión."""
         if self._user and getattr(self._user, "agencia_nombre", None):
             return str(self._user.agencia_nombre)
-        return "AutoRent Pro - Sede Central Managua"
+        return "Sin Agencia Activa"
 
     @property
     def agency_code(self) -> str:
         """Retorna el código identificador de la agencia activa en sesión."""
         if self._user and getattr(self._user, "agencia_codigo", None):
             return str(self._user.agencia_codigo)
-        return "AUT-MGA-01"
+        return "SIN-AGENCIA"
 
-    def set_default_tenant(self, tenant_id: int) -> None:
-        """Fija el tenant por defecto cuando se opera fuera de una sesión interactiva."""
+    def set_default_tenant(self, tenant_id: Optional[int]) -> None:
+        """Fija o limpia el tenant explícito cuando se opera en tareas de sistema previas al login."""
         with self._lock:
-            self._default_tenant_id = int(tenant_id)
+            self._default_tenant_id = int(tenant_id) if tenant_id is not None else None
 
     @property
     def role_name(self) -> str:
@@ -125,11 +132,12 @@ class UserSession:
             )
 
     def logout(self) -> None:
-        """Cierra la sesión actual y limpia las credenciales en memoria."""
+        """Cierra la sesión actual y limpia las credenciales y agencia en memoria."""
         with self._lock:
             username = self._user.username if self._user else "Anonimo"
             self._user = None
             self._login_time = None
+            self._default_tenant_id = None
             logger.info("Sesión cerrada para el usuario '%s'.", username)
 
     def has_permission(self, module_name: str) -> bool:

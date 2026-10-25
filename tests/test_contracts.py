@@ -33,6 +33,7 @@ from src.domain.models import (
     Reservation,
     Vehicle,
 )
+from src.services.auth_service import auth_service
 from src.services.client_service import client_service
 from src.services.contract_service import contract_service
 from src.services.reservation_service import reservation_service
@@ -95,6 +96,8 @@ def run_tests() -> None:
     print("\n" + "=" * 70)
     print("EJECUTANDO SUITE DE PRUEBAS DE CONTRATOS, ENTREGA Y FORMALIZACIÓN")
     print("=" * 70)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     test_cedulas = ["001-300199-0005Y", "001-020290-0088W"]
     test_placas = ["M-CTR-501", "M-CTR-502"]

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from src.core.exceptions import (
     AppException,
+    AuthenticationError,
     BusinessRuleViolationError,
     InvalidStateTransitionError,
     RecordNotFoundError,
@@ -220,10 +221,16 @@ class ReturnService(BaseService):
         return_data.horas_retraso = calc["horas_retraso"]
         return_data.id_contrato = id_contrato
 
-        # Asignar usuario logueado en sesión
-        current_user = session.current_user
-        user_id = current_user.id_usuario if current_user and current_user.id_usuario else 1
-        return_data.id_usuario = user_id
+        # Asignar usuario logueado en sesión (Fail-Fast si no hay sesión)
+        if not return_data.id_usuario:
+            current_user = session.current_user
+            if not current_user or not current_user.id_usuario:
+                raise AuthenticationError(
+                    "Debe iniciar sesión para registrar una devolución y liquidación.",
+                    code="AUTHENTICATION_REQUIRED",
+                )
+            return_data.id_usuario = current_user.id_usuario
+        user_id = return_data.id_usuario
 
         with self.run_in_transaction() as conn:
             # 3. Crear el acta de devolución física y sus daños

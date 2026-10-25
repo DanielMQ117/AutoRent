@@ -34,6 +34,7 @@ from src.domain.models import (
     Maintenance,
     Vehicle,
 )
+from src.services.auth_service import auth_service
 from src.services.client_service import client_service
 from src.services.contract_service import contract_service
 from src.services.maintenance_service import maintenance_service
@@ -111,6 +112,8 @@ def run_tests() -> None:
     print("\n" + "=" * 70)
     print("INICIANDO SUITE DE PRUEBAS: FASE 8 - MANTENIMIENTO DE FLOTA Y TALLER")
     print("=" * 70)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     test_placas = ["MNT-001", "MNT-002", "MNT-003", "MNT-004"]
     cleanup_test_maintenances_data(test_placas)

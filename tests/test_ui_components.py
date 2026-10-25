@@ -28,7 +28,7 @@ def run_ui_checks():
     print("=" * 70)
 
     # Autenticar como admin para tener acceso a todos los módulos
-    auth_service.login("admin", "Admin123*")
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     # Iniciar QApplication headless si no existe
     app = QApplication.instance()

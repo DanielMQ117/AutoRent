@@ -34,6 +34,7 @@ from src.domain.models import (
     ReturnInspection,
     Vehicle,
 )
+from src.services.auth_service import auth_service
 from src.services.client_service import client_service
 from src.services.contract_service import contract_service
 from src.services.return_service import return_service
@@ -127,6 +128,8 @@ def run_tests() -> None:
     print("\n" + "=" * 75)
     print("EJECUTANDO SUITE DE PRUEBAS DE DEVOLUCIONES, INSPECCIÓN Y LIQUIDACIÓN (FASE 6)")
     print("=" * 75)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     test_cedulas = ["001-200595-0011Z"]
     test_placas = ["M-RET-601", "M-RET-602", "M-RET-603", "M-RET-604"]

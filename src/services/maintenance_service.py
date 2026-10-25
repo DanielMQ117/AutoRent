@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from src.core.exceptions import (
+    AuthenticationError,
     BusinessRuleViolationError,
     InvalidStateTransitionError,
     RecordNotFoundError,
@@ -126,13 +127,15 @@ class MaintenanceService(BaseService):
         if not maintenance.fecha_ingreso:
             maintenance.fecha_ingreso = datetime.now()
 
-        # Asignar usuario de sesión activa si no viene asignado
+        # Asignar usuario de sesión activa si no viene asignado (Fail-Fast si no hay sesión)
         if not maintenance.id_usuario:
             current_user = session.current_user
-            if current_user and current_user.id_usuario:
-                maintenance.id_usuario = current_user.id_usuario
-            else:
-                maintenance.id_usuario = 1  # Fallback a usuario administrador inicial
+            if not current_user or not current_user.id_usuario:
+                raise AuthenticationError(
+                    "Debe iniciar sesión para registrar una orden de mantenimiento.",
+                    code="AUTHENTICATION_REQUIRED",
+                )
+            maintenance.id_usuario = current_user.id_usuario
 
         with self.run_in_transaction() as conn:
             # 1. Crear registro de mantenimiento

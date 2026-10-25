@@ -15,6 +15,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from src.core.exceptions import ValidationError
 from src.core.logger import setup_logging
+from src.services.auth_service import auth_service
 from src.services.report_service import report_service
 from src.services.vehicle_service import vehicle_service
 
@@ -25,6 +26,8 @@ def run_tests() -> None:
     print("\n" + "=" * 70)
     print("INICIANDO SUITE DE PRUEBAS: FASE 9 - REPORTES, ESTADÍSTICAS Y ANALÍTICA")
     print("=" * 70)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     try:
         # ---------------------------------------------------------------------

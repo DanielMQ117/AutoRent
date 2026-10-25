@@ -12,6 +12,7 @@ from src.core.exceptions import BusinessRuleViolationError, DuplicateRecordError
 from src.core.logger import setup_logging
 from src.domain.enums import ClientStatus, ClientType
 from src.domain.models import Client, DriverLicense
+from src.services.auth_service import auth_service
 from src.services.client_service import client_service
 
 
@@ -20,6 +21,8 @@ def run_tests() -> None:
     print("\n" + "=" * 70)
     print("EJECUTANDO SUITE DE PRUEBAS DE CLIENTES Y LICENCIAS (CRUD)")
     print("=" * 70)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     # ------------------------------------------------------------------------
     # TEST 1: Listado inicial de clientes (Seed)

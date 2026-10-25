@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 
 from src.core.exceptions import (
+    AuthenticationError,
     BusinessRuleViolationError,
     InvalidStateTransitionError,
     RecordNotFoundError,
@@ -259,10 +260,15 @@ class ContractService(BaseService):
         """
         self.validate_contract_rules(contract, is_update=False)
 
-        # Asignar usuario logueado en sesión
+        # Asignar usuario logueado en sesión (Fail-Fast si no hay sesión)
         if not contract.id_usuario:
             current_user = session.current_user
-            contract.id_usuario = current_user.id_usuario if current_user and current_user.id_usuario else 1
+            if not current_user or not current_user.id_usuario:
+                raise AuthenticationError(
+                    "Debe iniciar sesión para formalizar un contrato.",
+                    code="AUTHENTICATION_REQUIRED",
+                )
+            contract.id_usuario = current_user.id_usuario
 
         # Generar código correlativo si no fue fijado
         if not contract.codigo_contrato:
@@ -340,6 +346,8 @@ class ContractService(BaseService):
             self.vehicle_repo.update_status(contract.id_vehiculo, VehicleStatus.DISPONIBLE, conn=conn)
 
             # 3. Si hubo depósito en garantía, generar el registro de reembolso
+            current_user = session.current_user
+            refund_user_id = current_user.id_usuario if current_user and current_user.id_usuario else contract.id_usuario
             for p in contract.pagos:
                 if p.tipo_movimiento == PaymentType.DEPOSITO_GARANTIA:
                     refund_trx = self._generate_payment_code(prefix="TRX-REF")
@@ -350,7 +358,7 @@ class ContractService(BaseService):
                         metodo_pago=p.metodo_pago,
                         monto=p.monto,
                         referencia=f"Reembolso {contract.codigo_contrato}: {motivo or 'N/A'}"[:60],
-                        id_usuario=session.current_user.id_usuario if session.current_user else 1,
+                        id_usuario=refund_user_id,
                     )
                     self.payment_repo.create(refund_payment, conn=conn)
 

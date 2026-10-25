@@ -18,6 +18,7 @@ from src.core.exceptions import (
 from src.core.logger import setup_logging
 from src.domain.enums import ClientStatus, ClientType, ReservationStatus, VehicleStatus
 from src.domain.models import Client, DriverLicense, Reservation, Vehicle
+from src.services.auth_service import auth_service
 from src.services.client_service import client_service
 from src.services.reservation_service import reservation_service
 from src.services.vehicle_service import vehicle_service
@@ -49,6 +50,8 @@ def run_tests() -> None:
     print("\n" + "=" * 70)
     print("EJECUTANDO SUITE DE PRUEBAS DE RESERVAS Y DISPONIBILIDAD TEMPORAL")
     print("=" * 70)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     test_cedulas = ["001-200199-0001X", "001-010190-0099Z"]
     test_placas = ["M-RES-401"]

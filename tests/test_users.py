@@ -60,7 +60,7 @@ def run_tests() -> None:
     print("=" * 70)
 
     # Iniciar sesión como Administrador para disponer de contexto en los logs de auditoría
-    auth_service.login("admin", "Admin123*")
+    auth_service.login("admin", "Admin123*", tenant_id=1)
     cleanup_test_data()
 
     # -------------------------------------------------------------------------
@@ -243,7 +243,7 @@ def run_tests() -> None:
 
     # Intento 1 erróneo
     try:
-        auth_service.login("usr_test_lock", "ClaveErronea1")
+        auth_service.login("usr_test_lock", "ClaveErronea1", tenant_id=1)
         assert False
     except AuthenticationError as e:
         assert e.code == "INVALID_PASSWORD"
@@ -251,7 +251,7 @@ def run_tests() -> None:
 
     # Intento 2 erróneo
     try:
-        auth_service.login("usr_test_lock", "ClaveErronea2")
+        auth_service.login("usr_test_lock", "ClaveErronea2", tenant_id=1)
         assert False
     except AuthenticationError as e:
         assert e.code == "INVALID_PASSWORD"
@@ -259,7 +259,7 @@ def run_tests() -> None:
 
     # Intento 3 erróneo -> Debe disparar bloqueo automático (RF-03)
     try:
-        auth_service.login("usr_test_lock", "ClaveErronea3")
+        auth_service.login("usr_test_lock", "ClaveErronea3", tenant_id=1)
         assert False, "El tercer intento fallido debió bloquear la cuenta con ACCOUNT_LOCKED"
     except AuthenticationError as e:
         assert e.code == "ACCOUNT_LOCKED"
@@ -272,7 +272,7 @@ def run_tests() -> None:
 
     # Cuarto intento con la contraseña correcta debe ser rechazado por cuenta inactiva
     try:
-        auth_service.login("usr_test_lock", "CorrectPassword123*")
+        auth_service.login("usr_test_lock", "CorrectPassword123*", tenant_id=1)
         assert False, "Cuenta inactiva no debe ingresar"
     except AuthenticationError as e:
         assert e.code == "USER_DISABLED"
@@ -280,14 +280,14 @@ def run_tests() -> None:
 
     # Administrador desbloquea la cuenta
     user_service.unlock_user(lock_user.id_usuario)
-    unlocked = auth_service.login("usr_test_lock", "CorrectPassword123*")
+    unlocked = auth_service.login("usr_test_lock", "CorrectPassword123*", tenant_id=1)
     assert unlocked is not None
     assert session.current_user.username == "usr_test_lock"
     print(" -> Desbloqueo administrativo verificado: Usuario ingresó con éxito.")
     print("✓ TEST 6 PASÓ: Bloqueo automático por fuerza bruta (RF-03) y reactivación validados al 100%.")
 
     # Restaurar sesión admin
-    auth_service.login("admin", "Admin123*")
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     # -------------------------------------------------------------------------
     # TEST 7: Bitácora de Auditoría de Acciones Críticas (RF-05)

@@ -286,7 +286,7 @@ class UserService(BaseService):
             )
 
         if new_status:
-            auth_service.reset_failed_attempts(user.username)
+            auth_service.reset_failed_attempts(user.username, user.tenant_id)
         return new_status
 
     def unlock_user(self, id_usuario: int) -> bool:
@@ -306,7 +306,7 @@ class UserService(BaseService):
                 conn=conn,
             )
 
-        auth_service.reset_failed_attempts(user.username)
+        auth_service.reset_failed_attempts(user.username, user.tenant_id)
         self.logger.info("Cuenta de usuario @%s (ID %d) desbloqueada.", user.username, id_usuario)
         return True
 
@@ -344,7 +344,7 @@ class UserService(BaseService):
                 conn=conn,
             )
 
-        auth_service.reset_failed_attempts(user.username)
+        auth_service.reset_failed_attempts(user.username, user.tenant_id)
         self.logger.info("Contraseña restablecida exitosamente para @%s.", user.username)
         return True
 
@@ -388,7 +388,7 @@ class UserService(BaseService):
             )
             self.user_repo.delete(id_usuario, conn=conn)
 
-        auth_service.reset_failed_attempts(user.username)
+        auth_service.reset_failed_attempts(user.username, user.tenant_id)
         self.logger.info("Usuario @%s (ID %d) eliminado del sistema.", user.username, id_usuario)
         return True
 

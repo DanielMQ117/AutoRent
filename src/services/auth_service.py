@@ -26,49 +26,50 @@ class AuthService(BaseService):
         self._failed_attempts: dict[str, int] = {}
 
     @staticmethod
-    def _attempt_key(username: str, tenant_id: int = 1) -> str:
+    def _attempt_key(username: str, tenant_id: int) -> str:
         return f"{int(tenant_id)}:{username.strip().lower()}"
 
     def list_agencies(self, only_active: bool = True) -> List[Agency]:
         """Retorna el listado de agencias disponibles para iniciar sesión."""
         return self.user_repo.list_agencies(only_active=only_active)
 
-    def get_failed_attempts(self, username: str, tenant_id: int = 1) -> int:
+    def get_failed_attempts(self, username: str, tenant_id: int) -> int:
         """Retorna el número acumulado de intentos fallidos para un usuario en una agencia."""
         return self._failed_attempts.get(self._attempt_key(username, tenant_id), 0)
 
-    def increment_failed_attempts(self, username: str, tenant_id: int = 1) -> int:
+    def increment_failed_attempts(self, username: str, tenant_id: int) -> int:
         """Incrementa y retorna el número de intentos fallidos para un usuario en una agencia."""
         key = self._attempt_key(username, tenant_id)
         self._failed_attempts[key] = self._failed_attempts.get(key, 0) + 1
         return self._failed_attempts[key]
 
-    def reset_failed_attempts(self, username: str, tenant_id: int = 1) -> None:
+    def reset_failed_attempts(self, username: str, tenant_id: int) -> None:
         """Reinicia el contador de intentos fallidos."""
         key = self._attempt_key(username, tenant_id)
         self._failed_attempts.pop(key, None)
 
-    def login(self, username: str, password: str, tenant_id: int = 1) -> User:
-        """Autentica a un usuario verificando agencia, credenciales, estado activo y rol.
+    def login(self, username: str, password: str, tenant_id: int) -> User:
+        """Autentica a un usuario verificando explícitamente agencia, credenciales, estado activo y rol.
 
         Args:
             username: Nombre de usuario proporcionado.
             password: Password en texto plano ingresado por el usuario.
-            tenant_id: Identificador de la agencia (tenant) donde inicia sesión (por defecto 1).
+            tenant_id: Identificador obligatorio de la agencia (tenant) donde inicia sesión.
 
         Returns:
             Instancia del Usuario autenticado con su rol y agencia asignados.
 
         Raises:
-            ValidationError: Si los campos están vacíos.
+            ValidationError: Si los campos están vacíos o no se especificó agencia válida.
             AuthenticationError: Si la agencia o el usuario no existen, están deshabilitados o la contraseña es inválida.
         """
-        # 1. Validaciones iniciales de entrada
+        # 1. Validaciones iniciales de entrada (Fail-Fast)
         self.validate_required("Nombre de usuario", username)
         self.validate_required("Contraseña", password)
+        self.validate_positive("Agencia / Sucursal", tenant_id)
 
         clean_username = username.strip()
-        target_tenant = int(tenant_id) if tenant_id else 1
+        target_tenant = int(tenant_id)
 
         self.logger.info(
             "Intento de inicio de sesión para el usuario: '%s' en Agencia ID: %s",
@@ -78,7 +79,13 @@ class AuthService(BaseService):
 
         # 2. Verificar existencia y estado activo de la Agencia (Tenant)
         agency = self.user_repo.get_agency_by_id(target_tenant)
-        if agency is not None and not agency.activo:
+        if agency is None:
+            self.logger.warning("Fallo de autenticación: Agencia inexistente ID %s", target_tenant)
+            raise AuthenticationError(
+                message="La agencia o sucursal seleccionada no existe.",
+                code="TENANT_NOT_FOUND",
+            )
+        if not agency.activo:
             self.logger.warning("Fallo de autenticación: Agencia deshabilitada ID %s", target_tenant)
             raise AuthenticationError(
                 message="La agencia o sucursal seleccionada se encuentra inhabilitada temporalmente.",
@@ -114,17 +121,21 @@ class AuthService(BaseService):
 
             if attempts >= self.MAX_FAILED_ATTEMPTS:
                 # RF-03: Inhabilitar automáticamente la cuenta dentro de su agencia
-                session.set_default_tenant(target_tenant)
-                self.user_repo.set_active_status(user.id_usuario, False)
-                self.audit_repo.record_action(
-                    id_usuario=user.id_usuario,
-                    username=user.username,
-                    accion="BLOQUEO_AUTOMATICO_INTENTOS",
-                    tabla_afectada="usuarios",
-                    id_registro=user.id_usuario,
-                    detalles=f"Bloqueo automático de cuenta tras {attempts} intentos fallidos consecutivos.",
-                    tenant_id=target_tenant,
-                )
+                prev_default = getattr(session, "_default_tenant_id", None)
+                try:
+                    session.set_default_tenant(target_tenant)
+                    self.user_repo.set_active_status(user.id_usuario, False)
+                    self.audit_repo.record_action(
+                        id_usuario=user.id_usuario,
+                        username=user.username,
+                        accion="BLOQUEO_AUTOMATICO_INTENTOS",
+                        tabla_afectada="usuarios",
+                        id_registro=user.id_usuario,
+                        detalles=f"Bloqueo automático de cuenta tras {attempts} intentos fallidos consecutivos.",
+                        tenant_id=target_tenant,
+                    )
+                finally:
+                    session.set_default_tenant(prev_default)
                 self.logger.error("Cuenta bloqueada por fuerza bruta: '%s' (%d intentos)", clean_username, attempts)
                 raise AuthenticationError(
                     message=f"Su cuenta ha sido bloqueada tras {attempts} intentos fallidos consecutivos. Contacte al Administrador.",

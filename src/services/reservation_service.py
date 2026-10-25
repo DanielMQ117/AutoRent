@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
 from src.core.exceptions import (
+    AuthenticationError,
     BusinessRuleViolationError,
     DuplicateRecordError,
     InvalidStateTransitionError,
@@ -214,10 +215,15 @@ class ReservationService(BaseService):
         """Registra una nueva reserva validando disponibilidad y persistiendo en una transacción."""
         self.validate_reservation_rules(reservation, is_update=False)
 
-        # Asignar usuario en sesión si no está establecido
+        # Asignar usuario en sesión si no está establecido (Fail-Fast si no hay sesión)
         if not reservation.id_usuario:
             current_user = session.current_user
-            reservation.id_usuario = current_user.id_usuario if current_user and current_user.id_usuario else 1
+            if not current_user or not current_user.id_usuario:
+                raise AuthenticationError(
+                    "Debe iniciar sesión para registrar una reserva.",
+                    code="AUTHENTICATION_REQUIRED",
+                )
+            reservation.id_usuario = current_user.id_usuario
 
         # Generar código correlativo si no fue fijado
         if not reservation.codigo_reserva:

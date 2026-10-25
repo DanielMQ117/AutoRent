@@ -17,6 +17,7 @@ from src.core.exceptions import (
 from src.core.logger import setup_logging
 from src.domain.enums import VehicleStatus
 from src.domain.models import Vehicle
+from src.services.auth_service import auth_service
 from src.services.vehicle_service import vehicle_service
 
 
@@ -25,6 +26,8 @@ def run_tests() -> None:
     print("\n" + "=" * 70)
     print("EJECUTANDO SUITE DE PRUEBAS DE VEHÍCULOS, FLOTA Y ESTADOS (CRUD)")
     print("=" * 70)
+
+    auth_service.login("admin", "Admin123*", tenant_id=1)
 
     # ------------------------------------------------------------------------
     # TEST 1: Catálogos auxiliares (Marcas, Modelos, Categorías)
