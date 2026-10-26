@@ -165,6 +165,14 @@ class DatabaseManager:
                         logger.error("Error al ejecutar ROLLBACK: %s", rollback_err)
                 raise
 
+    @staticmethod
+    def _sync_rls_tenant_context(cur: Any) -> None:
+        """Sincroniza el parámetro de sesión 'app.current_tenant_id' en PostgreSQL para las políticas RLS."""
+        from src.core.session import session
+        tid = session.active_tenant_id_or_none
+        tid_str = str(tid) if tid is not None else ""
+        cur.execute("SELECT set_config('app.current_tenant_id', %s, false);", (tid_str,))
+
     @contextmanager
     def cursor(self, conn: Any = None, dict_cursor: bool = True) -> Generator[Any, None, None]:
         """Retorna un cursor (por defecto mapeado a diccionario RealDictCursor) cerrado al terminar."""
@@ -178,6 +186,7 @@ class DatabaseManager:
                 cur = conn.cursor(row_factory=row_factory)
 
             try:
+                self._sync_rls_tenant_context(cur)
                 yield cur
             finally:
                 cur.close()
@@ -192,6 +201,7 @@ class DatabaseManager:
                     cur = borrowed_conn.cursor(row_factory=row_factory)
 
                 try:
+                    self._sync_rls_tenant_context(cur)
                     yield cur
                 finally:
                     cur.close()

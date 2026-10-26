@@ -1,7 +1,8 @@
 """Manejo de sesión de usuario autenticado y control de permisos (RBAC)."""
 
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional, Set
+from typing import Generator, Optional, Set
 import threading
 
 from src.core.exceptions import AuthenticationError
@@ -77,13 +78,21 @@ class UserSession:
         return self._user
 
     @property
-    def tenant_id(self) -> int:
-        """Retorna el identificador de la agencia (tenant) activa en sesión (Fail-Fast si no hay sesión)."""
-        if self._user and getattr(self._user, "tenant_id", None) is not None:
-            return int(self._user.tenant_id)
+    def active_tenant_id_or_none(self) -> Optional[int]:
+        """Retorna el tenant_id activo en sesión (o contexto explícito) sin lanzar excepción si no hay sesión."""
         default_tid = getattr(self, "_default_tenant_id", None)
         if default_tid is not None:
             return int(default_tid)
+        if self._user and getattr(self._user, "tenant_id", None) is not None:
+            return int(self._user.tenant_id)
+        return None
+
+    @property
+    def tenant_id(self) -> int:
+        """Retorna el identificador de la agencia (tenant) activa en sesión (Fail-Fast si no hay sesión)."""
+        tid = self.active_tenant_id_or_none
+        if tid is not None:
+            return tid
         raise AuthenticationError(
             message="Operación denegada: No existe una agencia (tenant) activa en la sesión actual.",
             code="NO_ACTIVE_TENANT",
@@ -107,6 +116,16 @@ class UserSession:
         """Fija o limpia el tenant explícito cuando se opera en tareas de sistema previas al login."""
         with self._lock:
             self._default_tenant_id = int(tenant_id) if tenant_id is not None else None
+
+    @contextmanager
+    def tenant_context(self, tenant_id: Optional[int]) -> Generator[None, None, None]:
+        """Context manager para fijar temporalmente el tenant_id en operaciones explícitas o de login."""
+        prev = getattr(self, "_default_tenant_id", None)
+        self.set_default_tenant(tenant_id)
+        try:
+            yield
+        finally:
+            self.set_default_tenant(prev)
 
     @property
     def role_name(self) -> str:

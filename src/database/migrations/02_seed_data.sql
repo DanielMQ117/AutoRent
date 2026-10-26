@@ -23,6 +23,9 @@ VALUES (
         TRUE
     );
 
+-- Establecer el contexto de sesión RLS para la Agencia Principal (Tenant ID = 1)
+SELECT sp_set_tenant_context(1);
+
 -- 1. Roles Globales del Sistema
 INSERT INTO
     roles (nombre, descripcion)

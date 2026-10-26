@@ -1,6 +1,7 @@
 """Repositorio de acceso a datos para la entidad Usuario (usuarios, roles y agencias)."""
 
 from typing import Any, List, Optional
+from src.core.session import session
 from src.domain.models import Agency, Role, User
 from src.repositories.base_repository import BaseRepository
 
@@ -112,7 +113,8 @@ class UserRepository(BaseRepository[User]):
             LEFT JOIN agencias a ON u.tenant_id = a.id_agencia
             WHERE u.tenant_id = %s AND LOWER(u.username) = LOWER(%s);
         """
-        row = self.execute_query_one(query, (target_tenant, username.strip()))
+        with session.tenant_context(target_tenant):
+            row = self.execute_query_one(query, (target_tenant, username.strip()))
         return self._map_row_to_user(row) if row else None
 
     def get_by_id(self, id_usuario: int, tenant_id: Optional[int] = None) -> Optional[User]:
@@ -137,7 +139,8 @@ class UserRepository(BaseRepository[User]):
             LEFT JOIN agencias a ON u.tenant_id = a.id_agencia
             WHERE u.id_usuario = %s AND u.tenant_id = %s;
         """
-        row = self.execute_query_one(query, (id_usuario, target_tenant))
+        with session.tenant_context(target_tenant):
+            row = self.execute_query_one(query, (id_usuario, target_tenant))
         return self._map_row_to_user(row) if row else None
 
     def get_by_email(self, email: str, tenant_id: Optional[int] = None) -> Optional[User]:
@@ -162,7 +165,8 @@ class UserRepository(BaseRepository[User]):
             LEFT JOIN agencias a ON u.tenant_id = a.id_agencia
             WHERE u.tenant_id = %s AND LOWER(u.email) = LOWER(%s);
         """
-        row = self.execute_query_one(query, (target_tenant, email.strip()))
+        with session.tenant_context(target_tenant):
+            row = self.execute_query_one(query, (target_tenant, email.strip()))
         return self._map_row_to_user(row) if row else None
 
     def list_all(
@@ -215,7 +219,8 @@ class UserRepository(BaseRepository[User]):
             params.append(activo)
 
         query += " ORDER BY u.id_usuario ASC;"
-        rows = self.execute_query(query, tuple(params))
+        with session.tenant_context(target_tenant):
+            rows = self.execute_query(query, tuple(params))
         return [self._map_row_to_user(r) for r in rows]
 
     def create(self, user: User, conn: Any = None) -> User:
@@ -237,7 +242,8 @@ class UserRepository(BaseRepository[User]):
             user.email.strip().lower(),
             user.activo,
         )
-        row = self.execute_query_one(query, params, conn=conn)
+        with session.tenant_context(target_tenant):
+            row = self.execute_query_one(query, params, conn=conn)
         if not row:
             raise RuntimeError("Fallo al crear usuario: No se retornaron datos tras el INSERT.")
 
@@ -268,7 +274,8 @@ class UserRepository(BaseRepository[User]):
             user.id_usuario,
             target_tenant,
         )
-        row = self.execute_query_one(query, params, conn=conn)
+        with session.tenant_context(target_tenant):
+            row = self.execute_query_one(query, params, conn=conn)
         if not row:
             raise RuntimeError(f"Fallo al actualizar usuario ID {user.id_usuario}: Registro no encontrado.")
 

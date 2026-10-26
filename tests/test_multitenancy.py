@@ -84,9 +84,10 @@ def cleanup_second_agency() -> None:
         "categorias_vehiculo",
         "usuarios",
     ]
-    for tbl in tables:
-        user_repo.execute_non_query(f"DELETE FROM {tbl} WHERE tenant_id = %s", (tid,))
-    user_repo.execute_non_query("DELETE FROM agencias WHERE id_agencia = %s", (tid,))
+    with session.tenant_context(tid):
+        for tbl in tables:
+            user_repo.execute_non_query(f"DELETE FROM {tbl} WHERE tenant_id = %s", (tid,))
+        user_repo.execute_non_query("DELETE FROM agencias WHERE id_agencia = %s", (tid,))
 
 
 def run_tests() -> None:
@@ -384,12 +385,87 @@ def run_tests() -> None:
             print(f" -> Agencia deshabilitada rechazada correctamente ({e.code}): {e.message}")
         print("✓ TEST 6 PASÓ: Protección de agencia deshabilitada verificada.")
 
+        # --------------------------------------------------------------------
+        # TEST 7: Verificación de Políticas RLS (Row Level Security) en PostgreSQL
+        # --------------------------------------------------------------------
+        print("\n[TEST 7] Verificando activación e imposición de Row Level Security (RLS Policy) en PostgreSQL...")
+        rls_tables = [
+            "usuarios",
+            "auditoria",
+            "categorias_vehiculo",
+            "vehiculos",
+            "clientes",
+            "licencias_conducir",
+            "coberturas_seguro",
+            "reservas",
+            "contratos",
+            "conductores_adicionales",
+            "devoluciones",
+            "danios",
+            "liquidaciones",
+            "pagos",
+            "mantenimientos",
+        ]
+
+        # 7.1 Verificar en catálogo pg_class y pg_policies que las 15 tablas tienen RLS activo y forzado
+        rls_status = user_repo.execute_query(
+            """
+            SELECT c.relname AS tabla,
+                   c.relrowsecurity AS rls_enabled,
+                   c.relforcerowsecurity AS rls_forced,
+                   COUNT(p.polname) AS num_policies
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_policy p ON p.polrelid = c.oid
+            WHERE n.nspname = 'public'
+              AND c.relname = ANY(%s)
+            GROUP BY c.relname, c.relrowsecurity, c.relforcerowsecurity;
+            """,
+            (rls_tables,),
+        )
+        assert len(rls_status) == 15, f"Se esperaban 15 tablas con RLS, se encontraron {len(rls_status)}"
+        for row in rls_status:
+            assert row["rls_enabled"] is True, f"RLS no habilitado en {row['tabla']}"
+            assert row["rls_forced"] is True, f"FORCE RLS no habilitado en {row['tabla']}"
+            assert int(row["num_policies"]) >= 1, f"Sin política RLS en {row['tabla']}"
+        print(" -> Subprueba 7.1: 15/15 tablas multi-tenant tienen ENABLE + FORCE ROW LEVEL SECURITY y políticas activas.")
+
+        # 7.2 Verificar imposición real de la política RLS a nivel de motor con el rol 'autorent_app'
+        with user_repo.db.transaction() as conn:
+            with user_repo.db.cursor(conn=conn, dict_cursor=True) as cur:
+                cur.execute("SET LOCAL ROLE autorent_app;")
+
+                # A. Sin contexto de agencia (Fail-Fast en BD): SELECT sin WHERE retorna 0 filas
+                cur.execute("SELECT sp_set_tenant_context(NULL);")
+                cur.execute("SELECT COUNT(*) AS total FROM clientes;")
+                assert int(cur.fetchone()["total"]) == 0, "RLS debe retornar 0 filas cuando no hay tenant en sesión"
+
+                # B. Con contexto en Agencia 2 (tid_2): SELECT * FROM clientes (SIN cláusula WHERE) solo retorna Agencia 2
+                cur.execute("SELECT sp_set_tenant_context(%s);", (tid_2,))
+                cur.execute("SELECT id_cliente, tenant_id, identificacion FROM clientes;")
+                rows_t2 = cur.fetchall()
+                assert len(rows_t2) == 1 and int(rows_t2[0]["tenant_id"]) == tid_2
+                print(
+                    f" -> Subprueba 7.2: Con app.current_tenant_id={tid_2}, 'SELECT * FROM clientes' (sin WHERE) aisló automáticamente 1 fila de Agencia 2."
+                )
+
+                # C. Con contexto en Agencia 1: SELECT * FROM clientes (SIN cláusula WHERE) solo retorna Agencia 1
+                cur.execute("SELECT sp_set_tenant_context(1);")
+                cur.execute("SELECT DISTINCT tenant_id FROM clientes;")
+                distinct_tenants = [int(r["tenant_id"]) for r in cur.fetchall()]
+                assert distinct_tenants == [1], f"RLS expuso tenants indebidos: {distinct_tenants}"
+                print(" -> Subprueba 7.3: Con app.current_tenant_id=1, 'SELECT * FROM clientes' (sin WHERE) retornó únicamente filas de Agencia 1.")
+
+                cur.execute("RESET ROLE;")
+
+        print("✓ TEST 7 PASÓ: Políticas RLS de PostgreSQL verificadas en catálogo y en ejecución real.")
+
     finally:
         cleanup_second_agency()
         auth_service.login("admin", "Admin123*", tenant_id=1)
 
     print("\n" + "=" * 75)
-    print("¡TODAS LAS PRUEBAS DE TENENCIA MÚLTIPLE Y FAIL-FAST PASARON CON ÉXITO [6/6]!")
+    print("¡TODAS LAS PRUEBAS DE TENENCIA MÚLTIPLE, RLS Y FAIL-FAST PASARON CON ÉXITO [7/7]!")
     print("=" * 75 + "\n")
 
 

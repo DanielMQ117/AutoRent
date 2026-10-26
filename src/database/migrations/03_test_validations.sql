@@ -2,6 +2,9 @@
 -- SCRIPT DE PRUEBAS DE INTEGRIDAD Y VALIDACION DE REGLAS DE NEGOCIO (MULTI-TENANT)
 -- ============================================================================
 
+-- Establecer contexto de sesión RLS para la Agencia 1 antes de ejecutar validaciones
+SELECT sp_set_tenant_context(1);
+
 -- ----------------------------------------------------------------------------
 -- PRUEBA 1: VERIFICAR QUE SE IMPIDE EL OVERBOOKING (SOLAPAMIENTO DE CONTRATOS)
 -- El vehículo ID 4 (Hilux M-405912) tiene un contrato activo que termina mañana.
@@ -132,3 +135,47 @@ FROM
 WHERE
     v.tenant_id = 1
 ORDER BY v.estado, v.placa;
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 6: VERIFICAR AISLAMIENTO MULTI-AGENCIA CON ROW LEVEL SECURITY (RLS)
+-- Valida que bajo el rol de aplicación 'autorent_app' (NOBYPASSRLS):
+-- 1) Sin contexto de agencia (Fail-Fast), las consultas retornan 0 filas.
+-- 2) Con contexto de Agencia 1, solo se ven datos de Agencia 1 y se bloquea
+--    cualquier intento de insertar registros para otra agencia.
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+    v_count_no_tenant INTEGER;
+    v_count_tenant_1 INTEGER;
+BEGIN
+    -- Asumir el rol de aplicación sujeto a políticas RLS
+    EXECUTE 'SET LOCAL ROLE autorent_app';
+
+    -- 1. Limpiar el contexto de tenant (Fail-Fast / Deny-by-Default)
+    PERFORM sp_set_tenant_context(NULL);
+    SELECT COUNT(*) INTO v_count_no_tenant FROM clientes;
+    IF v_count_no_tenant <> 0 THEN
+        RAISE EXCEPTION 'FALLO RLS: Se expusieron % clientes sin tenant_id configurado en la sesión.', v_count_no_tenant;
+    END IF;
+
+    -- 2. Establecer contexto en Agencia 1 y verificar visibilidad
+    PERFORM sp_set_tenant_context(1);
+    SELECT COUNT(*) INTO v_count_tenant_1 FROM clientes;
+    IF v_count_tenant_1 = 0 THEN
+        RAISE EXCEPTION 'FALLO RLS: No se retornaron los clientes legítimos de la Agencia 1.';
+    END IF;
+
+    -- 3. Intentar insertar un registro falseando otro tenant_id (ej. 999) DEBE FALLAR por WITH CHECK
+    BEGIN
+        INSERT INTO clientes (
+            tenant_id, tipo_persona, identificacion, nombres, apellidos, telefono, email, direccion
+        ) VALUES (
+            999, 'NATURAL', '999-999999-9999Z', 'Intruso', 'Cross Tenant', '00000000', 'intruso@test.com', 'N/A'
+        );
+        RAISE EXCEPTION 'FALLO RLS: La política permitió insertar una fila con tenant_id distinto al de la sesión.';
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'ÉXITO PRUEBA 6: Row Level Security (RLS Policy) verificada (0 filas sin contexto, % filas en Agencia 1, e inserción cruzada bloqueada: %).', v_count_tenant_1, SQLERRM;
+    END;
+
+    EXECUTE 'RESET ROLE';
+END $$;

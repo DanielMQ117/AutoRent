@@ -749,3 +749,191 @@ CREATE TRIGGER trg_validar_licencia_contrato
 BEFORE INSERT OR UPDATE ON contratos
 FOR EACH ROW
 EXECUTE FUNCTION fn_validar_licencia_contrato();
+
+-- ----------------------------------------------------------------------------
+-- 11. SEGURIDAD A NIVEL DE FILA (ROW LEVEL SECURITY - RLS MULTI-TENANT)
+-- ----------------------------------------------------------------------------
+
+-- A. Función de lectura del inquilino/agencia activa en la sesión (Fail-Fast / Deny-by-Default)
+-- Si 'app.current_tenant_id' no ha sido establecido o es inválido, retorna NULL,
+-- provocando que la condición (tenant_id = fn_current_tenant_id()) evalúe a UNKNOWN/FALSE
+-- y bloquee cualquier lectura o escritura fuera de contexto.
+CREATE OR REPLACE FUNCTION fn_current_tenant_id()
+RETURNS BIGINT AS $$
+DECLARE
+    v_raw TEXT;
+BEGIN
+    v_raw := NULLIF(BTRIM(current_setting('app.current_tenant_id', TRUE)), '');
+    IF v_raw IS NULL THEN
+        RETURN NULL;
+    END IF;
+    RETURN v_raw::BIGINT;
+EXCEPTION WHEN OTHERS THEN
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- B. Función auxiliar para establecer el contexto de agencia en la sesión actual
+CREATE OR REPLACE FUNCTION sp_set_tenant_context(p_tenant_id BIGINT)
+RETURNS VOID AS $$
+BEGIN
+    IF p_tenant_id IS NULL OR p_tenant_id <= 0 THEN
+        PERFORM set_config('app.current_tenant_id', '', FALSE);
+    ELSE
+        PERFORM set_config('app.current_tenant_id', p_tenant_id::TEXT, FALSE);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- C. Rol de aplicación sin privilegios de superusuario ni BYPASSRLS para imposición estricta de RLS
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'autorent_app') THEN
+        CREATE ROLE autorent_app LOGIN PASSWORD 'autorent_rls_pass' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+    ELSE
+        ALTER ROLE autorent_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+    END IF;
+END $$;
+
+GRANT USAGE ON SCHEMA public TO autorent_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO autorent_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO autorent_app;
+GRANT EXECUTE ON FUNCTION fn_current_tenant_id() TO autorent_app;
+GRANT EXECUTE ON FUNCTION sp_set_tenant_context(BIGINT) TO autorent_app;
+
+-- D. Habilitar y forzar Row Level Security (RLS) en las 15 tablas Multi-Tenant
+ALTER TABLE usuarios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usuarios FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE auditoria ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auditoria FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE categorias_vehiculo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categorias_vehiculo FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE vehiculos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehiculos FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clientes FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE licencias_conducir ENABLE ROW LEVEL SECURITY;
+ALTER TABLE licencias_conducir FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE coberturas_seguro ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coberturas_seguro FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE reservas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reservas FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE contratos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contratos FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE conductores_adicionales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conductores_adicionales FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE devoluciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE devoluciones FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE danios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE danios FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE liquidaciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE liquidaciones FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE pagos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pagos FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE mantenimientos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mantenimientos FORCE ROW LEVEL SECURITY;
+
+-- E. Creación de Políticas RLS de Aislamiento Multi-Agencia (USING + WITH CHECK)
+DROP POLICY IF EXISTS pol_rls_usuarios_tenant ON usuarios;
+CREATE POLICY pol_rls_usuarios_tenant ON usuarios
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_auditoria_tenant ON auditoria;
+CREATE POLICY pol_rls_auditoria_tenant ON auditoria
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_categorias_vehiculo_tenant ON categorias_vehiculo;
+CREATE POLICY pol_rls_categorias_vehiculo_tenant ON categorias_vehiculo
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_vehiculos_tenant ON vehiculos;
+CREATE POLICY pol_rls_vehiculos_tenant ON vehiculos
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_clientes_tenant ON clientes;
+CREATE POLICY pol_rls_clientes_tenant ON clientes
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_licencias_conducir_tenant ON licencias_conducir;
+CREATE POLICY pol_rls_licencias_conducir_tenant ON licencias_conducir
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_coberturas_seguro_tenant ON coberturas_seguro;
+CREATE POLICY pol_rls_coberturas_seguro_tenant ON coberturas_seguro
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_reservas_tenant ON reservas;
+CREATE POLICY pol_rls_reservas_tenant ON reservas
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_contratos_tenant ON contratos;
+CREATE POLICY pol_rls_contratos_tenant ON contratos
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_conductores_adicionales_tenant ON conductores_adicionales;
+CREATE POLICY pol_rls_conductores_adicionales_tenant ON conductores_adicionales
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_devoluciones_tenant ON devoluciones;
+CREATE POLICY pol_rls_devoluciones_tenant ON devoluciones
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_danios_tenant ON danios;
+CREATE POLICY pol_rls_danios_tenant ON danios
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_liquidaciones_tenant ON liquidaciones;
+CREATE POLICY pol_rls_liquidaciones_tenant ON liquidaciones
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_pagos_tenant ON pagos;
+CREATE POLICY pol_rls_pagos_tenant ON pagos
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());
+
+DROP POLICY IF EXISTS pol_rls_mantenimientos_tenant ON mantenimientos;
+CREATE POLICY pol_rls_mantenimientos_tenant ON mantenimientos
+    AS PERMISSIVE FOR ALL TO PUBLIC
+    USING (tenant_id = fn_current_tenant_id())
+    WITH CHECK (tenant_id = fn_current_tenant_id());

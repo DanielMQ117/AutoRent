@@ -4,6 +4,7 @@ Garantiza la inmutabilidad de los registros de auditoría (únicamente operacion
 """
 
 from typing import Any, List, Optional
+from src.core.session import session
 from src.domain.models import AuditLog
 from src.repositories.base_repository import BaseRepository
 
@@ -58,7 +59,8 @@ class AuditRepository(BaseRepository[AuditLog]):
             detalles,
             ip_origen,
         )
-        row = self.execute_query_one(query, params, conn=conn)
+        with session.tenant_context(target_tenant):
+            row = self.execute_query_one(query, params, conn=conn)
         return int(row["id_auditoria"]) if row else 0
 
     def list_logs(
@@ -103,11 +105,13 @@ class AuditRepository(BaseRepository[AuditLog]):
         query += " ORDER BY id_auditoria DESC LIMIT %s;"
         params.append(limit)
 
-        rows = self.execute_query(query, tuple(params))
+        with session.tenant_context(target_tenant):
+            rows = self.execute_query(query, tuple(params))
         return [self._map_row_to_audit(r) for r in rows]
 
     def count_total_logs(self, tenant_id: Optional[int] = None) -> int:
         """Retorna la cantidad total de eventos registrados en la bitácora de la agencia."""
         target_tenant = tenant_id if tenant_id is not None else self.current_tenant_id
         query = "SELECT COUNT(*) FROM auditoria WHERE tenant_id = %s;"
-        return int(self.execute_scalar(query, (target_tenant,)) or 0)
+        with session.tenant_context(target_tenant):
+            return int(self.execute_scalar(query, (target_tenant,)) or 0)
