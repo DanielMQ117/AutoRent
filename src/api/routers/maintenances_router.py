@@ -31,6 +31,7 @@ def list_maintenances(
     status: Optional[str] = Query(default=None, description="Filtro por estado (EN_TALLER, FINALIZADO, CANCELADO)"),
     maintenance_type: Optional[str] = Query(default=None, description="Filtro por tipo (PREVENTIVO, CORRECTIVO)"),
     vehicle_id: Optional[int] = Query(default=None, description="Filtro por ID de vehículo"),
+    limit: int = Query(default=100, ge=1, le=1000, description="Cantidad máxima de registros"),
     current_user: User = Depends(require_module_permission("mantenimientos")),
 ) -> List[MaintenanceResponse]:
     """Lista las órdenes de mantenimiento de la agencia activa."""
@@ -39,6 +40,7 @@ def list_maintenances(
         status=status,
         maintenance_type=maintenance_type,
         vehicle_id=vehicle_id,
+        limit=limit,
     )
     return [MaintenanceResponse.model_validate(o) for o in orders]
 

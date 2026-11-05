@@ -1,7 +1,8 @@
 """Servicio de lógica de negocio para la gestión de Clientes y Licencias (BLL)."""
 
 import re
-from typing import List, Optional
+from typing import Any, List, Optional
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     BusinessRuleViolationError,
     DuplicateRecordError,
@@ -25,6 +26,46 @@ class ClientService(BaseService):
     def __init__(self, client_repo: Optional[ClientORMRepository] = None) -> None:
         super().__init__()
         self.client_repo = client_repo or ClientORMRepository(self.db)
+
+    def _build_remote_payload(
+        self,
+        client: Client,
+        license: Optional[DriverLicense] = None,
+    ) -> dict[str, Any]:
+        """Construye el diccionario JSON de cliente y licencia para enviar al servidor API REST."""
+        self.validate_required("Identificación", client.identificacion)
+        self.validate_required("Nombres", client.nombres)
+        self.validate_required("Apellidos", client.apellidos)
+        self.validate_required("Teléfono", client.telefono)
+        self.validate_required("Correo electrónico", client.email)
+        self.validate_required("Dirección", client.direccion)
+
+        lic = license or client.licencia
+        lic_payload = None
+        if lic and lic.numero_licencia and lic.numero_licencia.strip():
+            self.validate_required("Número de Licencia", lic.numero_licencia)
+            self.validate_required("Categoría de Licencia", lic.categoria_licencia)
+            self.validate_required("Fecha de Emisión", lic.fecha_emision)
+            self.validate_required("Fecha de Vencimiento", lic.fecha_vencimiento)
+            lic_payload = {
+                "numero_licencia": lic.numero_licencia.strip(),
+                "categoria_licencia": lic.categoria_licencia.strip(),
+                "fecha_emision": lic.fecha_emision.isoformat() if lic.fecha_emision else None,
+                "fecha_vencimiento": lic.fecha_vencimiento.isoformat() if lic.fecha_vencimiento else None,
+                "pais_emision": lic.pais_emision or "Nicaragua",
+            }
+
+        return {
+            "tipo_persona": client.tipo_persona.value if isinstance(client.tipo_persona, ClientType) else str(client.tipo_persona),
+            "identificacion": client.identificacion.strip(),
+            "nombres": client.nombres.strip(),
+            "apellidos": client.apellidos.strip(),
+            "telefono": client.telefono.strip(),
+            "email": client.email.strip(),
+            "direccion": client.direccion.strip(),
+            "estado_cliente": client.estado_cliente.value if isinstance(client.estado_cliente, ClientStatus) else str(client.estado_cliente),
+            "licencia": lic_payload,
+        }
 
     def _validate_client_fields(
         self,
@@ -87,6 +128,14 @@ class ClientService(BaseService):
         license: Optional[DriverLicense] = None,
     ) -> Client:
         """Crea un nuevo cliente y su licencia asociada bajo una transacción ACID."""
+        if api_client.remote_mode:
+            payload = self._build_remote_payload(client, license)
+            try:
+                data = api_client.create_client(payload)
+                return api_client.to_client(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         self._validate_client_fields(client, license, is_update=False)
 
         with self.run_in_transaction() as conn:
@@ -103,6 +152,14 @@ class ClientService(BaseService):
         """Actualiza la información de un cliente existente y su licencia."""
         if not client.id_cliente:
             raise ValidationError("El ID del cliente es requerido para la actualización.", code="CLIENT_ID_REQUIRED")
+
+        if api_client.remote_mode:
+            payload = self._build_remote_payload(client, license)
+            try:
+                data = api_client.update_client(client.id_cliente, payload)
+                return api_client.to_client(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
 
         existing = self.client_repo.get_by_id(client.id_cliente)
         if not existing:
@@ -121,6 +178,13 @@ class ClientService(BaseService):
 
     def get_client(self, id_cliente: int) -> Client:
         """Obtiene el expediente de un cliente por su ID."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_client(id_cliente)
+                return api_client.to_client(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         client = self.client_repo.get_by_id(id_cliente)
         if not client:
             raise RecordNotFoundError(
@@ -135,10 +199,25 @@ class ClientService(BaseService):
         status: Optional[str] = None,
     ) -> List[Client]:
         """Lista los clientes registrados con criterios de filtro y búsqueda."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_clients(search=search, status=status)
+                return [api_client.to_client(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.client_repo.list_all(search=search, status=status)
 
     def change_status(self, id_cliente: int, new_status: ClientStatus) -> None:
         """Modifica el estado comercial de un cliente (ACTIVO, MOROSO, VETADO)."""
+        if api_client.remote_mode:
+            st_val = new_status.value if isinstance(new_status, ClientStatus) else str(new_status)
+            try:
+                api_client.change_client_status(id_cliente, st_val)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         client = self.get_client(id_cliente)
 
         # Regla de Negocio: Si pasa a VETADO o MOROSO, verificar advertencias
@@ -153,6 +232,13 @@ class ClientService(BaseService):
 
     def delete_client(self, id_cliente: int) -> None:
         """Elimina a un cliente validando compromisos activos y restricciones de integridad."""
+        if api_client.remote_mode:
+            try:
+                api_client.delete_client(id_cliente)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         client = self.get_client(id_cliente)
 
         # 1. Regla: No eliminar clientes con contratos o reservas activas

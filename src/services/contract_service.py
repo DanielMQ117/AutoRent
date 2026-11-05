@@ -2,8 +2,9 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     AuthenticationError,
     BusinessRuleViolationError,
@@ -93,18 +94,29 @@ class ContractService(BaseService):
                 code="INVALID_DATE_RANGE",
             )
 
-        vehicle = self.vehicle_repo.get_by_id(id_vehiculo)
-        if not vehicle:
-            raise RecordNotFoundError(f"Vehículo con ID {id_vehiculo} no encontrado.")
+        if api_client.remote_mode:
+            try:
+                vehicle = api_client.to_vehicle(api_client.get_vehicle(id_vehiculo))
+                categories = [api_client.to_vehicle_category(c) for c in api_client.list_categories()]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+            category = next((c for c in categories if c.id_categoria == vehicle.id_categoria), None)
+            if not category:
+                raise RecordNotFoundError("No se encontró la categoría del vehículo seleccionado.")
+            coverage = self.get_coverage(id_cobertura)
+        else:
+            vehicle = self.vehicle_repo.get_by_id(id_vehiculo)
+            if not vehicle:
+                raise RecordNotFoundError(f"Vehículo con ID {id_vehiculo} no encontrado.")
 
-        categories = self.vehicle_repo.list_categories()
-        category = next((c for c in categories if c.id_categoria == vehicle.id_categoria), None)
-        if not category:
-            raise RecordNotFoundError("No se encontró la categoría del vehículo seleccionado.")
+            categories = self.vehicle_repo.list_categories()
+            category = next((c for c in categories if c.id_categoria == vehicle.id_categoria), None)
+            if not category:
+                raise RecordNotFoundError("No se encontró la categoría del vehículo seleccionado.")
 
-        coverage = self.coverage_repo.get_by_id(id_cobertura)
-        if not coverage:
-            raise RecordNotFoundError(f"Cobertura de seguro con ID {id_cobertura} no encontrada.")
+            coverage = self.coverage_repo.get_by_id(id_cobertura)
+            if not coverage:
+                raise RecordNotFoundError(f"Cobertura de seguro con ID {id_cobertura} no encontrada.")
 
         delta = end_dt - start_dt
         dias = delta.days
@@ -262,6 +274,55 @@ class ContractService(BaseService):
         5. Actualiza el vehículo a estado ALQUILADO y fija km/combustible de salida.
         6. Registra el depósito en garantía en la tabla de pagos (si el monto es > 0).
         """
+        if api_client.remote_mode:
+            self.validate_positive("Cliente", contract.id_cliente)
+            self.validate_positive("Vehículo", contract.id_vehiculo)
+            self.validate_positive("Cobertura de Seguro", contract.id_cobertura)
+            self.validate_required("Fecha de Inicio Pactada", contract.fecha_hora_inicio_pactada)
+            self.validate_required("Fecha de Fin Pactada", contract.fecha_hora_fin_pactada)
+
+            drivers_payload = []
+            for idx, d in enumerate(contract.conductores_adicionales, start=1):
+                if not d.nombre_completo.strip():
+                    raise ValidationError(f"El conductor adicional #{idx} no tiene nombre completo.", code="MISSING_DRIVER_NAME")
+                if not d.numero_licencia.strip():
+                    raise ValidationError(f"El conductor adicional #{idx} no tiene número de licencia.", code="MISSING_DRIVER_LICENSE")
+                if not d.fecha_vencimiento_licencia:
+                    raise ValidationError(f"El conductor adicional #{idx} no tiene fecha de vencimiento de licencia.", code="MISSING_DRIVER_LICENSE_EXPIRY")
+                drivers_payload.append(
+                    {
+                        "nombre_completo": d.nombre_completo.strip(),
+                        "identificacion": d.identificacion.strip(),
+                        "numero_licencia": d.numero_licencia.strip(),
+                        "fecha_vencimiento_licencia": d.fecha_vencimiento_licencia.isoformat(),
+                    }
+                )
+
+            payload: dict[str, Any] = {
+                "id_reserva": contract.id_reserva,
+                "id_cliente": int(contract.id_cliente),
+                "id_vehiculo": int(contract.id_vehiculo),
+                "id_cobertura": int(contract.id_cobertura),
+                "fecha_hora_inicio_pactada": contract.fecha_hora_inicio_pactada.isoformat() if contract.fecha_hora_inicio_pactada else None,
+                "fecha_hora_fin_pactada": contract.fecha_hora_fin_pactada.isoformat() if contract.fecha_hora_fin_pactada else None,
+                "fecha_hora_salida_real": contract.fecha_hora_salida_real.isoformat() if contract.fecha_hora_salida_real else None,
+                "kilometraje_salida": int(contract.kilometraje_salida),
+                "combustible_salida": str(contract.combustible_salida),
+                "tarifa_diaria_aplicada": str(contract.tarifa_diaria_aplicada),
+                "monto_garantia": str(contract.monto_garantia),
+                "kilometraje_ilimitado": bool(contract.kilometraje_ilimitado),
+                "limite_km_diario": contract.limite_km_diario,
+                "costo_km_excedente": str(contract.costo_km_excedente),
+                "metodo_pago_garantia": metodo_pago_garantia.value if isinstance(metodo_pago_garantia, PaymentMethod) else str(metodo_pago_garantia),
+                "referencia_pago_garantia": referencia_pago_garantia,
+                "conductores_adicionales": drivers_payload,
+            }
+            try:
+                data = api_client.create_contract(payload)
+                return api_client.to_contract(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         self.validate_contract_rules(contract, is_update=False)
 
         # Asignar usuario logueado en sesión (Fail-Fast si no hay sesión)
@@ -335,6 +396,13 @@ class ContractService(BaseService):
 
     def cancel_contract(self, id_contrato: int, motivo: Optional[str] = None) -> None:
         """Anula un contrato activo recién emitido y restaura el estado del vehículo a DISPONIBLE."""
+        if api_client.remote_mode:
+            try:
+                api_client.cancel_contract(id_contrato, motivo=motivo)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         contract = self.get_contract(id_contrato)
         if contract.estado != ContractStatus.ACTIVO:
             raise InvalidStateTransitionError(
@@ -376,6 +444,13 @@ class ContractService(BaseService):
 
     def get_contract(self, id_contrato: int) -> Contract:
         """Obtiene un contrato por su ID primario o lanza RecordNotFoundError."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_contract(id_contrato)
+                return api_client.to_contract(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         contract = self.contract_repo.get_by_id(id_contrato)
         if not contract:
             raise RecordNotFoundError(f"No se encontró el contrato con ID {id_contrato}.", code="CONTRACT_NOT_FOUND")
@@ -383,6 +458,13 @@ class ContractService(BaseService):
 
     def get_contract_by_codigo(self, codigo_contrato: str) -> Contract:
         """Obtiene un contrato por su código alfanumérico o lanza RecordNotFoundError."""
+        if api_client.remote_mode:
+            contracts = self.list_contracts(search=codigo_contrato)
+            for c in contracts:
+                if c.codigo_contrato == codigo_contrato:
+                    return c
+            raise RecordNotFoundError(f"No se encontró el contrato con código '{codigo_contrato}'.", code="CONTRACT_NOT_FOUND")
+
         contract = self.contract_repo.get_by_codigo(codigo_contrato)
         if not contract:
             raise RecordNotFoundError(f"No se encontró el contrato con código '{codigo_contrato}'.", code="CONTRACT_NOT_FOUND")
@@ -398,6 +480,18 @@ class ContractService(BaseService):
         to_date: Optional[datetime] = None,
     ) -> List[Contract]:
         """Consulta y lista contratos aplicando filtros de búsqueda textual y fechas."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_contracts(
+                    search=search,
+                    status=status,
+                    client_id=client_id,
+                    vehicle_id=vehicle_id,
+                )
+                return [api_client.to_contract(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.contract_repo.list_all(
             search=search,
             status=status,
@@ -409,10 +503,22 @@ class ContractService(BaseService):
 
     def get_coverages(self) -> List[InsuranceCoverage]:
         """Retorna las coberturas y pólizas de seguro activas."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_coverages()
+                return [api_client.to_insurance_coverage(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
         return self.coverage_repo.list_all()
 
     def get_coverage(self, id_cobertura: int) -> InsuranceCoverage:
         """Obtiene una cobertura específica por su ID."""
+        if api_client.remote_mode:
+            for cov in self.get_coverages():
+                if cov.id_cobertura == id_cobertura:
+                    return cov
+            raise RecordNotFoundError(f"Cobertura con ID {id_cobertura} no encontrada.", code="COVERAGE_NOT_FOUND")
+
         coverage = self.coverage_repo.get_by_id(id_cobertura)
         if not coverage:
             raise RecordNotFoundError(f"Cobertura con ID {id_cobertura} no encontrada.", code="COVERAGE_NOT_FOUND")
@@ -424,6 +530,13 @@ class ContractService(BaseService):
 
     def build_contract_document_html(self, id_contrato: int) -> str:
         """Construye el documento legal del contrato en formato HTML/CSS listo para impresión o exportación a PDF."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_contract_document_html(id_contrato)
+                return str(data.get("html", ""))
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         contract = self.get_contract(id_contrato)
         client = self.client_repo.get_by_id(contract.id_cliente)
         vehicle = self.vehicle_repo.get_by_id(contract.id_vehiculo)

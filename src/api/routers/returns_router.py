@@ -1,6 +1,6 @@
 """Router FastAPI para Recepción Física, Inspección de Devoluciones y Liquidación Financiera."""
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -37,6 +37,26 @@ def list_settlements(
     """Lista las liquidaciones financieras finales registradas en la agencia activa."""
     settlements = return_service.list_settlements(search=search, limit=limit)
     return [SettlementResponse.model_validate(s) for s in settlements]
+
+
+@router.get("/by-contract/{id_contrato}", response_model=Optional[ReturnInspectionResponse])
+def get_return_by_contract(
+    id_contrato: int,
+    current_user: User = Depends(require_module_permission("devoluciones")),
+) -> Optional[ReturnInspectionResponse]:
+    """Obtiene la devolución asociada a un contrato específico si existe."""
+    ret = return_service.get_return_by_contract(id_contrato)
+    return ReturnInspectionResponse.model_validate(ret) if ret else None
+
+
+@router.get("/settlements/by-contract/{id_contrato}", response_model=Optional[SettlementResponse])
+def get_settlement_by_contract(
+    id_contrato: int,
+    current_user: User = Depends(require_module_permission("devoluciones")),
+) -> Optional[SettlementResponse]:
+    """Obtiene la liquidación asociada a un contrato específico si existe."""
+    st = return_service.get_settlement_by_contract(id_contrato)
+    return SettlementResponse.model_validate(st) if st else None
 
 
 @router.get("/{id_devolucion}", response_model=ReturnInspectionResponse)

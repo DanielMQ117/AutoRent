@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.core.exceptions import AuthenticationError, ValidationError
+from src.core.exceptions import AppException, AuthenticationError, DatabaseConnectionError, ValidationError
 from src.core.logger import get_logger
 from src.domain.models import User
 from src.services.auth_service import auth_service
@@ -287,8 +287,17 @@ class LoginView(QWidget):
             for ag in agencies:
                 label = f"🏢 {ag.nombre_comercial} ({ag.codigo_agencia})"
                 self.agency_combo.addItem(label, ag.id_agencia)
+            if self.agency_combo.count() > 0:
+                self.error_label.hide()
+        except DatabaseConnectionError as e:
+            logger.error("No se pudieron cargar las agencias (servidor API no disponible): %s", e.message)
+            self._show_error(e.message)
         except Exception as e:
             logger.error("No se pudieron cargar las agencias en el selector de login: %s", e)
+            self._show_error(
+                "No se pudo conectar con el servidor API. Asegúrese de iniciar primero: "
+                "uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+            )
 
     def _toggle_password_visibility(self) -> None:
         """Alterna el modo de visualización de la contraseña entre texto y máscara."""
@@ -303,6 +312,11 @@ class LoginView(QWidget):
     def _handle_login(self) -> None:
         """Invoca al servicio de autenticación y gestiona las respuestas visuales."""
         self.error_label.hide()
+        if self.agency_combo.count() == 0:
+            self._load_agencies()
+            if self.agency_combo.count() == 0:
+                return
+
         username = self.username_input.text().strip()
         password = self.password_input.text()
         tenant_id = self.agency_combo.currentData()
@@ -338,7 +352,7 @@ class LoginView(QWidget):
             logger.info("Login exitoso en UI para: %s (Agencia ID: %s)", user.username, user.tenant_id)
             self.login_success.emit(user)
 
-        except (ValidationError, AuthenticationError) as e:
+        except (ValidationError, AuthenticationError, DatabaseConnectionError, AppException) as e:
             self._show_error(e.message)
             self.password_input.selectAll()
             self.password_input.setFocus()

@@ -2,7 +2,8 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     AuthenticationError,
     BusinessRuleViolationError,
@@ -43,6 +44,19 @@ class ReservationService(BaseService):
         now = datetime.now()
         return f"RES-{now.strftime('%Y%m')}-{count:04d}"
 
+    @staticmethod
+    def _build_remote_payload(reservation: Reservation) -> dict[str, Any]:
+        """Construye el diccionario JSON de una reserva para enviar al servidor API REST."""
+        return {
+            "id_cliente": int(reservation.id_cliente or 0),
+            "id_categoria": int(reservation.id_categoria or 0),
+            "id_vehiculo": int(reservation.id_vehiculo) if reservation.id_vehiculo is not None else None,
+            "fecha_hora_inicio": reservation.fecha_hora_inicio.isoformat() if reservation.fecha_hora_inicio else None,
+            "fecha_hora_fin": reservation.fecha_hora_fin.isoformat() if reservation.fecha_hora_fin else None,
+            "monto_anticipo": str(reservation.monto_anticipo),
+            "estado": reservation.estado.value if isinstance(reservation.estado, ReservationStatus) else str(reservation.estado),
+        }
+
     def calculate_duration_and_cost(
         self,
         id_categoria: int,
@@ -60,7 +74,14 @@ class ReservationService(BaseService):
                 code="INVALID_DATE_RANGE",
             )
 
-        categories = self.vehicle_repo.list_categories()
+        if api_client.remote_mode:
+            try:
+                categories = [api_client.to_vehicle_category(c) for c in api_client.list_categories()]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+        else:
+            categories = self.vehicle_repo.list_categories()
+
         category = next((c for c in categories if c.id_categoria == id_categoria), None)
         if not category:
             raise RecordNotFoundError(
@@ -93,6 +114,20 @@ class ReservationService(BaseService):
         """
         if end_dt <= start_dt:
             return False, [], "La fecha de fin debe ser estrictamente posterior a la fecha de inicio."
+
+        if api_client.remote_mode:
+            try:
+                res = api_client.check_availability(
+                    id_categoria=id_categoria,
+                    start_dt=start_dt,
+                    end_dt=end_dt,
+                    id_vehiculo=id_vehiculo,
+                    exclude_reservation_id=exclude_reservation_id,
+                )
+                vehicles = [api_client.to_vehicle(v) for v in res.get("vehicles", [])]
+                return bool(res.get("available", False)), vehicles, str(res.get("message", ""))
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
 
         if id_vehiculo is not None:
             vehicle = self.vehicle_repo.get_by_id(id_vehiculo)
@@ -213,6 +248,18 @@ class ReservationService(BaseService):
 
     def create_reservation(self, reservation: Reservation) -> Reservation:
         """Registra una nueva reserva validando disponibilidad y persistiendo en una transacción."""
+        if api_client.remote_mode:
+            self.validate_positive("Cliente", reservation.id_cliente)
+            self.validate_positive("Categoría", reservation.id_categoria)
+            self.validate_required("Fecha de Inicio", reservation.fecha_hora_inicio)
+            self.validate_required("Fecha de Fin", reservation.fecha_hora_fin)
+            payload = self._build_remote_payload(reservation)
+            try:
+                data = api_client.create_reservation(payload)
+                return api_client.to_reservation(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         self.validate_reservation_rules(reservation, is_update=False)
 
         # Asignar usuario en sesión si no está establecido (Fail-Fast si no hay sesión)
@@ -251,6 +298,18 @@ class ReservationService(BaseService):
         if not reservation.id_reserva:
             raise ValidationError("ID de reserva requerido para actualizar.", code="MISSING_RESERVATION_ID")
 
+        if api_client.remote_mode:
+            self.validate_positive("Cliente", reservation.id_cliente)
+            self.validate_positive("Categoría", reservation.id_categoria)
+            self.validate_required("Fecha de Inicio", reservation.fecha_hora_inicio)
+            self.validate_required("Fecha de Fin", reservation.fecha_hora_fin)
+            payload = self._build_remote_payload(reservation)
+            try:
+                data = api_client.update_reservation(reservation.id_reserva, payload)
+                return api_client.to_reservation(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         current = self.reservation_repo.get_by_id(reservation.id_reserva)
         if not current:
             raise RecordNotFoundError(f"Reserva con ID {reservation.id_reserva} no encontrada.")
@@ -271,6 +330,13 @@ class ReservationService(BaseService):
 
     def confirm_reservation(self, id_reserva: int) -> None:
         """Pasa una reserva de estado PENDIENTE a CONFIRMADA."""
+        if api_client.remote_mode:
+            try:
+                api_client.confirm_reservation(id_reserva)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         reservation = self.get_reservation(id_reserva)
         if reservation.estado != ReservationStatus.PENDIENTE:
             raise InvalidStateTransitionError(
@@ -285,6 +351,13 @@ class ReservationService(BaseService):
 
     def cancel_reservation(self, id_reserva: int, motivo: Optional[str] = None) -> None:
         """Cancela una reserva activa (PENDIENTE o CONFIRMADA)."""
+        if api_client.remote_mode:
+            try:
+                api_client.cancel_reservation(id_reserva, motivo=motivo)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         reservation = self.get_reservation(id_reserva)
         if reservation.estado in (ReservationStatus.CANCELADA, ReservationStatus.VENCIDA, ReservationStatus.CONVERTIDA_A_CONTRATO):
             raise InvalidStateTransitionError(
@@ -311,6 +384,9 @@ class ReservationService(BaseService):
                 code="CANNOT_CONVERT_UNCONFIRMED_RESERVATION",
             )
 
+        if api_client.remote_mode:
+            return
+
         with self.run_in_transaction() as conn:
             self.reservation_repo.update_status(id_reserva, ReservationStatus.CONVERTIDA_A_CONTRATO, conn=conn)
 
@@ -318,6 +394,13 @@ class ReservationService(BaseService):
 
     def get_reservation(self, id_reserva: int) -> Reservation:
         """Obtiene una reserva por su ID o lanza RecordNotFoundError si no existe."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_reservation(id_reserva)
+                return api_client.to_reservation(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         reservation = self.reservation_repo.get_by_id(id_reserva)
         if not reservation:
             raise RecordNotFoundError(
@@ -336,6 +419,18 @@ class ReservationService(BaseService):
         to_date: Optional[datetime] = None,
     ) -> List[Reservation]:
         """Consulta y lista reservas aplicando filtros de búsqueda y fechas."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_reservations(
+                    search=search,
+                    status=status,
+                    client_id=client_id,
+                    category_id=category_id,
+                )
+                return [api_client.to_reservation(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.reservation_repo.list_all(
             search=search,
             status=status,

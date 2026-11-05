@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     AuthenticationError,
     BusinessRuleViolationError,
@@ -38,7 +39,8 @@ class MaintenanceService(BaseService):
         vehicle_repo: Optional[VehicleORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.maintenance_repo = maintenance_repo or MaintenanceORMRepository(self.db)
+        self.maintenance_repo = maintenance_repo or MaintenanceORMRepository(
+            self.db)
         self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
 
     def validate_new_maintenance(
@@ -63,7 +65,8 @@ class MaintenanceService(BaseService):
             )
 
         # 3. No duplicar órdenes activas simultáneas en taller para el mismo vehículo
-        active_order = self.maintenance_repo.get_active_by_vehicle(vehicle.id_vehiculo)
+        active_order = self.maintenance_repo.get_active_by_vehicle(
+            vehicle.id_vehiculo)
         if active_order:
             raise BusinessRuleViolationError(
                 f"El vehículo '{vehicle.placa}' ya tiene una orden abierta en taller (ID #{active_order.id_mantenimiento}). "
@@ -110,6 +113,32 @@ class MaintenanceService(BaseService):
 
     def create_maintenance_order(self, maintenance: Maintenance) -> Maintenance:
         """Registra una nueva orden de servicio y bloquea el vehículo en estado EN_MANTENIMIENTO (RF-31, RF-32)."""
+        if api_client.remote_mode:
+            try:
+                tipo_val = (
+                    maintenance.tipo_mantenimiento.value
+                    if isinstance(maintenance.tipo_mantenimiento, MaintenanceType)
+                    else str(maintenance.tipo_mantenimiento)
+                )
+                payload = {
+                    "id_vehiculo": maintenance.id_vehiculo,
+                    "tipo_mantenimiento": tipo_val,
+                    "kilometraje_entrada": maintenance.kilometraje_entrada,
+                    "fecha_ingreso": maintenance.fecha_ingreso.isoformat() if maintenance.fecha_ingreso else None,
+                    "fecha_salida_estimada": (
+                        maintenance.fecha_salida_estimada.isoformat()
+                        if maintenance.fecha_salida_estimada
+                        else date.today().isoformat()
+                    ),
+                    "taller_servicio": maintenance.taller_servicio,
+                    "descripcion_trabajo": maintenance.descripcion_trabajo,
+                    "costo_total": str(maintenance.costo_total),
+                }
+                data = api_client.create_maintenance(payload)
+                return api_client.to_maintenance(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         vehicle = self.vehicle_repo.get_by_id(maintenance.id_vehiculo)
         if not vehicle:
             raise RecordNotFoundError(
@@ -142,7 +171,8 @@ class MaintenanceService(BaseService):
             created = self.maintenance_repo.create(maintenance, conn=conn)
 
             # 2. Bloquear vehículo actualizando su estado a EN_MANTENIMIENTO (RF-32)
-            self.vehicle_repo.update_status(vehicle.id_vehiculo, VehicleStatus.EN_MANTENIMIENTO, conn=conn)
+            self.vehicle_repo.update_status(
+                vehicle.id_vehiculo, VehicleStatus.EN_MANTENIMIENTO, conn=conn)
 
         logger.info(
             "Vehículo %s (ID %s) enviado a taller con Orden #%s bajo tipo %s",
@@ -163,6 +193,20 @@ class MaintenanceService(BaseService):
         notas_cierre: Optional[str] = None,
     ) -> Maintenance:
         """Finaliza una orden de mantenimiento, consolida costos y reactiva el vehículo a DISPONIBLE (RF-33)."""
+        if api_client.remote_mode:
+            try:
+                payload = {
+                    "fecha_salida_real": fecha_salida_real.isoformat() if fecha_salida_real else None,
+                    "costo_total": str(costo_total) if costo_total is not None else None,
+                    "nuevo_km_proximo_mantenimiento": nuevo_km_proximo_mantenimiento,
+                    "notas_cierre": notas_cierre,
+                }
+                data = api_client.complete_maintenance(
+                    id_mantenimiento, payload)
+                return api_client.to_maintenance(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         maintenance = self.get_maintenance(id_mantenimiento)
 
         if maintenance.estado != MaintenanceStatus.EN_TALLER:
@@ -243,6 +287,14 @@ class MaintenanceService(BaseService):
         motivo: Optional[str] = None,
     ) -> Maintenance:
         """Cancela una orden de mantenimiento y reactiva el vehículo a DISPONIBLE si no tiene otras órdenes pendientes."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.cancel_maintenance(
+                    id_mantenimiento, motivo=motivo)
+                return api_client.to_maintenance(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         maintenance = self.get_maintenance(id_mantenimiento)
 
         if maintenance.estado != MaintenanceStatus.EN_TALLER:
@@ -261,9 +313,11 @@ class MaintenanceService(BaseService):
             )
 
             # 2. Reactivar vehículo si no hay otras órdenes abiertas
-            active_other = self.maintenance_repo.get_active_by_vehicle(maintenance.id_vehiculo, conn=conn)
+            active_other = self.maintenance_repo.get_active_by_vehicle(
+                maintenance.id_vehiculo, conn=conn)
             if not active_other:
-                self.vehicle_repo.update_status(maintenance.id_vehiculo, VehicleStatus.DISPONIBLE, conn=conn)
+                self.vehicle_repo.update_status(
+                    maintenance.id_vehiculo, VehicleStatus.DISPONIBLE, conn=conn)
 
         logger.info(
             "Orden de mantenimiento #%s cancelada. Vehículo ID %s restaurado a DISPONIBLE.",
@@ -275,6 +329,13 @@ class MaintenanceService(BaseService):
 
     def get_maintenance(self, id_mantenimiento: int) -> Maintenance:
         """Recupera una orden de mantenimiento completa por su ID."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_maintenance(id_mantenimiento)
+                return api_client.to_maintenance(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         order = self.maintenance_repo.get_by_id(id_mantenimiento)
         if not order:
             raise RecordNotFoundError(
@@ -292,6 +353,19 @@ class MaintenanceService(BaseService):
         limit: int = 100,
     ) -> List[Maintenance]:
         """Consulta el histórico o lista activa de órdenes de mantenimiento con filtros."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_maintenances(
+                    search=search,
+                    status=status,
+                    maintenance_type=maintenance_type,
+                    vehicle_id=vehicle_id,
+                    limit=limit,
+                )
+                return [api_client.to_maintenance(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.maintenance_repo.list_all(
             search=search,
             status=status,
@@ -302,13 +376,35 @@ class MaintenanceService(BaseService):
 
     def get_active_maintenance_for_vehicle(self, id_vehiculo: int) -> Optional[Maintenance]:
         """Obtiene la orden activa en taller de un vehículo específico si existe."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_maintenances(
+                    status="EN_TALLER", vehicle_id=id_vehiculo, limit=1)
+                return api_client.to_maintenance(rows[0]) if rows else None
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.maintenance_repo.get_active_by_vehicle(id_vehiculo)
 
     def get_maintenance_kpis(self) -> Dict[str, Any]:
         """Genera métricas consolidadas del módulo de taller y mantenimiento para KPIs."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_maintenance_kpis()
+                return {
+                    "total_ordenes": int(data.get("total_ordenes", 0)),
+                    "en_taller": int(data.get("en_taller", 0)),
+                    "finalizadas": int(data.get("finalizadas", 0)),
+                    "gasto_total": Decimal(str(data.get("gasto_total", "0.00"))),
+                }
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         total_ordenes = self.maintenance_repo.count_maintenances()
-        en_taller = self.maintenance_repo.count_maintenances(status="EN_TALLER")
-        finalizadas = self.maintenance_repo.count_maintenances(status="FINALIZADO")
+        en_taller = self.maintenance_repo.count_maintenances(
+            status="EN_TALLER")
+        finalizadas = self.maintenance_repo.count_maintenances(
+            status="FINALIZADO")
         gasto_total = self.maintenance_repo.get_total_expenses()
 
         return {
@@ -320,7 +416,15 @@ class MaintenanceService(BaseService):
 
     def get_eligible_vehicles_for_maintenance(self) -> List[Vehicle]:
         """Retorna vehículos que pueden ser ingresados a taller (no alquilados, no de baja)."""
-        all_vehicles = self.vehicle_repo.list_all(active_only=True)
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_vehicles(active_only=True)
+                all_vehicles = [api_client.to_vehicle(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+        else:
+            all_vehicles = self.vehicle_repo.list_all(active_only=True)
+
         return [
             v for v in all_vehicles
             if v.estado not in (VehicleStatus.ALQUILADO, VehicleStatus.DE_BAJA)

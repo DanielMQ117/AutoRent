@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from src.core.exceptions import AppException
 from src.core.logger import get_logger
+from src.core.session import session
 from src.domain.enums import ContractStatus
 from src.domain.models import Contract, ReturnInspection
 from src.services.contract_service import contract_service
@@ -37,10 +38,12 @@ class ReturnsView(QWidget):
     back_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Inicializa la vista de devoluciones y carga datos si el rol activo tiene permiso."""
         super().__init__(parent)
         self.returns_list: List[ReturnInspection] = []
         self._init_ui()
-        self.load_data()
+        if not session.is_authenticated or session.has_permission("devoluciones"):
+            self.load_data()
 
     def _init_ui(self) -> None:
         """Construye la interfaz visual de la vista de devoluciones."""

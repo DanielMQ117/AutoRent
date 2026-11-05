@@ -2,6 +2,7 @@
 
 import re
 from typing import Any, List, Optional
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     DuplicateRecordError,
     RecordNotFoundError,
@@ -45,10 +46,24 @@ class UserService(BaseService):
         activo: Optional[bool] = None,
     ) -> List[User]:
         """Obtiene la lista de usuarios aplicando los filtros solicitados."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_users(search=search, id_rol=id_rol, activo=activo)
+                return [api_client.to_user(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.user_repo.list_all(search=search, id_rol=id_rol, activo=activo)
 
     def get_user_by_id(self, id_usuario: int) -> User:
         """Obtiene un usuario por su identificador único."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_user(id_usuario)
+                return api_client.to_user(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         user = self.user_repo.get_by_id(id_usuario)
         if not user:
             raise RecordNotFoundError(
@@ -59,14 +74,43 @@ class UserService(BaseService):
 
     def get_user_by_username(self, username: str) -> Optional[User]:
         """Busca un usuario por su nombre de usuario."""
+        if api_client.remote_mode:
+            try:
+                users = self.list_users(search=username)
+                for u in users:
+                    if u.username.lower() == username.strip().lower():
+                        return u
+                return None
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.user_repo.get_by_username(username)
 
     def list_roles(self) -> List[Role]:
         """Retorna la lista de roles definidos en el sistema."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_roles()
+                return [api_client.to_role(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.user_repo.list_roles()
 
     def get_kpis(self) -> dict[str, int]:
         """Retorna métricas cuantitativas para el panel de usuarios."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_user_kpis()
+                return {
+                    "total": int(data.get("total", 0)),
+                    "activos": int(data.get("activos", 0)),
+                    "inactivos": int(data.get("inactivos", 0)),
+                    "administradores": int(data.get("administradores", 0)),
+                }
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.user_repo.count_users_kpis()
 
     def create_user(
@@ -91,6 +135,21 @@ class UserService(BaseService):
         Returns:
             Entidad User creada con su ID primario asignado.
         """
+        if api_client.remote_mode:
+            try:
+                payload = {
+                    "username": username,
+                    "password": password,
+                    "nombre_completo": nombre_completo,
+                    "email": email,
+                    "id_rol": id_rol,
+                    "activo": activo,
+                }
+                data = api_client.create_user(payload)
+                return api_client.to_user(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         # 1. Validaciones de presencia y formato
         self.validate_required("Nombre de usuario", username)
         self.validate_required("Contraseña", password)
@@ -188,6 +247,19 @@ class UserService(BaseService):
 
         Aplica reglas de seguridad para proteger la cuenta de Administrador principal.
         """
+        if api_client.remote_mode:
+            try:
+                payload = {
+                    "nombre_completo": nombre_completo,
+                    "email": email,
+                    "id_rol": id_rol,
+                    "activo": activo,
+                }
+                data = api_client.update_user(id_usuario, payload)
+                return api_client.to_user(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         existing = self.get_user_by_id(id_usuario)
 
         self.validate_required("Nombre completo", nombre_completo)
@@ -262,6 +334,13 @@ class UserService(BaseService):
 
     def toggle_active_status(self, id_usuario: int) -> bool:
         """Conmuta el estado de habilitación de un usuario (Activo <-> Inactivo)."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.toggle_user_active(id_usuario)
+                return bool(data.get("activo", False))
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         user = self.get_user_by_id(id_usuario)
 
         if user.id_usuario == 1 or user.username.lower() == "admin":
@@ -291,6 +370,13 @@ class UserService(BaseService):
 
     def unlock_user(self, id_usuario: int) -> bool:
         """Desbloquea una cuenta de usuario inhabilitada y reinicia sus intentos erróneos."""
+        if api_client.remote_mode:
+            try:
+                api_client.unlock_user(id_usuario)
+                return True
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         user = self.get_user_by_id(id_usuario)
 
         with self.run_in_transaction() as conn:
@@ -320,6 +406,13 @@ class UserService(BaseService):
         Raises:
             ValidationError: Si la contraseña no cumple la longitud mínima.
         """
+        if api_client.remote_mode:
+            try:
+                api_client.reset_user_password(id_usuario, new_password)
+                return True
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         user = self.get_user_by_id(id_usuario)
 
         self.validate_required("Nueva contraseña", new_password)
@@ -350,6 +443,13 @@ class UserService(BaseService):
 
     def delete_user(self, id_usuario: int) -> bool:
         """Elimina físicamente una cuenta de usuario si no posee historial operativo."""
+        if api_client.remote_mode:
+            try:
+                api_client.delete_user(id_usuario)
+                return True
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         user = self.get_user_by_id(id_usuario)
 
         if user.id_usuario == 1 or user.username.lower() == "admin":
@@ -400,6 +500,18 @@ class UserService(BaseService):
         tabla_afectada: Optional[str] = None,
     ) -> List[AuditLog]:
         """Consulta los eventos registrados en la bitácora de auditoría."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_audit_logs(
+                    limit=limit,
+                    accion=accion,
+                    username=username,
+                    tabla_afectada=tabla_afectada,
+                )
+                return [api_client.to_audit_log(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.audit_repo.list_logs(
             limit=limit,
             accion=accion,
@@ -415,6 +527,16 @@ class UserService(BaseService):
         detalles: Optional[str] = None,
     ) -> int:
         """Registra un evento operativo en la bitácora de auditoría desde cualquier flujo del sistema."""
+        if api_client.remote_mode:
+            # En modo cliente HTTP la auditoría la registra el servidor dentro de cada
+            # endpoint transaccional; no existe un endpoint público para auditoría manual.
+            self.logger.warning(
+                "record_audit('%s', '%s') ignorado en modo cliente HTTP: la auditoría se registra en el servidor.",
+                accion,
+                tabla_afectada,
+            )
+            return 0
+
         actor_id, actor_name = self._get_current_actor()
         return self.audit_repo.record_action(
             id_usuario=actor_id,

@@ -1,6 +1,7 @@
 """Router FastAPI para Gestión de Reservas y Disponibilidad Temporal."""
 
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query, status
 
@@ -9,11 +10,37 @@ from src.api.schemas.reservation_schema import (
     ReservationCancelRequest,
     ReservationCreateRequest,
     ReservationResponse,
+    ReservationUpdateRequest,
 )
+from src.api.schemas.vehicle_schema import VehicleResponse
 from src.domain.models import Reservation, User
 from src.services.reservation_service import reservation_service
 
 router = APIRouter(prefix="/api/v1/reservations", tags=["Reservas"])
+
+
+@router.get("/availability/check")
+def check_availability(
+    id_categoria: int = Query(..., description="ID de la categoría solicitada"),
+    start_dt: datetime = Query(..., description="Fecha y hora de inicio"),
+    end_dt: datetime = Query(..., description="Fecha y hora de fin"),
+    id_vehiculo: Optional[int] = Query(default=None, description="ID de vehículo opcional"),
+    exclude_reservation_id: Optional[int] = Query(default=None, description="ID de reserva a excluir en edición"),
+    current_user: User = Depends(require_module_permission("reservas")),
+) -> dict[str, Any]:
+    """Verifica la disponibilidad temporal de flota para un rango de fechas."""
+    is_avail, vehicles, msg = reservation_service.check_availability(
+        id_categoria=id_categoria,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        id_vehiculo=id_vehiculo,
+        exclude_reservation_id=exclude_reservation_id,
+    )
+    return {
+        "available": is_avail,
+        "vehicles": [VehicleResponse.model_validate(v).model_dump(mode="json") for v in vehicles],
+        "message": msg,
+    }
 
 
 @router.get("", response_model=List[ReservationResponse])
@@ -62,6 +89,28 @@ def create_reservation(
     )
     created = reservation_service.create_reservation(res)
     return ReservationResponse.model_validate(created)
+
+
+@router.put("/{id_reserva}", response_model=ReservationResponse)
+def update_reservation(
+    id_reserva: int,
+    req: ReservationUpdateRequest,
+    current_user: User = Depends(require_module_permission("reservas")),
+) -> ReservationResponse:
+    """Actualiza los términos de una reserva existente."""
+    res = Reservation(
+        id_reserva=id_reserva,
+        id_cliente=req.id_cliente,
+        id_categoria=req.id_categoria,
+        id_vehiculo=req.id_vehiculo,
+        fecha_hora_inicio=req.fecha_hora_inicio,
+        fecha_hora_fin=req.fecha_hora_fin,
+        monto_anticipo=req.monto_anticipo,
+        estado=req.estado,
+        id_usuario=current_user.id_usuario or 0,
+    )
+    updated = reservation_service.update_reservation(res)
+    return ReservationResponse.model_validate(updated)
 
 
 @router.post("/{id_reserva}/confirm", response_model=ReservationResponse)

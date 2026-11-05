@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import ValidationError
 from src.core.logger import get_logger
 from src.core.session import session
@@ -49,6 +50,18 @@ class ReportService(BaseService):
             )
 
         logger.info("Generando reporte financiero del %s al %s (Pago: %s, Concepto: %s)", f_ini, f_fin, metodo_pago, concepto)
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_financial_report(
+                    fecha_inicio=f_ini,
+                    fecha_fin=f_fin,
+                    metodo_pago=metodo_pago,
+                    concepto=concepto,
+                )
+                return api_client.to_financial_report_summary(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.report_repo.get_financial_report(
             fecha_inicio=f_ini,
             fecha_fin=f_fin,
@@ -79,6 +92,18 @@ class ReportService(BaseService):
             )
 
         logger.info("Generando reporte de ocupación de flota del %s al %s", f_ini, f_fin)
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_fleet_report(
+                    fecha_inicio=f_ini,
+                    fecha_fin=f_fin,
+                    id_categoria=id_categoria,
+                    search=search,
+                )
+                return api_client.to_fleet_utilization_summary(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.report_repo.get_fleet_utilization_report(
             fecha_inicio=f_ini,
             fecha_fin=f_fin,
@@ -105,6 +130,18 @@ class ReportService(BaseService):
             )
 
         logger.info("Generando reporte de clientes con criterio '%s'", filtro_criterio)
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_clients_report(
+                    filtro_criterio=filtro_criterio,
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
+                    search=search,
+                )
+                return api_client.to_client_history_summary(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.report_repo.get_client_history_report(
             filtro_criterio=filtro_criterio,
             fecha_inicio=fecha_inicio,

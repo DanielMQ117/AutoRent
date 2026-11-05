@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from src.core.exceptions import AppException
 from src.core.logger import get_logger
+from src.core.session import session
 from src.domain.models import (
     ClientHistorySummary,
     FinancialReportSummary,
@@ -45,6 +46,7 @@ class ReportsView(QWidget):
     back_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Inicializa la vista de reportes y carga indicadores si el rol activo tiene permiso."""
         super().__init__(parent)
         self._categories_cache: List[VehicleCategory] = []
         self._financial_summary: Optional[FinancialReportSummary] = None
@@ -52,8 +54,9 @@ class ReportsView(QWidget):
         self._client_summary: Optional[ClientHistorySummary] = None
 
         self._init_ui()
-        self._load_catalogs()
-        self.load_all_reports()
+        if not session.is_authenticated or session.has_permission("reportes"):
+            self._load_catalogs()
+            self.load_all_reports()
 
     def _init_ui(self) -> None:
         """Construye la interfaz visual de la vista de reportes."""

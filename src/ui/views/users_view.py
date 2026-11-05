@@ -39,11 +39,13 @@ class UsersView(QWidget):
     back_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Inicializa la vista de usuarios y carga datos si el rol activo tiene permiso."""
         super().__init__(parent)
         self.users_list: List[User] = []
         self.audit_logs: List[AuditLog] = []
         self._init_ui()
-        self.load_data()
+        if not session.is_authenticated or session.has_permission("usuarios"):
+            self.load_data()
 
     def _init_ui(self) -> None:
         """Construye los componentes visuales de la vista de usuarios."""

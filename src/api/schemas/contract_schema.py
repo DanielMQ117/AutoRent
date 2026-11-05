@@ -56,6 +56,7 @@ class ContractCreateRequest(BaseModel):
     id_cobertura: int
     fecha_hora_inicio_pactada: datetime
     fecha_hora_fin_pactada: datetime
+    fecha_hora_salida_real: Optional[datetime] = None
     kilometraje_salida: int
     combustible_salida: Decimal = Decimal("1.00")
     tarifa_diaria_aplicada: Decimal

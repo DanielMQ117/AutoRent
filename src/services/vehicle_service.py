@@ -1,7 +1,8 @@
 """Servicio de lógica de negocio para la gestión de Flota y Vehículos (BLL)."""
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     BusinessRuleViolationError,
     DuplicateRecordError,
@@ -24,6 +25,22 @@ class VehicleService(BaseService):
     def __init__(self, vehicle_repo: Optional[VehicleORMRepository] = None) -> None:
         super().__init__()
         self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
+
+    @staticmethod
+    def _build_remote_payload(vehicle: Vehicle) -> dict[str, Any]:
+        """Construye el diccionario JSON de un vehículo para enviar a la API REST."""
+        return {
+            "id_modelo": int(vehicle.id_modelo or 0),
+            "id_categoria": int(vehicle.id_categoria or 0),
+            "placa": (vehicle.placa or "").strip().upper(),
+            "vin": (vehicle.vin or "").strip().upper(),
+            "color": (vehicle.color or "").strip().title(),
+            "kilometraje_actual": int(vehicle.kilometraje_actual or 0),
+            "nivel_combustible_actual": str(vehicle.nivel_combustible_actual),
+            "estado": vehicle.estado.value if isinstance(vehicle.estado, VehicleStatus) else str(vehicle.estado),
+            "km_proximo_mantenimiento": int(vehicle.km_proximo_mantenimiento or 5000),
+            "activo": bool(vehicle.activo),
+        }
 
     def _validate_vehicle_fields(
         self,
@@ -99,6 +116,14 @@ class VehicleService(BaseService):
         vehicle.vin = vehicle.vin.strip().upper()
         vehicle.color = vehicle.color.strip().title()
 
+        if api_client.remote_mode:
+            payload = self._build_remote_payload(vehicle)
+            try:
+                data = api_client.create_vehicle(payload)
+                return api_client.to_vehicle(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         self._validate_vehicle_fields(vehicle, is_update=False)
 
         with self.run_in_transaction() as conn:
@@ -111,6 +136,17 @@ class VehicleService(BaseService):
         """Actualiza las especificaciones técnicas u operativas de un vehículo."""
         if not vehicle.id_vehiculo:
             raise ValidationError("El ID del vehículo es obligatorio para la actualización.", code="VEHICLE_ID_REQUIRED")
+
+        if api_client.remote_mode:
+            vehicle.placa = vehicle.placa.strip().upper()
+            vehicle.vin = vehicle.vin.strip().upper()
+            vehicle.color = vehicle.color.strip().title()
+            payload = self._build_remote_payload(vehicle)
+            try:
+                data = api_client.update_vehicle(vehicle.id_vehiculo, payload)
+                return api_client.to_vehicle(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
 
         existing = self.get_vehicle(vehicle.id_vehiculo)
         vehicle.placa = vehicle.placa.strip().upper()
@@ -127,6 +163,13 @@ class VehicleService(BaseService):
 
     def get_vehicle(self, id_vehiculo: int) -> Vehicle:
         """Recupera la ficha técnica completa de un vehículo por su ID."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_vehicle(id_vehiculo)
+                return api_client.to_vehicle(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         vehicle = self.vehicle_repo.get_by_id(id_vehiculo)
         if not vehicle:
             raise RecordNotFoundError(
@@ -143,6 +186,18 @@ class VehicleService(BaseService):
         active_only: bool = False,
     ) -> List[Vehicle]:
         """Obtiene la lista de vehículos filtrados según los criterios solicitados."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_vehicles(
+                    search=search,
+                    status=status,
+                    category_id=category_id,
+                    active_only=active_only,
+                )
+                return [api_client.to_vehicle(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.vehicle_repo.list_all(
             search=search,
             status=status,
@@ -159,6 +214,14 @@ class VehicleService(BaseService):
         - EN_MANTENIMIENTO: En revisión preventiva o correctiva en taller.
         - DE_BAJA: Retirado de la flota activa.
         """
+        if api_client.remote_mode:
+            st_val = new_status.value if isinstance(new_status, VehicleStatus) else str(new_status)
+            try:
+                api_client.change_vehicle_status(id_vehiculo, st_val)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         vehicle = self.get_vehicle(id_vehiculo)
         current_status = vehicle.estado
 
@@ -195,6 +258,13 @@ class VehicleService(BaseService):
 
     def delete_vehicle(self, id_vehiculo: int, force_soft_delete: bool = True) -> None:
         """Elimina o da de baja un vehículo salvaguardando la integridad referencial."""
+        if api_client.remote_mode:
+            try:
+                api_client.delete_vehicle(id_vehiculo)
+                return
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         vehicle = self.get_vehicle(id_vehiculo)
 
         if self.vehicle_repo.has_active_commitments(id_vehiculo):
@@ -219,14 +289,32 @@ class VehicleService(BaseService):
 
     def get_brands(self) -> List[Brand]:
         """Retorna las marcas de vehículos disponibles."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_brands()
+                return [api_client.to_brand(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
         return self.vehicle_repo.list_brands()
 
     def get_models(self, id_marca: Optional[int] = None) -> List[VehicleModel]:
         """Retorna los modelos de vehículos filtrados por marca si aplica."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_models(id_marca=id_marca)
+                return [api_client.to_vehicle_model(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
         return self.vehicle_repo.list_models(id_marca)
 
     def get_categories(self) -> List[VehicleCategory]:
         """Retorna las categorías tarifarias de vehículos."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_categories()
+                return [api_client.to_vehicle_category(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
         return self.vehicle_repo.list_categories()
 
 

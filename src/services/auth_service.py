@@ -1,6 +1,7 @@
 """Servicio de autenticación y control de acceso multi-tenant (Capa de Lógica de Negocio - BLL)."""
 
 from typing import List, Optional
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import AuthenticationError, ValidationError
 from src.core.security import verify_password
 from src.core.session import session
@@ -31,6 +32,12 @@ class AuthService(BaseService):
 
     def list_agencies(self, only_active: bool = True) -> List[Agency]:
         """Retorna el listado de agencias disponibles para iniciar sesión."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_agencies(only_active=only_active)
+                return [api_client.to_agency(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
         return self.user_repo.list_agencies(only_active=only_active)
 
     def get_failed_attempts(self, username: str, tenant_id: int) -> int:
@@ -76,6 +83,26 @@ class AuthService(BaseService):
             clean_username,
             target_tenant,
         )
+
+        if api_client.remote_mode:
+            try:
+                data = api_client.login(
+                    username=clean_username,
+                    password=password,
+                    tenant_id=target_tenant,
+                )
+                user = api_client.to_user(data["user"])
+                self.reset_failed_attempts(clean_username, tenant_id=target_tenant)
+                session.login(user)
+                self.logger.info(
+                    "Inicio de sesión remoto vía API exitoso para '%s' en agencia '%s' con rol '%s'",
+                    user.username,
+                    session.agency_code,
+                    user.rol_nombre,
+                )
+                return user
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
 
         # 2. Verificar existencia y estado activo de la Agencia (Tenant)
         agency = self.user_repo.get_agency_by_id(target_tenant)
@@ -196,6 +223,15 @@ class AuthService(BaseService):
 
     def logout(self) -> None:
         """Finaliza la sesión del usuario actual."""
+        if api_client.remote_mode:
+            try:
+                api_client.logout()
+            except Exception as e:
+                self.logger.warning("Aviso al cerrar sesión remota en API: %s", e)
+            finally:
+                session.logout()
+            return
+
         user = session.current_user
         if user:
             try:

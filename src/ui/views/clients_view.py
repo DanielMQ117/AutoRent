@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from src.core.exceptions import AppException
 from src.core.logger import get_logger
+from src.core.session import session
 from src.domain.enums import ClientStatus
 from src.domain.models import Client
 from src.services.client_service import client_service
@@ -37,10 +38,12 @@ class ClientsView(QWidget):
     back_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Inicializa la vista de clientes y carga el catálogo si el rol activo tiene permiso."""
         super().__init__(parent)
         self._clients_cache: List[Client] = []
         self._init_ui()
-        self.load_data()
+        if not session.is_authenticated or session.has_permission("clientes"):
+            self.load_data()
 
     def _init_ui(self) -> None:
         """Configura los elementos de la interfaz de usuario."""

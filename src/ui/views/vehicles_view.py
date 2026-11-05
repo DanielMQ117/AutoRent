@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from src.core.exceptions import AppException
 from src.core.logger import get_logger
+from src.core.session import session
 from src.domain.enums import VehicleStatus
 from src.domain.models import Vehicle
 from src.services.vehicle_service import vehicle_service
@@ -38,11 +39,13 @@ class VehiclesView(QWidget):
     back_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Inicializa la vista de flota y carga el catálogo si el rol activo tiene permiso."""
         super().__init__(parent)
         self._vehicles_cache: List[Vehicle] = []
         self._init_ui()
-        self._load_category_filter()
-        self.load_data()
+        if not session.is_authenticated or session.has_permission("flota"):
+            self._load_category_filter()
+            self.load_data()
 
     def _init_ui(self) -> None:
         """Inicializa los componentes visuales de la vista de vehículos."""

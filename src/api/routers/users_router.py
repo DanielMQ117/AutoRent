@@ -119,3 +119,33 @@ def reset_user_password(
     """Restablece la contraseña de acceso de un usuario."""
     user_service.reset_password(id_usuario, req.new_password)
     return {"status": "ok", "id_usuario": id_usuario}
+
+
+@router.post("/{id_usuario}/toggle-active")
+def toggle_user_active_status(
+    id_usuario: int,
+    current_user: User = Depends(require_module_permission("usuarios")),
+) -> dict:
+    """Conmuta el estado activo/inactivo de una cuenta de usuario."""
+    new_status = user_service.toggle_active_status(id_usuario)
+    return {"status": "ok", "id_usuario": id_usuario, "activo": new_status}
+
+
+@router.post("/{id_usuario}/unlock")
+def unlock_user_account(
+    id_usuario: int,
+    current_user: User = Depends(require_module_permission("usuarios")),
+) -> dict:
+    """Desbloquea manualmente una cuenta de usuario inhabilitada."""
+    user_service.unlock_user(id_usuario)
+    return {"status": "ok", "id_usuario": id_usuario, "activo": True}
+
+
+@router.delete("/{id_usuario}")
+def delete_user_account(
+    id_usuario: int,
+    current_user: User = Depends(require_module_permission("usuarios")),
+) -> dict:
+    """Elimina físicamente un usuario sin registros históricos."""
+    user_service.delete_user(id_usuario)
+    return {"status": "ok", "id_usuario": id_usuario}

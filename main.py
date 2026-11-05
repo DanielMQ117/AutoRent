@@ -8,9 +8,9 @@ import sys
 from typing import Optional
 from PySide6.QtWidgets import QApplication
 
+from src.api_client import api_client
 from src.config.settings import get_settings
 from src.core.logger import get_logger, setup_logging
-from src.database.connection import db_manager
 from src.domain.models import User
 from src.ui.views.login_view import LoginView
 from src.ui.views.dashboard_view import DashboardView
@@ -20,6 +20,7 @@ class AppCoordinator:
     """Coordina las transiciones desacopladas entre Login y Dashboard."""
 
     def __init__(self) -> None:
+        """Inicializa el coordinador con la vista de inicio de sesión."""
         self.login_view = LoginView()
         self.dashboard_view: Optional[DashboardView] = None
 
@@ -48,16 +49,17 @@ class AppCoordinator:
 
 
 def main() -> int:
-    """Función de arranque e inicialización de la aplicación."""
-    # 1. Configuración de logging inicial
+    """Función de arranque e inicialización de la aplicación en modo Cliente HTTP puro."""
+    # 1. Configuración de logging inicial y activación del modo cliente API remoto
     setup_logging()
     logger = get_logger("main")
     settings = get_settings()
+    api_client.enable_remote_mode(True)
 
     logger.info("====================================================================")
-    logger.info("Iniciando %s", settings.app.name)
+    logger.info("Iniciando %s (Modo Cliente HTTP -> FastAPI)", settings.app.name)
     logger.info("Entorno: %s | Modo Debug: %s", settings.app.env, settings.app.debug)
-    logger.info("Controlador de base de datos detectado: %s", db_manager.driver)
+    logger.info("Servidor API RESTful configurado en: %s", settings.api.base_url)
     logger.info("Versión de Python: %s", sys.version.split()[0])
     logger.info("====================================================================")
 
@@ -66,8 +68,8 @@ def main() -> int:
     app.setApplicationName(settings.app.name)
     app.setOrganizationName("UNAN")
 
-    # Registro de cierre seguro del pool de conexiones al terminar la aplicación
-    app.aboutToQuit.connect(db_manager.close_pool)
+    # Registro de cierre seguro del cliente HTTP al terminar la aplicación
+    app.aboutToQuit.connect(api_client.close)
 
     # 3. Arrancar el coordinador de pantallas
     coordinator = AppCoordinator()

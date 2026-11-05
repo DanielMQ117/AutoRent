@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+from src.api_client import ApiClientError, api_client
 from src.core.exceptions import (
     AppException,
     AuthenticationError,
@@ -203,6 +204,49 @@ class ReturnService(BaseService):
         referencia_pago: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Ejecuta de forma atómica e indivisible (ACID) la recepción del vehículo, liquidación y cierre."""
+        if api_client.remote_mode:
+            try:
+                metodo_val = metodo_pago.value if isinstance(metodo_pago, PaymentMethod) else str(metodo_pago)
+                danios_payload = []
+                for d in (return_data.danios or []):
+                    sev_val = d.severidad.value if isinstance(d.severidad, DamageSeverity) else str(d.severidad)
+                    danios_payload.append(
+                        {
+                            "zona_carroceria": d.zona_carroceria,
+                            "descripcion_danio": d.descripcion_danio,
+                            "severidad": sev_val,
+                            "costo_reparacion": str(d.costo_reparacion),
+                            "evidencia_ruta": d.evidencia_ruta,
+                        }
+                    )
+                payload = {
+                    "id_contrato": id_contrato,
+                    "fecha_hora_retorno_real": (
+                        return_data.fecha_hora_retorno_real.isoformat()
+                        if return_data.fecha_hora_retorno_real
+                        else None
+                    ),
+                    "kilometraje_retorno": return_data.kilometraje_retorno,
+                    "combustible_retorno": str(return_data.combustible_retorno),
+                    "limpieza_aprobada": bool(return_data.limpieza_aprobada),
+                    "accesorios_completos": bool(return_data.accesorios_completos),
+                    "observaciones": return_data.observaciones,
+                    "metodo_pago": metodo_val,
+                    "referencia_pago": referencia_pago,
+                    "danios": danios_payload,
+                }
+                resp = api_client.process_return(payload)
+                ret_obj = api_client.to_return_inspection(resp["return_inspection"])
+                st_obj = api_client.to_settlement(resp["settlement"])
+                pay_obj = api_client.to_payment(resp["payment"]) if resp.get("payment") else None
+                return {
+                    "return_inspection": ret_obj,
+                    "settlement": st_obj,
+                    "payment": pay_obj,
+                }
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         contract = self.contract_repo.get_by_id(id_contrato)
         if not contract:
             raise RecordNotFoundError(f"No se encontró el contrato con ID {id_contrato}.", code="CONTRACT_NOT_FOUND")
@@ -332,6 +376,13 @@ class ReturnService(BaseService):
 
     def get_return(self, id_devolucion: int) -> ReturnInspection:
         """Obtiene un acta de devolución por su ID primario o lanza RecordNotFoundError."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_return(id_devolucion)
+                return api_client.to_return_inspection(data)
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         ret = self.return_repo.get_by_id(id_devolucion)
         if not ret:
             raise RecordNotFoundError(f"No se encontró la devolución con ID {id_devolucion}.", code="RETURN_NOT_FOUND")
@@ -339,18 +390,46 @@ class ReturnService(BaseService):
 
     def get_return_by_contract(self, id_contrato: int) -> Optional[ReturnInspection]:
         """Obtiene la devolución asociada a un contrato específico si existe."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_return_by_contract(id_contrato)
+                return api_client.to_return_inspection(data) if data else None
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.return_repo.get_by_contract_id(id_contrato)
 
     def get_settlement_by_contract(self, id_contrato: int) -> Optional[Settlement]:
         """Obtiene la liquidación asociada a un contrato específico si existe."""
+        if api_client.remote_mode:
+            try:
+                data = api_client.get_settlement_by_contract(id_contrato)
+                return api_client.to_settlement(data) if data else None
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.settlement_repo.get_by_contract_id(id_contrato)
 
     def list_returns(self, search: str = "", limit: int = 100) -> List[ReturnInspection]:
         """Lista las devoluciones registradas con soporte de filtros."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_returns(search=search, limit=limit)
+                return [api_client.to_return_inspection(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.return_repo.list_all(search=search, limit=limit)
 
     def list_settlements(self, search: str = "", limit: int = 100) -> List[Settlement]:
         """Lista las liquidaciones registradas con soporte de filtros."""
+        if api_client.remote_mode:
+            try:
+                rows = api_client.list_settlements(search=search, limit=limit)
+                return [api_client.to_settlement(r) for r in rows]
+            except ApiClientError as exc:
+                raise exc.to_domain_exception() from exc
+
         return self.settlement_repo.list_all(search=search, limit=limit)
 
 

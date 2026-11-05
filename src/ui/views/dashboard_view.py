@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.api_client import api_client
 from src.config.settings import get_settings
 from src.core.logger import get_logger
 from src.core.session import session
@@ -645,8 +646,13 @@ class DashboardView(QMainWindow):
         status_bar.setStyleSheet("background-color: #1e293b; color: #94a3b8; border-top: 1px solid #334155;")
 
         login_time_str = session.login_time.strftime("%H:%M:%S") if session.login_time else "--:--"
+        if api_client.remote_mode:
+            backend_info = f"Servidor API: {self.settings.api.base_url} (Conectado)"
+        else:
+            backend_info = f"Base de datos: {self.settings.database.name} ({self.settings.database.host})"
+
         status_bar.showMessage(
-            f"Agencia: {session.agency_name} ({session.agency_code}) | Sesión iniciada a las: {login_time_str} | Base de datos: {self.settings.database.name} ({self.settings.database.host}) | Entorno: {self.settings.app.env.upper()}"
+            f"Agencia: {session.agency_name} ({session.agency_code}) | Sesión iniciada a las: {login_time_str} | {backend_info} | Entorno: {self.settings.app.env.upper()}"
         )
 
     @staticmethod

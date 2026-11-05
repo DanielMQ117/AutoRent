@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from src.core.exceptions import AppException
 from src.core.logger import get_logger
+from src.core.session import session
 from src.domain.enums import MaintenanceStatus, MaintenanceType
 from src.domain.models import Maintenance
 from src.services.maintenance_service import maintenance_service
@@ -40,10 +41,12 @@ class MaintenancesView(QWidget):
     back_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
+        """Inicializa la vista de mantenimientos y carga órdenes si el rol activo tiene permiso."""
         super().__init__(parent)
         self.maintenances_list: List[Maintenance] = []
         self._init_ui()
-        self.load_data()
+        if not session.is_authenticated or session.has_permission("mantenimientos"):
+            self.load_data()
 
     def _init_ui(self) -> None:
         """Construye la interfaz visual del módulo de mantenimientos."""
