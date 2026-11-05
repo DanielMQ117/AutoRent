@@ -168,7 +168,7 @@ class ReservationORMRepository(BaseORMRepository[Reservation]):
             conn (Any, optional): Sesión ORM compartida opcional.
 
         Returns:
-            Reservation: La misma instancia de dominio actualizada.
+            Reservation: Entidad de dominio actualizada.
         """
         with self.session_scope(conn) as s:
             stmt = select(ReservaORM).where(
@@ -189,6 +189,13 @@ class ReservationORMRepository(BaseORMRepository[Reservation]):
                     else str(reservation.estado)
                 )
                 s.flush()
+                s.refresh(orm_obj)
+                logger.info(
+                    "Reserva actualizada exitosamente ID %s: %s",
+                    orm_obj.id_reserva,
+                    orm_obj.codigo_reserva,
+                )
+                return orm_obj.to_domain()
             return reservation
 
     def update_status(

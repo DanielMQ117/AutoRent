@@ -68,6 +68,11 @@ class ReservationService(BaseService):
         Returns:
             Tupla con (dias_computados, tarifa_base_diaria, costo_total_estimado)
         """
+        if start_dt and start_dt.tzinfo is not None:
+            start_dt = start_dt.replace(tzinfo=None)
+        if end_dt and end_dt.tzinfo is not None:
+            end_dt = end_dt.replace(tzinfo=None)
+
         if end_dt <= start_dt:
             raise ValidationError(
                 "La fecha de fin debe ser posterior a la fecha de inicio.",
@@ -112,6 +117,11 @@ class ReservationService(BaseService):
         Returns:
             Tupla (disponible: bool, vehiculos_libres: List[Vehicle], mensaje: str)
         """
+        if start_dt and start_dt.tzinfo is not None:
+            start_dt = start_dt.replace(tzinfo=None)
+        if end_dt and end_dt.tzinfo is not None:
+            end_dt = end_dt.replace(tzinfo=None)
+
         if end_dt <= start_dt:
             return False, [], "La fecha de fin debe ser estrictamente posterior a la fecha de inicio."
 
@@ -177,6 +187,11 @@ class ReservationService(BaseService):
         self.validate_required("Fecha de Inicio", reservation.fecha_hora_inicio)
         self.validate_required("Fecha de Fin", reservation.fecha_hora_fin)
 
+        if reservation.fecha_hora_inicio and reservation.fecha_hora_inicio.tzinfo is not None:
+            reservation.fecha_hora_inicio = reservation.fecha_hora_inicio.replace(tzinfo=None)
+        if reservation.fecha_hora_fin and reservation.fecha_hora_fin.tzinfo is not None:
+            reservation.fecha_hora_fin = reservation.fecha_hora_fin.replace(tzinfo=None)
+
         start_dt = reservation.fecha_hora_inicio
         end_dt = reservation.fecha_hora_fin
 
@@ -188,12 +203,13 @@ class ReservationService(BaseService):
             )
 
         # Prevención de reservas en el pasado (con tolerancia de 15 minutos para carga operativa)
-        now_with_tolerance = datetime.now() - timedelta(minutes=15)
-        if start_dt < now_with_tolerance and not is_update:
-            raise ValidationError(
-                "No se pueden registrar reservas con fecha de inicio en el pasado.",
-                code="PAST_DATE_NOT_ALLOWED",
-            )
+        if not is_update:
+            now_with_tolerance = datetime.now() - timedelta(minutes=15)
+            if start_dt < now_with_tolerance:
+                raise ValidationError(
+                    "No se pueden registrar reservas con fecha de inicio en el pasado.",
+                    code="PAST_DATE_NOT_ALLOWED",
+                )
 
         # 3. Validación de elegibilidad del Cliente (RN-001, RN-002)
         client = self.client_repo.get_by_id(reservation.id_cliente)
@@ -319,6 +335,13 @@ class ReservationService(BaseService):
                 f"No se puede modificar una reserva en estado '{current.estado.value}'.",
                 code="CANNOT_MODIFY_TERMINATED_RESERVATION",
             )
+
+        if not reservation.codigo_reserva:
+            reservation.codigo_reserva = current.codigo_reserva
+        if not reservation.tenant_id:
+            reservation.tenant_id = current.tenant_id
+        if not reservation.fecha_creacion:
+            reservation.fecha_creacion = current.fecha_creacion
 
         self.validate_reservation_rules(reservation, is_update=True)
 

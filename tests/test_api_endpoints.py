@@ -14,6 +14,8 @@ Verifica programáticamente:
 6. Cierre de sesión (`POST /api/v1/auth/logout`) y revocación del token en el cliente HTTP.
 """
 
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 import sys
 
@@ -213,11 +215,45 @@ def run_tests() -> None:
         assert "html" in doc_html and "<!DOCTYPE html>" in doc_html["html"]
         assert int(doc_html["id_contrato"]) == first_contract_id
 
+        # Verificar creación y actualización de reserva (PUT /api/v1/reservations/{id})
+        start_res = datetime.now() + timedelta(days=20)
+        end_res = start_res + timedelta(days=3)
+        res_payload = {
+            "id_cliente": int(clients[0]["id_cliente"]),
+            "id_categoria": int(categories[0]["id_categoria"]),
+            "id_vehiculo": None,
+            "fecha_hora_inicio": start_res.isoformat(),
+            "fecha_hora_fin": end_res.isoformat(),
+            "monto_anticipo": "30.00",
+            "estado": "PENDIENTE",
+        }
+        res_created = api_client.create_reservation(res_payload)
+        res_id = int(res_created["id_reserva"])
+
+        aware_start = (datetime.now(timezone.utc) + timedelta(days=21)).isoformat()
+        aware_end = (datetime.now(timezone.utc) + timedelta(days=24)).isoformat()
+        res_update_payload = {
+            "id_cliente": int(clients[0]["id_cliente"]),
+            "id_categoria": int(categories[0]["id_categoria"]),
+            "id_vehiculo": None,
+            "fecha_hora_inicio": aware_start,
+            "fecha_hora_fin": aware_end,
+            "monto_anticipo": "60.00",
+            "estado": "CONFIRMADA",
+        }
+        res_updated = api_client.update_reservation(res_id, res_update_payload)
+        assert int(res_updated["id_reserva"]) == res_id
+        assert int(res_updated["tenant_id"]) == 1
+        assert res_updated["codigo_reserva"] == res_created["codigo_reserva"]
+        assert Decimal(str(res_updated["monto_anticipo"])) == Decimal("60.00")
+        assert res_updated["cliente_nombre"] is not None
+        api_client.cancel_reservation(res_id, motivo="Limpieza de test API")
+
         print(
             f" -> Datos recuperados vía API: {len(clients)} clientes, {len(vehicles)} vehículos, "
             f"{len(reservations)} reservas, {len(contracts)} contratos (HTML firma OK), {len(users)} usuarios."
         )
-        print("✓ TEST 4 PASÓ: Endpoints operativos y documento HTML de contrato verificados.")
+        print("✓ TEST 4 PASÓ: Endpoints operativos, creación/edición de reservas (PUT 200 OK) y documento HTML verificados.")
 
         # --------------------------------------------------------------------
         # TEST 5: Aislamiento Multi-Tenant y RLS vía FastAPI + JWT

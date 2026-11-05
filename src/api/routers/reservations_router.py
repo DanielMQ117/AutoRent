@@ -100,6 +100,7 @@ def update_reservation(
     """Actualiza los términos de una reserva existente."""
     res = Reservation(
         id_reserva=id_reserva,
+        tenant_id=current_user.tenant_id,
         id_cliente=req.id_cliente,
         id_categoria=req.id_categoria,
         id_vehiculo=req.id_vehiculo,
