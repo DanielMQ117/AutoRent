@@ -1,11 +1,9 @@
 """Script ejecutor maestro de todas las suites de prueba (Fase 2 y Fase 3)."""
 
-from pathlib import Path
-import sys
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+try:
+    import tests
+except ModuleNotFoundError:
+    import __init__
 
 from tests.test_auth import run_tests as run_auth_tests
 from tests.test_clients import run_tests as run_clients_tests
@@ -42,7 +40,9 @@ def main():
     run_ui_checks()
 
     print("\n" + "#" * 78)
-    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, FLOTA, RESERVAS, CONTRATOS, RETORNO, TALLER, REPORTES, USUARIOS, MULTI-TENANT, API REST, ORM SQLALCHEMY, UI) PASARON! [100%]")
+    print(
+        "# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, FLOTA, RESERVAS, CONTRATOS, RETORNO, TALLER, REPORTES, USUARIOS, MULTI-TENANT, API REST, ORM SQLALCHEMY, UI) PASARON! [100%]"
+    )
     print("#" * 78 + "\n")
 
 

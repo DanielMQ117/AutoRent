@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AgencyResponse(BaseModel):
@@ -20,7 +20,7 @@ class AgencyResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str
+    username: str = Field(..., max_length=50)
     password: str
     tenant_id: int
 

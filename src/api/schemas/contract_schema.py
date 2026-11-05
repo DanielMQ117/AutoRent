@@ -25,9 +25,9 @@ class AdditionalDriverSchema(BaseModel):
     id_conductor: Optional[int] = None
     tenant_id: Optional[int] = None
     id_contrato: Optional[int] = None
-    nombre_completo: str
-    identificacion: str
-    numero_licencia: str
+    nombre_completo: str = Field(..., max_length=120)
+    identificacion: str = Field(..., max_length=30)
+    numero_licencia: str = Field(..., max_length=40)
     fecha_vencimiento_licencia: date
 
 

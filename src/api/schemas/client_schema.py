@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.domain.enums import ClientStatus, ClientType
 
@@ -13,20 +13,20 @@ class DriverLicenseSchema(BaseModel):
     id_licencia: Optional[int] = None
     tenant_id: Optional[int] = None
     id_cliente: Optional[int] = 0
-    numero_licencia: str
-    categoria_licencia: str
+    numero_licencia: str = Field(..., max_length=40)
+    categoria_licencia: str = Field(..., max_length=30)
     fecha_emision: date
     fecha_vencimiento: date
-    pais_emision: str = "Nicaragua"
+    pais_emision: str = Field("Nicaragua", max_length=50)
 
 
 class ClientCreateRequest(BaseModel):
     tipo_persona: ClientType = ClientType.NATURAL
-    identificacion: str
-    nombres: str
-    apellidos: str
-    telefono: str
-    email: str
+    identificacion: str = Field(..., max_length=30)
+    nombres: str = Field(..., max_length=80)
+    apellidos: str = Field(..., max_length=80)
+    telefono: str = Field(..., max_length=25)
+    email: str = Field(..., max_length=100)
     direccion: str
     estado_cliente: ClientStatus = ClientStatus.ACTIVO
     licencia: Optional[DriverLicenseSchema] = None
@@ -34,11 +34,11 @@ class ClientCreateRequest(BaseModel):
 
 class ClientUpdateRequest(BaseModel):
     tipo_persona: ClientType = ClientType.NATURAL
-    identificacion: str
-    nombres: str
-    apellidos: str
-    telefono: str
-    email: str
+    identificacion: str = Field(..., max_length=30)
+    nombres: str = Field(..., max_length=80)
+    apellidos: str = Field(..., max_length=80)
+    telefono: str = Field(..., max_length=25)
+    email: str = Field(..., max_length=100)
     direccion: str
     estado_cliente: ClientStatus = ClientStatus.ACTIVO
     licencia: Optional[DriverLicenseSchema] = None

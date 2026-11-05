@@ -7,6 +7,7 @@ from typing import List, Optional
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -108,6 +109,12 @@ class RolORM(Base):
     """Modelo ORM para la tabla catálogo ``roles`` (RBAC)."""
 
     __tablename__ = "roles"
+    __table_args__ = (
+        CheckConstraint(
+            "nombre IN ('ADMINISTRADOR', 'AGENTE_VENTAS', 'INSPECTOR_TALLER', 'GERENTE')",
+            name="chk_rol_nombre",
+        ),
+    )
 
     id_rol: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     nombre: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
@@ -246,6 +253,11 @@ class ModeloORM(Base):
     __tablename__ = "modelos"
     __table_args__ = (
         UniqueConstraint("id_marca", "nombre", "anio", name="uq_modelo_marca_anio"),
+        CheckConstraint(
+            "tipo_transmision IN ('MANUAL', 'AUTOMATICA')",
+            name="chk_modelo_transmision",
+        ),
+        CheckConstraint("capacidad_pasajeros > 0", name="chk_modelo_pasajeros"),
     )
 
     id_modelo: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -282,6 +294,8 @@ class CategoriaVehiculoORM(Base):
     __tablename__ = "categorias_vehiculo"
     __table_args__ = (
         UniqueConstraint("tenant_id", "nombre", name="uq_categorias_tenant_nombre"),
+        CheckConstraint("deposito_garantia_sugerido >= 0", name="chk_categoria_garantia"),
+        CheckConstraint("tarifa_base_diaria > 0", name="chk_categoria_tarifa"),
     )
 
     id_categoria: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -318,6 +332,19 @@ class VehiculoORM(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "placa", name="uq_vehiculos_tenant_placa"),
         UniqueConstraint("tenant_id", "vin", name="uq_vehiculos_tenant_vin"),
+        CheckConstraint("kilometraje_actual >= 0", name="chk_vehiculo_km"),
+        CheckConstraint(
+            "nivel_combustible_actual >= 0.00 AND nivel_combustible_actual <= 1.00",
+            name="chk_vehiculo_combustible",
+        ),
+        CheckConstraint(
+            "km_proximo_mantenimiento > 0",
+            name="chk_vehiculo_km_mantenimiento",
+        ),
+        CheckConstraint(
+            "estado IN ('DISPONIBLE', 'RESERVADO', 'ALQUILADO', 'EN_INSPECCION', 'EN_MANTENIMIENTO', 'DE_BAJA')",
+            name="chk_vehiculo_estado",
+        ),
     )
 
     id_vehiculo: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -394,6 +421,11 @@ class ClienteORM(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "identificacion", name="uq_clientes_tenant_identificacion"),
         UniqueConstraint("tenant_id", "email", name="uq_clientes_tenant_email"),
+        CheckConstraint("tipo_persona IN ('NATURAL', 'JURIDICA')", name="chk_cliente_tipo"),
+        CheckConstraint(
+            "estado_cliente IN ('ACTIVO', 'MOROSO', 'VETADO')",
+            name="chk_cliente_estado",
+        ),
     )
 
     id_cliente: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -448,6 +480,7 @@ class LicenciaConducirORM(Base):
     __tablename__ = "licencias_conducir"
     __table_args__ = (
         UniqueConstraint("tenant_id", "numero_licencia", name="uq_licencias_tenant_numero"),
+        CheckConstraint("fecha_vencimiento > fecha_emision", name="chk_licencia_fechas"),
     )
 
     id_licencia: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -494,6 +527,11 @@ class CoberturaSeguroORM(Base):
     __tablename__ = "coberturas_seguro"
     __table_args__ = (
         UniqueConstraint("tenant_id", "nombre", name="uq_coberturas_tenant_nombre"),
+        CheckConstraint("costo_diario >= 0.00", name="chk_seguro_costo"),
+        CheckConstraint(
+            "porcentaje_deducible >= 0.00 AND porcentaje_deducible <= 100.00",
+            name="chk_seguro_deducible",
+        ),
     )
 
     id_cobertura: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -536,6 +574,12 @@ class ReservaORM(Base):
     __tablename__ = "reservas"
     __table_args__ = (
         UniqueConstraint("tenant_id", "codigo_reserva", name="uq_reservas_tenant_codigo"),
+        CheckConstraint("fecha_hora_fin > fecha_hora_inicio", name="chk_reserva_fechas"),
+        CheckConstraint("monto_anticipo >= 0.00", name="chk_reserva_anticipo"),
+        CheckConstraint(
+            "estado IN ('PENDIENTE', 'CONFIRMADA', 'CANCELADA', 'VENCIDA', 'CONVERTIDA_A_CONTRATO')",
+            name="chk_reserva_estado",
+        ),
     )
 
     id_reserva: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -631,6 +675,22 @@ class ContratoORM(Base):
     __tablename__ = "contratos"
     __table_args__ = (
         UniqueConstraint("tenant_id", "codigo_contrato", name="uq_contratos_tenant_codigo"),
+        CheckConstraint(
+            "fecha_hora_fin_pactada > fecha_hora_inicio_pactada",
+            name="chk_contrato_fechas",
+        ),
+        CheckConstraint("kilometraje_salida >= 0", name="chk_contrato_km_salida"),
+        CheckConstraint(
+            "combustible_salida >= 0.00 AND combustible_salida <= 1.00",
+            name="chk_contrato_combustible",
+        ),
+        CheckConstraint("tarifa_diaria_aplicada > 0.00", name="chk_contrato_tarifa"),
+        CheckConstraint("monto_garantia >= 0.00", name="chk_contrato_garantia"),
+        CheckConstraint("costo_km_excedente >= 0.00", name="chk_contrato_costo_km"),
+        CheckConstraint(
+            "estado IN ('ACTIVO', 'EN_INSPECCION', 'EN_LIQUIDACION', 'LIQUIDADO', 'ANULADO')",
+            name="chk_contrato_estado",
+        ),
     )
 
     id_contrato: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -820,6 +880,14 @@ class DevolucionORM(Base):
     """Modelo ORM para la tabla multi-tenant ``devoluciones``."""
 
     __tablename__ = "devoluciones"
+    __table_args__ = (
+        CheckConstraint("kilometraje_retorno >= 0", name="chk_devolucion_km"),
+        CheckConstraint(
+            "combustible_retorno >= 0.00 AND combustible_retorno <= 1.00",
+            name="chk_devolucion_combustible",
+        ),
+        CheckConstraint("horas_retraso >= 0", name="chk_devolucion_retraso"),
+    )
 
     id_devolucion: Mapped[int] = mapped_column(
         BigInteger, Identity(always=True), primary_key=True
@@ -904,6 +972,17 @@ class DanioORM(Base):
     """Modelo ORM para la tabla multi-tenant ``danios``."""
 
     __tablename__ = "danios"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo_danio IN ('RAYON', 'GOLPE', 'ROTURA', 'FALTANTE_PIEZA', 'INTERIOR')",
+            name="chk_danio_tipo",
+        ),
+        CheckConstraint(
+            "gravedad IN ('LEVE', 'MODERADO', 'GRAVE')",
+            name="chk_danio_gravedad",
+        ),
+        CheckConstraint("costo_reparacion >= 0.00", name="chk_danio_costo"),
+    )
 
     id_danio: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     tenant_id: Mapped[int] = mapped_column(
@@ -953,6 +1032,20 @@ class LiquidacionORM(Base):
     """Modelo ORM para la tabla multi-tenant ``liquidaciones``."""
 
     __tablename__ = "liquidaciones"
+    __table_args__ = (
+        CheckConstraint("dias_facturados > 0", name="chk_liq_dias"),
+        CheckConstraint("subtotal_renta >= 0.00", name="chk_liq_subtotal"),
+        CheckConstraint("cargos_retraso >= 0.00", name="chk_liq_retraso"),
+        CheckConstraint("cargos_combustible >= 0.00", name="chk_liq_combustible"),
+        CheckConstraint("cargos_km_excedente >= 0.00", name="chk_liq_km"),
+        CheckConstraint("cargos_danios >= 0.00", name="chk_liq_danios"),
+        CheckConstraint("total_bruto >= 0.00", name="chk_liq_bruto"),
+        CheckConstraint("monto_garantia_aplicado >= 0.00", name="chk_liq_garantia"),
+        CheckConstraint(
+            "estado_liquidacion IN ('PENDIENTE_PAGO', 'CERRADA')",
+            name="chk_liq_estado",
+        ),
+    )
 
     id_liquidacion: Mapped[int] = mapped_column(
         BigInteger, Identity(always=True), primary_key=True
@@ -1059,6 +1152,15 @@ class PagoORM(Base):
     __tablename__ = "pagos"
     __table_args__ = (
         UniqueConstraint("tenant_id", "codigo_transaccion", name="uq_pagos_tenant_codigo"),
+        CheckConstraint(
+            "tipo_movimiento IN ('ANTICIPO_RESERVA', 'DEPOSITO_GARANTIA', 'COBRO_LIQUIDACION', 'REEMBOLSO_GARANTIA')",
+            name="chk_pago_tipo",
+        ),
+        CheckConstraint(
+            "metodo_pago IN ('EFECTIVO', 'TARJETA_CREDITO', 'TARJETA_DEBITO', 'TRANSFERENCIA')",
+            name="chk_pago_metodo",
+        ),
+        CheckConstraint("monto > 0.00", name="chk_pago_monto"),
     )
 
     id_pago: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -1128,6 +1230,18 @@ class MantenimientoORM(Base):
     """Modelo ORM para la tabla multi-tenant ``mantenimientos``."""
 
     __tablename__ = "mantenimientos"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo_mantenimiento IN ('PREVENTIVO', 'CORRECTIVO')",
+            name="chk_mant_tipo",
+        ),
+        CheckConstraint("kilometraje_entrada >= 0", name="chk_mant_km"),
+        CheckConstraint("costo_total >= 0.00", name="chk_mant_costo"),
+        CheckConstraint(
+            "estado IN ('EN_TALLER', 'FINALIZADO', 'CANCELADO')",
+            name="chk_mant_estado",
+        ),
+    )
 
     id_mantenimiento: Mapped[int] = mapped_column(
         BigInteger, Identity(always=True), primary_key=True

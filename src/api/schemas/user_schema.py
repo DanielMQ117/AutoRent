@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RoleResponse(BaseModel):
@@ -14,17 +14,17 @@ class RoleResponse(BaseModel):
 
 
 class UserCreateRequest(BaseModel):
-    username: str
-    password: str
-    nombre_completo: str
-    email: str
+    username: str = Field(..., max_length=50)
+    password: str = Field(..., max_length=255)
+    nombre_completo: str = Field(..., max_length=100)
+    email: str = Field(..., max_length=100)
     id_rol: int
     activo: bool = True
 
 
 class UserUpdateRequest(BaseModel):
-    nombre_completo: str
-    email: str
+    nombre_completo: str = Field(..., max_length=100)
+    email: str = Field(..., max_length=100)
     id_rol: int
     activo: bool = True
 

@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.domain.enums import MaintenanceStatus, MaintenanceType
 
@@ -14,7 +14,7 @@ class MaintenanceCreateRequest(BaseModel):
     fecha_ingreso: Optional[datetime] = None
     fecha_salida_estimada: Optional[date] = None
     kilometraje_entrada: int
-    taller_servicio: str
+    taller_servicio: str = Field(..., max_length=100)
     descripcion_trabajo: str
     costo_total: Decimal = Decimal("0.00")
 

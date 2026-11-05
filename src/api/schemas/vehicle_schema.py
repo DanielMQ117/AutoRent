@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.domain.enums import VehicleStatus
 
@@ -40,9 +40,9 @@ class VehicleCategoryResponse(BaseModel):
 class VehicleCreateRequest(BaseModel):
     id_modelo: int
     id_categoria: int
-    placa: str
-    vin: str
-    color: str
+    placa: str = Field(..., max_length=20)
+    vin: str = Field(..., max_length=17)
+    color: str = Field(..., max_length=30)
     kilometraje_actual: int = 0
     nivel_combustible_actual: Decimal = Decimal("1.00")
     estado: VehicleStatus = VehicleStatus.DISPONIBLE
@@ -53,9 +53,9 @@ class VehicleCreateRequest(BaseModel):
 class VehicleUpdateRequest(BaseModel):
     id_modelo: int
     id_categoria: int
-    placa: str
-    vin: str
-    color: str
+    placa: str = Field(..., max_length=20)
+    vin: str = Field(..., max_length=17)
+    color: str = Field(..., max_length=30)
     kilometraje_actual: int = 0
     nivel_combustible_actual: Decimal = Decimal("1.00")
     estado: VehicleStatus = VehicleStatus.DISPONIBLE
