@@ -17,6 +17,7 @@ from tests.test_maintenances import run_tests as run_maintenances_tests
 from tests.test_reports import run_tests as run_reports_tests
 from tests.test_users import run_tests as run_users_tests
 from tests.test_multitenancy import run_tests as run_multitenancy_tests
+from tests.test_api_endpoints import run_tests as run_api_tests
 from tests.test_ui_components import run_ui_checks
 
 
@@ -35,10 +36,11 @@ def main():
     run_reports_tests()
     run_users_tests()
     run_multitenancy_tests()
+    run_api_tests()
     run_ui_checks()
 
     print("\n" + "#" * 78)
-    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, FLOTA, RESERVAS, CONTRATOS, RETORNO, TALLER, REPORTES, USUARIOS, MULTI-TENANT, UI) PASARON! [100%]")
+    print("# ¡TODAS LAS SUITES DE PRUEBA (AUTH, CLIENTES, FLOTA, RESERVAS, CONTRATOS, RETORNO, TALLER, REPORTES, USUARIOS, MULTI-TENANT, API REST, UI) PASARON! [100%]")
     print("#" * 78 + "\n")
 
 

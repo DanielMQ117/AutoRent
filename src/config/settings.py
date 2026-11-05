@@ -59,10 +59,26 @@ class LoggingSettings:
 @dataclass(frozen=True)
 class AppSettings:
     """Configuración general de la aplicación."""
-    name: str = os.getenv("APP_NAME", "AutoRent Pro - Sistema de Alquiler de Automóviles")
+    name: str = os.getenv(
+        "APP_NAME", "AutoRent Pro - Sistema de Alquiler de Automóviles")
     env: str = os.getenv("APP_ENV", "development")
-    debug: bool = os.getenv("APP_DEBUG", "true").lower() in ("true", "1", "yes")
+    debug: bool = os.getenv(
+        "APP_DEBUG", "true").lower() in ("true", "1", "yes")
     base_dir: Path = BASE_DIR
+
+
+@dataclass(frozen=True)
+class ApiSettings:
+    """Configuración del servidor FastAPI y del cliente HTTP (Local o AWS API Gateway)."""
+    host: str = os.getenv("API_HOST", "127.0.0.1")
+    port: int = int(os.getenv("API_PORT", "8000"))
+    base_url: str = os.getenv(
+        "API_BASE_URL", f"http://{os.getenv('API_HOST', '127.0.0.1')}:{os.getenv('API_PORT', '8000')}")
+    timeout: float = float(os.getenv("API_TIMEOUT", "15.0"))
+    jwt_secret_key: str = os.getenv(
+        "JWT_SECRET_KEY", "autorent-pro-multi-tenant-rls-secret-key-2026")
+    jwt_expiration_seconds: int = int(
+        os.getenv("JWT_EXPIRATION_SECONDS", "28800"))
 
 
 class Settings:
@@ -72,6 +88,7 @@ class Settings:
         self.app = AppSettings()
         self.database = DatabaseSettings()
         self.logging = LoggingSettings()
+        self.api = ApiSettings()
 
         # Asegurar existencia del directorio de logs
         self.logging.log_dir.mkdir(parents=True, exist_ok=True)
