@@ -28,7 +28,7 @@ from src.api.main import app
 from src.api_client import ApiClientError, AutoRentApiClient
 from src.core.logger import setup_logging
 from src.core.session import session
-from src.repositories.user_repository import UserRepository
+from src.repositories.orm.user_orm_repository import UserORMRepository
 from src.services.auth_service import auth_service
 from src.services.user_service import user_service
 
@@ -37,7 +37,7 @@ TEST_API_AGENCY_CODE = "AUT-API-02"
 
 def cleanup_api_second_agency() -> None:
     """Elimina en cascada todos los datos de la agencia temporal AUT-API-02."""
-    user_repo = UserRepository()
+    user_repo = UserORMRepository()
     row = user_repo.execute_query_one(
         "SELECT id_agencia FROM agencias WHERE codigo_agencia = %s",
         (TEST_API_AGENCY_CODE,),
@@ -223,7 +223,7 @@ def run_tests() -> None:
         # TEST 5: Aislamiento Multi-Tenant y RLS vía FastAPI + JWT
         # --------------------------------------------------------------------
         print("\n[TEST 5] Verificando aislamiento Multi-Tenant y RLS vía FastAPI + JWT...")
-        user_repo = UserRepository()
+        user_repo = UserORMRepository()
         ag_row = user_repo.execute_query_one(
             """
             INSERT INTO agencias (codigo_agencia, nombre_comercial, ruc_nit, telefono, email, direccion, activo)

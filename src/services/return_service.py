@@ -22,11 +22,13 @@ from src.domain.enums import (
     VehicleStatus,
 )
 from src.domain.models import Damage, Payment, ReturnInspection, Settlement
-from src.repositories.contract_repository import ContractRepository
-from src.repositories.payment_repository import PaymentRepository
-from src.repositories.return_repository import ReturnRepository
-from src.repositories.settlement_repository import SettlementRepository
-from src.repositories.vehicle_repository import VehicleRepository
+from src.repositories.orm.contract_orm_repository import (
+    ContractORMRepository,
+    PaymentORMRepository,
+)
+from src.repositories.orm.return_orm_repository import ReturnORMRepository
+from src.repositories.orm.settlement_orm_repository import SettlementORMRepository
+from src.repositories.orm.vehicle_orm_repository import VehicleORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -44,18 +46,18 @@ class ReturnService(BaseService):
 
     def __init__(
         self,
-        return_repo: Optional[ReturnRepository] = None,
-        settlement_repo: Optional[SettlementRepository] = None,
-        contract_repo: Optional[ContractRepository] = None,
-        vehicle_repo: Optional[VehicleRepository] = None,
-        payment_repo: Optional[PaymentRepository] = None,
+        return_repo: Optional[ReturnORMRepository] = None,
+        settlement_repo: Optional[SettlementORMRepository] = None,
+        contract_repo: Optional[ContractORMRepository] = None,
+        vehicle_repo: Optional[VehicleORMRepository] = None,
+        payment_repo: Optional[PaymentORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.return_repo = return_repo or ReturnRepository()
-        self.settlement_repo = settlement_repo or SettlementRepository()
-        self.contract_repo = contract_repo or ContractRepository()
-        self.vehicle_repo = vehicle_repo or VehicleRepository()
-        self.payment_repo = payment_repo or PaymentRepository()
+        self.return_repo = return_repo or ReturnORMRepository(self.db)
+        self.settlement_repo = settlement_repo or SettlementORMRepository(self.db)
+        self.contract_repo = contract_repo or ContractORMRepository(self.db)
+        self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
+        self.payment_repo = payment_repo or PaymentORMRepository(self.db)
 
     def _generate_payment_code(self, prefix: str = "TRX-LIQ") -> str:
         """Genera un código de transacción único para movimientos de liquidación."""

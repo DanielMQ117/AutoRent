@@ -15,9 +15,9 @@ from src.core.logger import get_logger
 from src.core.session import session
 from src.domain.enums import ClientStatus, ReservationStatus, VehicleStatus
 from src.domain.models import Reservation, Vehicle
-from src.repositories.client_repository import ClientRepository
-from src.repositories.reservation_repository import ReservationRepository
-from src.repositories.vehicle_repository import VehicleRepository
+from src.repositories.orm.client_orm_repository import ClientORMRepository
+from src.repositories.orm.reservation_orm_repository import ReservationORMRepository
+from src.repositories.orm.vehicle_orm_repository import VehicleORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -28,14 +28,14 @@ class ReservationService(BaseService):
 
     def __init__(
         self,
-        reservation_repo: Optional[ReservationRepository] = None,
-        client_repo: Optional[ClientRepository] = None,
-        vehicle_repo: Optional[VehicleRepository] = None,
+        reservation_repo: Optional[ReservationORMRepository] = None,
+        client_repo: Optional[ClientORMRepository] = None,
+        vehicle_repo: Optional[VehicleORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.reservation_repo = reservation_repo or ReservationRepository(self.db)
-        self.client_repo = client_repo or ClientRepository(self.db)
-        self.vehicle_repo = vehicle_repo or VehicleRepository(self.db)
+        self.reservation_repo = reservation_repo or ReservationORMRepository(self.db)
+        self.client_repo = client_repo or ClientORMRepository(self.db)
+        self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
 
     def _generate_reservation_code(self) -> str:
         """Genera un código correlativo único para la reserva con formato RES-YYYYMM-XXXX."""

@@ -28,13 +28,15 @@ from src.domain.models import (
     Payment,
     Vehicle,
 )
-from src.repositories.client_repository import ClientRepository
-from src.repositories.contract_repository import ContractRepository
-from src.repositories.coverage_repository import CoverageRepository
-from src.repositories.payment_repository import PaymentRepository
-from src.repositories.reservation_repository import ReservationRepository
-from src.repositories.user_repository import UserRepository
-from src.repositories.vehicle_repository import VehicleRepository
+from src.repositories.orm.client_orm_repository import ClientORMRepository
+from src.repositories.orm.contract_orm_repository import (
+    ContractORMRepository,
+    CoverageORMRepository,
+    PaymentORMRepository,
+)
+from src.repositories.orm.reservation_orm_repository import ReservationORMRepository
+from src.repositories.orm.user_orm_repository import UserORMRepository
+from src.repositories.orm.vehicle_orm_repository import VehicleORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -45,21 +47,21 @@ class ContractService(BaseService):
 
     def __init__(
         self,
-        contract_repo: Optional[ContractRepository] = None,
-        coverage_repo: Optional[CoverageRepository] = None,
-        payment_repo: Optional[PaymentRepository] = None,
-        vehicle_repo: Optional[VehicleRepository] = None,
-        client_repo: Optional[ClientRepository] = None,
-        reservation_repo: Optional[ReservationRepository] = None,
+        contract_repo: Optional[ContractORMRepository] = None,
+        coverage_repo: Optional[CoverageORMRepository] = None,
+        payment_repo: Optional[PaymentORMRepository] = None,
+        vehicle_repo: Optional[VehicleORMRepository] = None,
+        client_repo: Optional[ClientORMRepository] = None,
+        reservation_repo: Optional[ReservationORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.contract_repo = contract_repo or ContractRepository(self.db)
-        self.coverage_repo = coverage_repo or CoverageRepository(self.db)
-        self.payment_repo = payment_repo or PaymentRepository(self.db)
-        self.vehicle_repo = vehicle_repo or VehicleRepository(self.db)
-        self.client_repo = client_repo or ClientRepository(self.db)
-        self.reservation_repo = reservation_repo or ReservationRepository(self.db)
-        self.user_repo = UserRepository(self.db)
+        self.contract_repo = contract_repo or ContractORMRepository(self.db)
+        self.coverage_repo = coverage_repo or CoverageORMRepository(self.db)
+        self.payment_repo = payment_repo or PaymentORMRepository(self.db)
+        self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
+        self.client_repo = client_repo or ClientORMRepository(self.db)
+        self.reservation_repo = reservation_repo or ReservationORMRepository(self.db)
+        self.user_repo = UserORMRepository(self.db)
 
     def _generate_contract_code(self) -> str:
         """Genera un código único correlativo para el contrato: CTR-YYYYMM-XXXX."""

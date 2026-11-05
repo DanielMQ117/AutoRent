@@ -13,7 +13,7 @@ from src.domain.models import (
     FinancialReportSummary,
     FleetUtilizationSummary,
 )
-from src.repositories.report_repository import ReportRepository
+from src.repositories.orm.report_orm_repository import ReportORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -22,9 +22,9 @@ logger = get_logger(__name__)
 class ReportService(BaseService):
     """Orquesta la consolidación de indicadores analíticos y exportación a formatos estándar (Fase 9)."""
 
-    def __init__(self, report_repo: Optional[ReportRepository] = None) -> None:
+    def __init__(self, report_repo: Optional[ReportORMRepository] = None) -> None:
         super().__init__()
-        self.report_repo = report_repo or ReportRepository()
+        self.report_repo = report_repo or ReportORMRepository(self.db)
 
     # ------------------------------------------------------------------------
     # RF-34: Reporte Consolidado de Ingresos Financieros y Recaudación

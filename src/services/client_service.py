@@ -11,7 +11,7 @@ from src.core.exceptions import (
 from src.core.logger import get_logger
 from src.domain.enums import ClientStatus, ClientType
 from src.domain.models import Client, DriverLicense
-from src.repositories.client_repository import ClientRepository
+from src.repositories.orm.client_orm_repository import ClientORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -22,9 +22,9 @@ EMAIL_REGEX = re.compile(r"^[\w\.-]+@[\w\.-]+\.\w+$")
 class ClientService(BaseService):
     """Servicio empresarial que orquesta validaciones, reglas de negocio y transacciones para Clientes."""
 
-    def __init__(self, client_repo: Optional[ClientRepository] = None) -> None:
+    def __init__(self, client_repo: Optional[ClientORMRepository] = None) -> None:
         super().__init__()
-        self.client_repo = client_repo or ClientRepository(self.db)
+        self.client_repo = client_repo or ClientORMRepository(self.db)
 
     def _validate_client_fields(
         self,

@@ -10,8 +10,8 @@ from src.core.exceptions import (
 from src.core.security import hash_password
 from src.core.session import session
 from src.domain.models import AuditLog, Role, User
-from src.repositories.audit_repository import AuditRepository
-from src.repositories.user_repository import UserRepository
+from src.repositories.orm.audit_orm_repository import AuditORMRepository
+from src.repositories.orm.user_orm_repository import UserORMRepository
 from src.services.auth_service import auth_service
 from src.services.base_service import BaseService
 
@@ -24,12 +24,12 @@ class UserService(BaseService):
 
     def __init__(
         self,
-        user_repo: Optional[UserRepository] = None,
-        audit_repo: Optional[AuditRepository] = None,
+        user_repo: Optional[UserORMRepository] = None,
+        audit_repo: Optional[AuditORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.user_repo = user_repo or UserRepository(self.db)
-        self.audit_repo = audit_repo or AuditRepository(self.db)
+        self.user_repo = user_repo or UserORMRepository(self.db)
+        self.audit_repo = audit_repo or AuditORMRepository(self.db)
 
     def _get_current_actor(self) -> tuple[Optional[int], str]:
         """Retorna la tupla (id_usuario, username) del usuario que ejecuta la acción en sesión."""

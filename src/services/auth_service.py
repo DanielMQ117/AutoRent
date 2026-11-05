@@ -5,8 +5,8 @@ from src.core.exceptions import AuthenticationError, ValidationError
 from src.core.security import verify_password
 from src.core.session import session
 from src.domain.models import Agency, User
-from src.repositories.audit_repository import AuditRepository
-from src.repositories.user_repository import UserRepository
+from src.repositories.orm.audit_orm_repository import AuditORMRepository
+from src.repositories.orm.user_orm_repository import UserORMRepository
 from src.services.base_service import BaseService
 
 
@@ -17,12 +17,12 @@ class AuthService(BaseService):
 
     def __init__(
         self,
-        user_repo: Optional[UserRepository] = None,
-        audit_repo: Optional[AuditRepository] = None,
+        user_repo: Optional[UserORMRepository] = None,
+        audit_repo: Optional[AuditORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.user_repo = user_repo or UserRepository(self.db)
-        self.audit_repo = audit_repo or AuditRepository(self.db)
+        self.user_repo = user_repo or UserORMRepository(self.db)
+        self.audit_repo = audit_repo or AuditORMRepository(self.db)
         self._failed_attempts: dict[str, int] = {}
 
     @staticmethod

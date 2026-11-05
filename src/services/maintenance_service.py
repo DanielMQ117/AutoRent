@@ -15,8 +15,8 @@ from src.core.logger import get_logger
 from src.core.session import session
 from src.domain.enums import MaintenanceStatus, MaintenanceType, VehicleStatus
 from src.domain.models import Maintenance, Vehicle
-from src.repositories.maintenance_repository import MaintenanceRepository
-from src.repositories.vehicle_repository import VehicleRepository
+from src.repositories.orm.maintenance_orm_repository import MaintenanceORMRepository
+from src.repositories.orm.vehicle_orm_repository import VehicleORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -34,12 +34,12 @@ class MaintenanceService(BaseService):
 
     def __init__(
         self,
-        maintenance_repo: Optional[MaintenanceRepository] = None,
-        vehicle_repo: Optional[VehicleRepository] = None,
+        maintenance_repo: Optional[MaintenanceORMRepository] = None,
+        vehicle_repo: Optional[VehicleORMRepository] = None,
     ) -> None:
         super().__init__()
-        self.maintenance_repo = maintenance_repo or MaintenanceRepository()
-        self.vehicle_repo = vehicle_repo or VehicleRepository()
+        self.maintenance_repo = maintenance_repo or MaintenanceORMRepository(self.db)
+        self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
 
     def validate_new_maintenance(
         self,

@@ -7,24 +7,30 @@ from abc import ABC
 from contextlib import contextmanager
 from typing import Any, Generator, Optional
 from src.database.connection import DatabaseManager, db_manager
+from src.database.orm_base import get_orm_session
 from src.core.exceptions import ValidationError
 from src.core.logger import get_logger
 
 
 class BaseService(ABC):
-    """Servicio base abstracto con soporte para transacciones y validaciones."""
+    """Servicio base abstracto con soporte para transacciones SQLAlchemy ORM y validaciones."""
 
     def __init__(self, manager: Optional[DatabaseManager] = None) -> None:
+        """Inicializa el servicio base con el gestor de conexiones y el logger de clase.
+
+        Args:
+            manager (Optional[DatabaseManager]): Gestor de conexiones opcional por retrocompatibilidad.
+        """
         self.db = manager or db_manager
         self.logger = get_logger(self.__class__.__name__)
 
     @contextmanager
     def run_in_transaction(self) -> Generator[Any, None, None]:
-        """Ejecuta un conjunto de operaciones de repositorio dentro de una transacción atómica."""
-        self.logger.debug("Iniciando bloque de transacción en servicio...")
-        with self.db.transaction() as conn:
-            yield conn
-        self.logger.debug("Transacción confirmada (COMMIT) con éxito.")
+        """Ejecuta un conjunto de operaciones de repositorio ORM dentro de una única transacción atómica."""
+        self.logger.debug("Iniciando bloque de transacción ORM en servicio...")
+        with get_orm_session() as orm_session:
+            yield orm_session
+        self.logger.debug("Transacción ORM confirmada (COMMIT) con éxito.")
 
     @staticmethod
     def validate_required(field_name: str, value: Any) -> None:

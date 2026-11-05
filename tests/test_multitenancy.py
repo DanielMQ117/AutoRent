@@ -44,7 +44,7 @@ from src.domain.models import (
     Reservation,
     Vehicle,
 )
-from src.repositories.user_repository import UserRepository
+from src.repositories.orm.user_orm_repository import UserORMRepository
 from src.services.auth_service import auth_service
 from src.services.client_service import client_service
 from src.services.maintenance_service import maintenance_service
@@ -58,7 +58,7 @@ TEST_AGENCY_CODE = "AUT-LEO-02"
 
 def cleanup_second_agency() -> None:
     """Elimina en cascada todos los datos pertenecientes a la agencia de prueba AUT-LEO-02."""
-    user_repo = UserRepository()
+    user_repo = UserORMRepository()
     row = user_repo.execute_query_one(
         "SELECT id_agencia FROM agencias WHERE codigo_agencia = %s",
         (TEST_AGENCY_CODE,),
@@ -143,7 +143,7 @@ def run_tests() -> None:
         # TEST 2: Creación y Aprovisionamiento de Segunda Agencia (AUT-LEO-02)
         # --------------------------------------------------------------------
         print("\n[TEST 2] Creando segunda agencia (Sucursal León - AUT-LEO-02)...")
-        user_repo = UserRepository()
+        user_repo = UserORMRepository()
         ag_row = user_repo.execute_query_one(
             """
             INSERT INTO agencias (codigo_agencia, nombre_comercial, ruc_nit, telefono, email, direccion, activo)

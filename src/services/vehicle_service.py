@@ -12,7 +12,7 @@ from src.core.exceptions import (
 from src.core.logger import get_logger
 from src.domain.enums import VehicleStatus
 from src.domain.models import Brand, Vehicle, VehicleCategory, VehicleModel
-from src.repositories.vehicle_repository import VehicleRepository
+from src.repositories.orm.vehicle_orm_repository import VehicleORMRepository
 from src.services.base_service import BaseService
 
 logger = get_logger(__name__)
@@ -21,9 +21,9 @@ logger = get_logger(__name__)
 class VehicleService(BaseService):
     """Servicio empresarial que orquesta validaciones, reglas de negocio y estados de la flota de vehículos."""
 
-    def __init__(self, vehicle_repo: Optional[VehicleRepository] = None) -> None:
+    def __init__(self, vehicle_repo: Optional[VehicleORMRepository] = None) -> None:
         super().__init__()
-        self.vehicle_repo = vehicle_repo or VehicleRepository(self.db)
+        self.vehicle_repo = vehicle_repo or VehicleORMRepository(self.db)
 
     def _validate_vehicle_fields(
         self,
