@@ -99,3 +99,4 @@ class ReturnProcessResponse(BaseModel):
 
     return_inspection: ReturnInspectionResponse
     settlement: SettlementResponse
+    payment: Optional[PaymentResponse] = None

@@ -314,6 +314,15 @@ class Damage:
     descripcion: str = ""
     costo_reparacion: Decimal = Decimal("0.00")
 
+    @property
+    def severidad(self) -> DamageSeverity:
+        """Alias retrocompatible para gravedad."""
+        return self.gravedad
+
+    @severidad.setter
+    def severidad(self, value: DamageSeverity) -> None:
+        self.gravedad = value
+
 
 @dataclass
 class ReturnInspection:

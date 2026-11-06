@@ -4,11 +4,14 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from src.api.schemas.return_schema import DamageSchema, ReturnCreateRequest
+from src.api_client import api_client
 from src.core.exceptions import (
     BusinessRuleViolationError,
     InvalidStateTransitionError,
@@ -31,7 +34,9 @@ from src.domain.models import (
     Contract,
     Damage,
     DriverLicense,
+    Payment,
     ReturnInspection,
+    Settlement,
     Vehicle,
 )
 from src.services.auth_service import auth_service
@@ -536,6 +541,199 @@ def run_tests() -> None:
     except BusinessRuleViolationError as e:
         assert e.code == "CONTRACT_ALREADY_RETURNED"
         print(f" -> PASO: Reintento de devolución en contrato liquidado bloqueado: '{e.message}'")
+
+    # ------------------------------------------------------------------------
+    # TEST 6: Retorno con daños físicos en modo remoto HTTP (api_client.remote_mode = True)
+    # ------------------------------------------------------------------------
+    print("\n[TEST 6] Retorno con múltiples averías en modo cliente HTTP remoto (api_client.remote_mode = True)...")
+
+    # 1. Instanciación de múltiples daños físicos
+    danios_remotos = [
+        Damage(
+            zona_carroceria="Puerta Delantera Izquierda",
+            tipo_danio=DamageType.GOLPE,
+            gravedad=DamageSeverity.MODERADO,
+            descripcion="Golpe en puerta lateral",
+            costo_reparacion=Decimal("150.00"),
+        ),
+        Damage(
+            zona_carroceria="Parachoques Delantero",
+            tipo_danio=DamageType.RAYON,
+            gravedad=DamageSeverity.LEVE,
+            descripcion="Rayón superficial en pintura",
+            costo_reparacion=Decimal("75.00"),
+        ),
+        Damage(
+            zona_carroceria="Parabrisas",
+            tipo_danio=DamageType.ROTURA,
+            gravedad=DamageSeverity.GRAVE,
+            descripcion="Fisura por impacto frontal",
+            costo_reparacion=Decimal("300.00"),
+        ),
+    ]
+
+    # Verificar que ningún objeto Damage lance AttributeError con 'severidad' ni 'gravedad'
+    for d in danios_remotos:
+        assert hasattr(d, "severidad"), "Damage debe contar con alias 'severidad' para compatibilidad."
+        assert d.severidad == d.gravedad, "d.severidad debe reflejar exactamente d.gravedad."
+
+    ret_remoto = ReturnInspection(
+        id_contrato=ctr2.id_contrato,
+        fecha_hora_retorno_real=now,
+        kilometraje_retorno=12500,
+        combustible_retorno=Decimal("1.00"),
+        limpieza_aprobada=True,
+        accesorios_completos=True,
+        observaciones="Inspección remota con 3 averías registradas",
+        danios=danios_remotos,
+    )
+
+    captured_payloads = []
+
+    def mock_process_return(payload: dict) -> dict:
+        captured_payloads.append(payload)
+        return {
+            "return_inspection": {
+                "id_devolucion": 8801,
+                "tenant_id": 1,
+                "id_contrato": payload["id_contrato"],
+                "fecha_hora_retorno_real": payload["fecha_hora_retorno_real"],
+                "kilometraje_retorno": payload["kilometraje_retorno"],
+                "combustible_retorno": payload["combustible_retorno"],
+                "horas_retraso": 0,
+                "limpieza_aprobada": payload["limpieza_aprobada"],
+                "accesorios_completos": payload["accesorios_completos"],
+                "observaciones": payload["observaciones"],
+                "id_usuario": 1,
+                "danios": payload["danios"],
+            },
+            "settlement": {
+                "id_liquidacion": 7701,
+                "tenant_id": 1,
+                "id_contrato": payload["id_contrato"],
+                "id_devolucion": 8801,
+                "fecha_liquidacion": now.isoformat(),
+                "dias_facturados": 2,
+                "subtotal_renta": "60.00",
+                "cargos_retraso": "0.00",
+                "cargos_combustible": "0.00",
+                "cargos_km_excedente": "0.00",
+                "cargos_danios": "525.00",
+                "total_bruto": "585.00",
+                "monto_garantia_aplicado": "100.00",
+                "saldo_cliente": "485.00",
+                "estado_liquidacion": "CERRADA",
+                "id_usuario": 1,
+                "pagos": [],
+            },
+            "payment": {
+                "id_pago": 6601,
+                "tenant_id": 1,
+                "codigo_transaccion": "TRX-LIQ-REMOTE-001",
+                "id_contrato": payload["id_contrato"],
+                "id_liquidacion": 7701,
+                "tipo_movimiento": "COBRO_LIQUIDACION",
+                "metodo_pago": payload["metodo_pago"],
+                "monto": "485.00",
+                "referencia": payload["referencia_pago"] or "Cobro Remoto",
+                "id_usuario": 1,
+            },
+        }
+
+    original_remote_flag = api_client.remote_mode
+    try:
+        api_client.remote_mode = True
+
+        with patch.object(api_client, "process_return", side_effect=mock_process_return) as mock_post:
+            resultado_remoto = return_service.process_return_and_settlement(
+                id_contrato=ctr2.id_contrato,
+                return_data=ret_remoto,
+                metodo_pago=PaymentMethod.TARJETA_CREDITO,
+                referencia_pago="AUTH-REMOTE-DAMAGES-001",
+            )
+            assert mock_post.called, "api_client.process_return debió ser invocado en modo remoto"
+
+        assert len(captured_payloads) == 1, "Se esperaba exactamente 1 llamada al API REST"
+        p = captured_payloads[0]
+
+        # Validaciones de claves requeridas en el payload
+        assert p["id_contrato"] == ctr2.id_contrato
+        assert p["kilometraje_retorno"] == 12500
+        assert p["combustible_retorno"] == "1.00"
+        assert p["metodo_pago"] == "TARJETA_CREDITO"
+        assert p["referencia_pago"] == "AUTH-REMOTE-DAMAGES-001"
+        assert len(p["danios"]) == 3, f"Se esperaban 3 daños en el payload, se encontraron {len(p['danios'])}"
+
+        # Validar cada item de daño en danios_payload
+        for idx, d_dict in enumerate(p["danios"]):
+            assert "zona_carroceria" in d_dict, f"Falta 'zona_carroceria' en daño #{idx}"
+            assert "tipo_danio" in d_dict, f"Falta 'tipo_danio' en daño #{idx}"
+            assert "gravedad" in d_dict, f"Falta 'gravedad' en daño #{idx}"
+            assert "descripcion" in d_dict, f"Falta 'descripcion' en daño #{idx}"
+            assert "costo_reparacion" in d_dict, f"Falta 'costo_reparacion' en daño #{idx}"
+            # Certificar que NUNCA se use la clave errónea 'severidad' en el payload JSON
+            assert "severidad" not in d_dict, f"El payload del daño #{idx} no debe contener clave 'severidad'"
+
+        # Inspección precisa de los 3 daños serializados
+        d_golpe = p["danios"][0]
+        assert d_golpe["zona_carroceria"] == "Puerta Delantera Izquierda"
+        assert d_golpe["tipo_danio"] == "GOLPE"
+        assert d_golpe["gravedad"] == "MODERADO"
+        assert d_golpe["descripcion"] == "Golpe en puerta lateral"
+        assert d_golpe["costo_reparacion"] == "150.00"
+
+        d_rayon = p["danios"][1]
+        assert d_rayon["zona_carroceria"] == "Parachoques Delantero"
+        assert d_rayon["tipo_danio"] == "RAYON"
+        assert d_rayon["gravedad"] == "LEVE"
+        assert d_rayon["descripcion"] == "Rayón superficial en pintura"
+        assert d_rayon["costo_reparacion"] == "75.00"
+
+        d_rotura = p["danios"][2]
+        assert d_rotura["zona_carroceria"] == "Parabrisas"
+        assert d_rotura["tipo_danio"] == "ROTURA"
+        assert d_rotura["gravedad"] == "GRAVE"
+        assert d_rotura["descripcion"] == "Fisura por impacto frontal"
+        assert d_rotura["costo_reparacion"] == "300.00"
+
+        # Validación formal estricta con esquemas Pydantic v2
+        danios_validados = [DamageSchema.model_validate(item) for item in p["danios"]]
+        assert len(danios_validados) == 3
+        assert danios_validados[0].tipo_danio == DamageType.GOLPE
+        assert danios_validados[0].gravedad == DamageSeverity.MODERADO
+        assert danios_validados[0].costo_reparacion == Decimal("150.00")
+
+        req_validada = ReturnCreateRequest.model_validate(p)
+        assert req_validada.id_contrato == ctr2.id_contrato
+        assert req_validada.metodo_pago == PaymentMethod.TARJETA_CREDITO
+        assert len(req_validada.danios) == 3
+
+        # Validar reconstrucción fiel a entidades de dominio
+        ret_instancia = resultado_remoto["return_inspection"]
+        assert isinstance(ret_instancia, ReturnInspection)
+        assert ret_instancia.id_devolucion == 8801
+        assert len(ret_instancia.danios) == 3
+        assert ret_instancia.costo_total_danios == Decimal("525.00")
+        assert ret_instancia.tiene_danio_grave is True
+        assert ret_instancia.danios[0].gravedad == DamageSeverity.MODERADO
+        assert ret_instancia.danios[0].severidad == DamageSeverity.MODERADO
+        assert ret_instancia.danios[0].tipo_danio == DamageType.GOLPE
+
+        sett_instancia = resultado_remoto["settlement"]
+        assert isinstance(sett_instancia, Settlement)
+        assert sett_instancia.id_liquidacion == 7701
+        assert sett_instancia.cargos_danios == Decimal("525.00")
+
+        pay_instancia = resultado_remoto["payment"]
+        assert isinstance(pay_instancia, Payment)
+        assert pay_instancia.codigo_transaccion == "TRX-LIQ-REMOTE-001"
+        assert pay_instancia.monto == Decimal("485.00")
+
+        print(" -> PASO: Serialización remota con múltiples daños (GOLPE, RAYON, ROTURA) sin AttributeError ('severidad').")
+        print(" -> PASO: Payload de daños validado exitosamente contra DamageSchema y ReturnCreateRequest [Pydantic v2].")
+        print(" -> PASO: Deserialización de respuesta a ReturnInspection, Damage, Settlement y Payment verificada.")
+    finally:
+        api_client.remote_mode = original_remote_flag
 
     # Limpieza final
     cleanup_test_returns_data(test_cedulas, test_placas)

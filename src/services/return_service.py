@@ -17,6 +17,7 @@ from src.core.session import session
 from src.domain.enums import (
     ContractStatus,
     DamageSeverity,
+    DamageType,
     PaymentMethod,
     PaymentType,
     SettlementStatus,
@@ -209,14 +210,15 @@ class ReturnService(BaseService):
                 metodo_val = metodo_pago.value if isinstance(metodo_pago, PaymentMethod) else str(metodo_pago)
                 danios_payload = []
                 for d in (return_data.danios or []):
-                    sev_val = d.severidad.value if isinstance(d.severidad, DamageSeverity) else str(d.severidad)
+                    grav_val = d.gravedad.value if hasattr(d.gravedad, "value") else str(d.gravedad)
+                    tipo_val = d.tipo_danio.value if hasattr(d.tipo_danio, "value") else str(d.tipo_danio)
                     danios_payload.append(
                         {
                             "zona_carroceria": d.zona_carroceria,
-                            "descripcion_danio": d.descripcion_danio,
-                            "severidad": sev_val,
+                            "tipo_danio": tipo_val,
+                            "gravedad": grav_val,
+                            "descripcion": d.descripcion,
                             "costo_reparacion": str(d.costo_reparacion),
-                            "evidencia_ruta": d.evidencia_ruta,
                         }
                     )
                 payload = {
