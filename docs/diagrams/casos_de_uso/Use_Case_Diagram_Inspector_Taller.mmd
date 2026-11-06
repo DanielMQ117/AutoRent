@@ -3,43 +3,48 @@ direction LR
 
 accTitle: Diagrama de Casos de Uso - Inspector de Taller (AutoRent Pro)
 accDescr {
-  Diagrama de casos de uso para el rol de Inspector de Taller en AutoRent Pro.
-  Comprende la autenticacion e inicio de sesion con aislamiento multi-tenant,
-  inspeccion fisica y tecnica de retorno de vehiculos con comprobacion de accesorios,
-  comparativa automatica de kilometraje y combustible, registro y valoracion de averias o danos,
-  reclasificacion y gestion de estados operativos de la flota, monitoreo de alertas de kilometraje
-  para mantenimiento preventivo, emision de ordenes de taller con bloqueo operativo de unidades,
-  y conclusion de mantenimientos con registro de costos y reactivacion a estado disponible.
+  Diagrama de casos de uso modular para el rol de Inspector de Taller en AutoRent Pro.
+  Comprende tres subsistemas tecnicos funcionales: Control Tecnico de Flota,
+  Recepcion e Inspeccion Fisica de Retorno, y Gestion de Taller con Mantenimiento Mecanico.
+  Modela la inspeccion con comprobacion de inventario, calculo automatico de diferenciales
+  de odometro y combustible, registro de averias, transiciones de estados operativos,
+  emision de ordenes preventivas y correctivas con bloqueo operativo, y reactivacion
+  de flota con costos liquidados.
 }
 
 actor Inspector("Inspector de Taller")@{ type: hollow, business: true } <<Rol Taller>>
 
-systemBoundary tallerSystem["AutoRent Pro - Subsistema de Inspección Técnica y Taller Mecánico"]@{ type: package }:::sistema
-  %% Seguridad y Tenencia
-  RF01_Login("RF-01: Autenticación e Inicio de Sesión Multi-Tenant") <<Seguridad>>:::seguridad
-  RF02_Logout("RF-02: Cierre de Sesión Seguro (Logout)") <<Seguridad>>:::seguridad
-  RF38_SelectAgency("RF-38: Selección de Agencia y Aislamiento Multi-Tenant") <<MultiTenant>>:::seguridad
-
-  %% Gestión y Monitoreo de Flota
-  RF06_ConsultarFlota("RF-06: Consulta de Flota y Ficha Técnica de Vehículo") <<Consulta>>:::flota
-  RF07_ControlEstados("RF-07: Control de Transición y Gestión de Estados") <<Operativo>>:::estado
-  RF09_AlertasKm("RF-09: Sistema de Alertas por Kilometraje Preventivo") <<Alerta>>:::alerta
-
-  %% Recepción e Inspección Técnica de Retorno (Check-out)
-  RF23_InspeccionRetorno("RF-23: Inspección Física de Retorno y Accesorios") <<Check-out>>:::inspeccion
-  RF24_ComparativaRetorno("RF-24: Comparativa Automática de Odómetro y Combustible") <<Cálculo>>:::inspeccion
-  RF27_RegistrarDanos("RF-27: Registro y Valoración de Daños Físicos o Averías") <<Siniestralidad>>:::critico
-  RF30_TransicionPostInspeccion("RF-30: Reclasificación Operativa post-Inspección") <<Transición>>:::estado
-
-  %% Mantenimiento Mecánico de Flota
-  RF31_RegistrarMantenimiento("RF-31: Registro de Órdenes de Mantenimiento Preventivo y Correctivo") <<Taller>>:::mantenimiento
-  RF32_BloqueoOperativo("RF-32: Bloqueo Operativo del Vehículo en Taller") <<Regla Negocio>>:::critico
-  RF33_FinalizarMantenimiento("RF-33: Finalización de Mantenimiento, Registro de Costos y Reactivación") <<Cierre Taller>>:::mantenimiento
+%% ======================================================================
+%% Módulo 1: Control Técnico de Flota
+%% ======================================================================
+systemBoundary Control_Tecnico_Flota["Control Técnico de Flota"]@{ type: package }:::sistema
+  RF06_ConsultarFlota("Consultar flota y ficha técnica de vehículo (RF-06)") <<Consulta>>:::flota
+  RF07_ControlEstados("Controlar transición y gestión de estados de flota (RF-07)") <<Operativo>>:::estado
+  RF09_AlertasKm("Monitorear alertas de kilometraje preventivo (RF-09)") <<Alerta>>:::alerta
 end
 
+%% ======================================================================
+%% Módulo 2: Recepción e Inspección
+%% ======================================================================
+systemBoundary Recepcion_e_Inspeccion["Recepción e Inspección"]@{ type: package }:::sistema
+  RF23_InspeccionRetorno("Realizar inspección física de retorno y accesorios (RF-23)") <<Check-out>>:::inspeccion
+  RF24_ComparativaRetorno("Comparar automáticamente odómetro y combustible de retorno (RF-24)") <<Cálculo>>:::inspeccion
+  RF27_RegistrarDanos("Registrar y valorar averías o daños físicos (RF-27)") <<Siniestralidad>>:::critico
+  RF30_TransicionPostInspeccion("Reclasificar estado operativo post-inspección (RF-30)") <<Transición>>:::estado
+end
+
+%% ======================================================================
+%% Módulo 3: Gestión de Taller
+%% ======================================================================
+systemBoundary Gestion_Taller["Gestión de Taller"]@{ type: package }:::sistema
+  RF31_RegistrarMantenimiento("Abrir orden de mantenimiento preventivo o correctivo (RF-31)") <<Taller>>:::mantenimiento
+  RF32_BloqueoOperativo("Bloquear vehículo operativamente en taller (RF-32)") <<Regla Negocio>>:::critico
+  RF33_FinalizarMantenimiento("Finalizar mantenimiento, registrar costos y reactivar vehículo (RF-33)") <<Cierre Taller>>:::mantenimiento
+end
+
+%% ======================================================================
 %% Asociaciones directas del Actor Inspector de Taller
-Inspector auth@-- "inicia sesión" ---> RF01_Login
-Inspector --> RF02_Logout
+%% ======================================================================
 Inspector --> RF06_ConsultarFlota
 Inspector --> RF07_ControlEstados
 Inspector --> RF09_AlertasKm
@@ -47,8 +52,9 @@ Inspector check@-- "ejecuta check-out técnico" ---> RF23_InspeccionRetorno
 Inspector orden@-- "crea orden de servicio" ---> RF31_RegistrarMantenimiento
 Inspector --> RF33_FinalizarMantenimiento
 
+%% ======================================================================
 %% Relaciones de Inclusión (<<include>>)
-RF01_Login inc_sec@..> : include RF38_SelectAgency
+%% ======================================================================
 RF23_InspeccionRetorno inc_comp@..> : include RF24_ComparativaRetorno
 RF23_InspeccionRetorno inc_trans@..> : include RF30_TransicionPostInspeccion
 RF30_TransicionPostInspeccion inc_est1@..> : include RF07_ControlEstados
@@ -56,13 +62,16 @@ RF31_RegistrarMantenimiento inc_bloq@..> : include RF32_BloqueoOperativo
 RF31_RegistrarMantenimiento inc_est2@..> : include RF07_ControlEstados
 RF33_FinalizarMantenimiento inc_react@..> : include RF07_ControlEstados
 
+%% ======================================================================
 %% Relaciones de Extensión (<<extend>>)
+%% ======================================================================
 RF27_RegistrarDanos ext_dano@..> : extend RF23_InspeccionRetorno
 RF09_AlertasKm ext_maint@..> : extend RF31_RegistrarMantenimiento
 
+%% ======================================================================
 %% Definición de estilos de clases
+%% ======================================================================
 classDef sistema stroke:#1e40af,stroke-width:2px,fill:#f8fafc
-classDef seguridad stroke:#4338ca,stroke-width:2px,fill:#eef2ff
 classDef inspeccion stroke:#0284c7,stroke-width:2px,fill:#f0f9ff
 classDef flota stroke:#0284c7,stroke-width:2px,fill:#f0f9ff
 classDef mantenimiento stroke:#d97706,stroke-width:2px,fill:#fffbeb
@@ -70,12 +79,15 @@ classDef estado stroke:#059669,stroke-width:2px,fill:#ecfdf5
 classDef alerta stroke:#ea580c,stroke-width:2px,fill:#fff7ed
 classDef critico stroke:#dc2626,stroke-width:2px,fill:#fef2f2
 
+%% ======================================================================
 %% Animaciones de aristas
-auth@{ animation: fast }
+%% ======================================================================
 check@{ animation: fast }
 orden@{ animation: fast }
 
+%% ======================================================================
 %% Estilos específicos de aristas
+%% ======================================================================
 style inc_bloq stroke:#dc2626,stroke-width:2px
 style ext_dano stroke:#ea580c,stroke-width:2px,stroke-dasharray: 5 5
 style inc_comp stroke:#0284c7,stroke-width:2px

@@ -1,46 +1,57 @@
 usecase-beta
-direction LR
-accTitle: Diagrama de Casos de Uso - Rol Gerente
+direction BT
+accTitle: Diagrama de Casos de Uso - Rol Gerente (AutoRent Pro)
 accDescr {
   Diagrama de casos de uso para el rol de Gerente en el sistema AutoRent Pro.
-  Ilustra las operaciones ejecutivas, analíticas y de control comercial:
-  autenticación segura multi-tenant, aislamiento por agencia, monitoreo
-  de indicadores KPI en dashboard, supervisión de contratos y liquidaciones,
-  así como la generación y exportación de reportes analíticos financieros,
-  de rendimiento de flota y de historial de clientes.
+  Estructura las operaciones en módulos funcionales delimitados:
+  Monitoreo Estratégico (dashboard ejecutivo en tiempo real y supervisión de contratos)
+  y Reportes y Analítica (reportes consolidados de ingresos, rendimiento de flota,
+  historial de clientes y exportación a formatos estándar).
+  Nota: Las operaciones transversales de inicio/cierre de sesión y selección de agencia
+  se encuentran centralizadas en el diagrama unificado de autenticación y sesión.
 }
+
 actor Gerente("Gerente")@{ type: hollow, business: true } <<Directivo>>
-systemBoundary sistemaAutoRent["AutoRent Pro - Gestión y Analítica Gerencial"]@{ type: package }:::system
-  UC_Login("RF-01: Autenticación e Inicio de Sesión Multi-Tenant") <<Seguridad>>:::security
-  UC_Logout("RF-02: Cierre de Sesión") <<Seguridad>>:::security
-  UC_Tenant("RF-38: Selección de Agencia y Aislamiento Multi-Tenant") <<MultiTenant>>:::tenant
-  UC_Dashboard("Monitoreo de KPIs Ejecutivos en Dashboard") <<Estrategico>>:::kpi
-  UC_Supervision("Supervisión de Contratos de Alquiler y Liquidaciones Cerradas") <<Supervision>>:::supervision
-  UC_RepIngresos("RF-34: Reporte Consolidado de Ingresos Financieros y Recaudación") <<Analitica>>:::reporte
-  UC_RepFlota("RF-35: Reporte de Utilización, Tasa de Ocupación y Rendimiento de Flota") <<Analitica>>:::reporte
-  UC_RepClientes("RF-36: Reporte de Historial de Clientes, Siniestralidad y Morosidad") <<Analitica>>:::reporte
-  UC_Exportar("RF-37: Exportación de Reportes a Formatos Estándar CSV, PDF y Excel") <<Utilidad>>:::export
+
+systemBoundary Monitoreo_Estrategico["Monitoreo Estratégico"]@{ type: package }:::modMonitoreo
+  DashboardKPI("Monitorear indicadores clave en dashboard ejecutivo") <<Estrategico>>:::kpi
+  SupervisionContratos("Supervisar contratos de alquiler y liquidaciones cerradas") <<Supervision>>:::supervision
 end
-Gerente starts@-- "inicia sesión segura" ---> UC_Login
-Gerente --> UC_Logout
-Gerente kpiMon@-- "monitorea en tiempo real" ---> UC_Dashboard
-Gerente --> UC_Supervision
-Gerente repIng@-- "consulta recaudación" ---> UC_RepIngresos
-Gerente --> UC_RepFlota
-Gerente --> UC_RepClientes
-UC_Login incTenant@..> : include UC_Tenant
-UC_Exportar expIng@..> : extend UC_RepIngresos
-UC_Exportar expFlo@..> : extend UC_RepFlota
-UC_Exportar expCli@..> : extend UC_RepClientes
-classDef system stroke:#2c5282,stroke-width:2px
-classDef security stroke:#c53030,stroke-width:2px
-classDef tenant stroke:#6b46c1,stroke-width:2px
+
+systemBoundary Reportes_y_Analitica["Reportes y Analítica"]@{ type: package }:::modReportes
+  ReporteIngresos("Generar reporte consolidado de ingresos y recaudación (RF-34)") <<Analitica>>:::reporte
+  ReporteFlota("Generar reporte de ocupación y rendimiento de flota (RF-35)") <<Analitica>>:::reporte
+  ReporteClientes("Generar reporte de historial, siniestralidad y morosidad (RF-36)") <<Analitica>>:::reporte
+  ExportarReportes("Exportar reportes a CSV, PDF y Excel (RF-37)") <<Utilidad>>:::export
+end
+
+%% Relaciones directas del Gerente
+Gerente kpiMon@-- "monitorea en tiempo real" ---> DashboardKPI
+Gerente --> SupervisionContratos
+Gerente repIng@-- "consulta recaudación" ---> ReporteIngresos
+Gerente --> ReporteFlota
+Gerente --> ReporteClientes
+
+%% Relaciones de Extensión (extend)
+ExportarReportes expIng@..> : extend ReporteIngresos
+ExportarReportes expFlo@..> : extend ReporteFlota
+ExportarReportes expCli@..> : extend ReporteClientes
+
+%% Estilos de Paquetes / Límites de Subsistemas
+classDef modMonitoreo stroke:#2b6cb0,stroke-width:2px
+classDef modReportes stroke:#276749,stroke-width:2px
+
+%% Estilos de Casos de Uso
 classDef kpi stroke:#2b6cb0,stroke-width:2px
 classDef supervision stroke:#dd6b20,stroke-width:2px
 classDef reporte stroke:#276749,stroke-width:2px
 classDef export stroke:#b7791f,stroke-width:2px
+
+%% Animaciones e interactividad de aristas
 kpiMon@{ animation: fast }
-style incTenant stroke:#6b46c1,stroke-width:2px
+expIng@{ animation: slow }
+
+%% Estilos específicos de aristas punteadas (extend)
 style expIng stroke:#b7791f,stroke-width:2px
 style expFlo stroke:#b7791f,stroke-width:2px
 style expCli stroke:#b7791f,stroke-width:2px

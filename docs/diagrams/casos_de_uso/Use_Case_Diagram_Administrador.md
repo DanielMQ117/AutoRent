@@ -2,97 +2,89 @@
 
 ## Sistema de Control y Gestión de Alquiler de Automóviles (AutoRent Pro)
 
-Este diagrama modela el comportamiento, responsabilidades y alcance operativo completo del **Administrador del Sistema**, contemplando los requisitos de seguridad multi-tenant, gestión de cuentas de usuario con roles (RBAC), auditoría inmutable, administración de catálogos maestros y supervisión integral de todos los módulos del sistema.
+Este diagrama modela de forma sintetizada y modular el comportamiento, responsabilidades y alcance operativo completo del **Administrador del Sistema**. Las funcionalidades se encuentran organizadas en 5 subsistemas delimitados mediante fronteras de paquete (`systemBoundary`): **Seguridad y Control de Acceso**, **Auditoría del Sistema**, **Gestión de Cuentas de Usuario**, **Catálogos Maestros** y **Supervisión Operativa**.
+
+> [!NOTE]
+> Las acciones comunes de inicio/cierre de sesión y selección de agencia multi-tenant (**RF-01**, **RF-02**, **RF-38**) han sido desacopladas y centralizadas en el [Diagrama Unificado de Casos de Uso — Autenticación, Sesión y Agencia](./Use_Case_Diagram_Autenticacion_y_Sesion.md).
+
+---
+
+## 1. Diagrama de Casos de Uso Sintetizado (Mermaid)
 
 ```mermaid
 usecase-beta
 direction LR
-accTitle: Diagrama de Casos de Uso - Rol Administrador (AutoRent Pro)
+accTitle: Diagrama de Casos de Uso Resumido - Rol Administrador (AutoRent Pro)
 accDescr {
-  Diagrama de casos de uso para el rol Administrador en el sistema AutoRent Pro.
-  Representa los flujos de autenticación multi-tenant, cierre de sesión,
-  gestión de usuarios y accesos con control de privilegios RBAC,
-  desbloqueo administrativo de cuentas, consulta de bitácora de auditoría inmutable,
-  administración de catálogos maestros y supervisión integral de las operaciones de la plataforma.
+  Diagrama de casos de uso resumido y modular para el rol de Administrador en AutoRent Pro.
+  Estructura las operaciones en cinco subsistemas clave: Seguridad y Control de Acceso,
+  Auditoría del Sistema, Gestión de Cuentas de Usuario, Catálogos Maestros y Supervisión Operativa.
+  Consolida las funciones críticas garantizando la trazabilidad total de los requisitos funcionales.
 }
 
 actor Admin("Administrador del Sistema")@{ type: hollow, business: true } <<Rol Principal>>
 
-systemBoundary autoRent["Sistema AutoRent Pro - Gestión y Administración"]@{ type: package }:::system
-  %% ----------------------------------------------------------------------
-  %% Módulo 1: Seguridad, Autenticación y Tenencia Múltiple
-  %% ----------------------------------------------------------------------
-  UC_Login("RF-01: Iniciar Sesión Multi-Tenant") <<Seguridad>>:::critico
-  UC_Logout("RF-02: Cerrar Sesión del Sistema") <<Seguridad>>:::seguridad
-  UC_Tenant("RF-38: Seleccionar Agencia y Aislamiento Multi-Tenant") <<MultiTenant>>:::seguridad
-  UC_BloqueoAuto("RF-03: Bloqueo de Cuenta por Intentos Fallidos") <<Seguridad>>:::critico
-  UC_DesbloqueoAdmin("RF-03: Desbloqueo Administrativo de Cuentas") <<Seguridad>>:::seguridad
-  UC_RBAC("RF-04: Control de Acceso Basado en Roles RBAC") <<Seguridad>>:::seguridad
-  UC_Auditoria("RF-05: Consultar Bitácora de Auditoría Inmutable") <<Auditoría>>:::auditoria
-  UC_RegAuditoria("RF-05: Registrar Evento Crítico en Bitácora") <<Auditoría>>:::auditoria
-
-  %% ----------------------------------------------------------------------
-  %% Módulo de Gestión de Cuentas de Usuario y Accesos
-  %% ----------------------------------------------------------------------
-  UC_GestionUsuarios("Gestión Integral de Cuentas de Usuario") <<Gestión>>:::core
-  UC_CrearUsuario("Crear Nueva Cuenta de Usuario"):::core
-  UC_EditarUsuario("Editar Perfil y Asignar Rol"):::core
-  UC_DesactivarUsuario("Activar o Desactivar Cuenta"):::core
-  UC_ResetPassword("Resetear Contraseña de Acceso"):::core
-
-  %% ----------------------------------------------------------------------
-  %% Módulo de Gestión de Catálogos Maestros
-  %% ----------------------------------------------------------------------
-  UC_CatalogosMaestros("Gestión de Catálogos Maestros") <<Catálogos>>:::catalogos
-  UC_CatAgencias("Administrar Agencias y Sucursales"):::catalogos
-  UC_CatMarcasModelos("Administrar Marcas y Modelos"):::catalogos
-  UC_CatCategorias("Administrar Categorías de Flota y Tarifas"):::catalogos
-  UC_CatPolizas("Administrar Pólizas de Seguro y Coberturas"):::catalogos
-
-  %% ----------------------------------------------------------------------
-  %% Módulo de Supervisión Integral de la Plataforma
-  %% ----------------------------------------------------------------------
-  UC_SupervisionGlobal("Supervisión Integral de Operaciones") <<Supervisión>>:::supervision
-  UC_SupFlota("Supervisar Flota y Alertas de Kilometraje"):::supervision
-  UC_SupClientes("Supervisar Clientes y Licencias"):::supervision
-  UC_SupContratos("Supervisar Reservas, Contratos y Devoluciones"):::supervision
-  UC_SupMantenimiento("Supervisar Órdenes de Mantenimiento y Bloqueos"):::supervision
-  UC_ReportesAnalitica("Consultar y Exportar Reportes Analíticos"):::supervision
+%% ----------------------------------------------------------------------
+%% Módulo 1: Seguridad y Control de Acceso
+%% ----------------------------------------------------------------------
+systemBoundary Seguridad_y_Control_Acceso["Seguridad y Control de Acceso"]@{ type: package }:::seguridad
+  GestionBloqueo("Gestionar bloqueo y desbloqueo de cuentas (RF-03)") <<Seguridad>>:::seguridad
+  ControlRBAC("Controlar accesos y privilegios basados en roles (RF-04)") <<Seguridad>>:::seguridad
 end
 
-Admin admin_login@-- "inicia sesión" ---> UC_Login
-Admin --> UC_Logout
-Admin --> UC_GestionUsuarios
-Admin --> UC_CatalogosMaestros
-Admin --> UC_RBAC
-Admin --> UC_Auditoria
-Admin --> UC_DesbloqueoAdmin
-Admin admin_sup@-- "supervisa plataforma" ---> UC_SupervisionGlobal
+%% ----------------------------------------------------------------------
+%% Módulo 2: Auditoría del Sistema
+%% ----------------------------------------------------------------------
+systemBoundary Auditoria_del_Sistema["Auditoría del Sistema"]@{ type: package }:::auditoria
+  AuditoriaSistema("Consultar y fiscalizar bitácora inmutable (RF-05)") <<Auditoría>>:::auditoria
+end
 
-UC_Login inc_tenant@..> : include UC_Tenant
-UC_BloqueoAuto ext_bloq@..> : extend UC_Login
+%% ----------------------------------------------------------------------
+%% Módulo 3: Gestión de Cuentas de Usuario
+%% ----------------------------------------------------------------------
+systemBoundary Gestion_Cuentas_Usuarios["Gestión de Cuentas de Usuario"]@{ type: package }:::core
+  AdministrarUsuarios("Gestionar cuentas de usuario y credenciales") <<Gestión>>:::core
+  AsignarRolesPermisos("Asignar roles y vigencia de cuentas"):::core
+end
 
-UC_GestionUsuarios inc_usr_crear@..> : include UC_CrearUsuario
-UC_GestionUsuarios inc_usr_edit@..> : include UC_EditarUsuario
-UC_GestionUsuarios inc_usr_desact@..> : include UC_DesactivarUsuario
-UC_GestionUsuarios inc_usr_reset@..> : include UC_ResetPassword
-UC_GestionUsuarios inc_usr_desbloq@..> : include UC_DesbloqueoAdmin
-UC_GestionUsuarios inc_usr_aud@..> : include UC_RegAuditoria
+%% ----------------------------------------------------------------------
+%% Módulo 4: Catálogos Maestros
+%% ----------------------------------------------------------------------
+systemBoundary Catalogos_Maestros["Catálogos Maestros"]@{ type: package }:::catalogos
+  AdminAgencias("Administrar agencias y sedes multi-tenant") <<Catálogos>>:::catalogos
+  AdminCatalogosFlota("Administrar marcas, modelos, categorías y pólizas"):::catalogos
+end
 
-UC_CatalogosMaestros inc_cat_age@..> : include UC_CatAgencias
-UC_CatalogosMaestros inc_cat_mar@..> : include UC_CatMarcasModelos
-UC_CatalogosMaestros inc_cat_cat@..> : include UC_CatCategorias
-UC_CatalogosMaestros inc_cat_pol@..> : include UC_CatPolizas
-UC_CatalogosMaestros inc_cat_aud@..> : include UC_RegAuditoria
+%% ----------------------------------------------------------------------
+%% Módulo 5: Supervisión Operativa
+%% ----------------------------------------------------------------------
+systemBoundary Supervision_Operativa["Supervisión Operativa"]@{ type: package }:::supervision
+  SupervisionPlataforma("Supervisar operaciones globales de flota, clientes y contratos") <<Supervisión>>:::supervision
+  ReportesAnaliticos("Consultar y exportar reportes analíticos globales"):::supervision
+end
 
-UC_SupervisionGlobal inc_sup_flota@..> : include UC_SupFlota
-UC_SupervisionGlobal inc_sup_cli@..> : include UC_SupClientes
-UC_SupervisionGlobal inc_sup_ops@..> : include UC_SupContratos
-UC_SupervisionGlobal inc_sup_mant@..> : include UC_SupMantenimiento
-UC_SupervisionGlobal inc_sup_rep@..> : include UC_ReportesAnalitica
+%% ----------------------------------------------------------------------
+%% Asociaciones del Actor Principal (Administrador)
+%% ----------------------------------------------------------------------
+Admin --> GestionBloqueo
+Admin --> ControlRBAC
+Admin --> AuditoriaSistema
+Admin --> AdministrarUsuarios
+Admin --> AdminAgencias
+Admin --> AdminCatalogosFlota
+Admin admin_sup@-- "supervisa plataforma" ---> SupervisionPlataforma
 
-UC_DesbloqueoAdmin inc_desb_aud@..> : include UC_RegAuditoria
+%% ----------------------------------------------------------------------
+%% Relaciones de Dependencia e Inclusión
+%% ----------------------------------------------------------------------
+AdministrarUsuarios ..> : include AsignarRolesPermisos
+AdministrarUsuarios inc_aud_usr@..> : include AuditoriaSistema
+GestionBloqueo inc_aud_desb@..> : include AuditoriaSistema
+SupervisionPlataforma ..> : include ReportesAnaliticos
 
+%% ----------------------------------------------------------------------
+%% Definiciones de Clases de Estilo
+%% ----------------------------------------------------------------------
 classDef system stroke:#1e3a8a,stroke-width:2px
 classDef critico stroke:#dc2626,stroke-width:2px
 classDef seguridad stroke:#0284c7,stroke-width:2px
@@ -101,27 +93,28 @@ classDef catalogos stroke:#d97706,stroke-width:2px
 classDef supervision stroke:#7c3aed,stroke-width:2px
 classDef auditoria stroke:#475569,stroke-width:2px
 
-admin_login@{ animation: fast }
+%% ----------------------------------------------------------------------
+%% Animaciones y Estilos de Enlaces
+%% ----------------------------------------------------------------------
 admin_sup@{ animation: fast }
-style inc_tenant stroke:#0284c7,stroke-width:2px
-style ext_bloq stroke:#dc2626,stroke-width:2px
-style inc_usr_aud stroke:#475569,stroke-width:2px
-style inc_cat_aud stroke:#475569,stroke-width:2px
-style inc_desb_aud stroke:#475569,stroke-width:2px
+style inc_aud_usr stroke:#475569,stroke-width:2px
+style inc_aud_desb stroke:#475569,stroke-width:2px
 ```
 
-### Resumen de Casos de Uso Cubiertos
+---
 
-| Requisito Funcional | Caso de Uso | Relación UML | Descripción |
-|---|---|---|---|
-| **RF-01** | `UC_Login` | Asociación directa | Autenticación con contraseña hash (`bcrypt`) y resolución de agencia activa. |
-| **RF-02** | `UC_Logout` | Asociación directa | Cierre voluntario y seguro de sesión invalidando el singleton `UserSession`. |
-| **RF-03** | `UC_BloqueoAuto` | `<<extend>>` de `UC_Login` | Bloqueo preventivo al superar 3 intentos fallidos consecutivos. |
-| **RF-03** | `UC_DesbloqueoAdmin` | Asociación directa / `<<include>>` | Desbloqueo administrativo de cuentas con registro en bitácora. |
-| **RF-04** | `UC_RBAC` | Asociación directa | Control de acceso basado en roles con matriz sin restricciones para Administrador. |
-| **RF-05** | `UC_Auditoria` | Asociación directa | Consulta y fiscalización de eventos inmutables en tabla `auditoria`. |
-| **RF-05** | `UC_RegAuditoria` | `<<include>>` de acciones críticas | Registro forzoso de cambios en usuarios, catálogos y desbloqueos. |
-| **RF-38** | `UC_Tenant` | `<<include>>` de `UC_Login` | Selección de agencia y aislamiento de datos mediante Row Level Security (RLS). |
-| **Gestión Usuarios** | `UC_GestionUsuarios` | Asociación directa | Administración de cuentas: crear, editar rol, cambiar estado y reset de clave. |
-| **Catálogos Maestros**| `UC_CatalogosMaestros` | Asociación directa | Mantenimiento de agencias, marcas, modelos, categorías y pólizas. |
-| **Supervisión Global** | `UC_SupervisionGlobal` | Asociación directa | Supervisión total de flota, clientes, contratos, taller y reportes analíticos. |
+## 2. Matriz de Requisitos Funcionales por Módulo
+
+> **Nota:** Las acciones transversales de inicio de sesión multi-tenant (**RF-01**), cierre de sesión (**RF-02**) y selección de agencia con aislamiento RLS (**RF-38**) se gestionan de forma centralizada en el [Diagrama Unificado de Autenticación, Sesión y Agencia](./Use_Case_Diagram_Autenticacion_y_Sesion.md).
+
+| Módulo / Subsistema | Requisitos Funcionales | Acción del Caso de Uso Sintetizado | Tipo de Relación / Rol |
+| :--- | :--- | :--- | :--- |
+| **Seguridad y Control de Acceso** | **RF-03** | Gestionar bloqueo y desbloqueo de cuentas (RF-03) | Control preventivo tras 3 intentos fallidos y desbloqueo administrativo |
+| | **RF-04** | Controlar accesos y privilegios basados en roles (RF-04) | Matriz RBAC sin restricciones para Administrador |
+| **Auditoría del Sistema** | **RF-05** | Consultar y fiscalizar bitácora inmutable (RF-05) | Consulta inmutable de transacciones, IP, acción y timestamp |
+| **Gestión de Cuentas de Usuario** | **Gestión** | Gestionar cuentas de usuario y credenciales | Creación, edición, reseteo de claves y activación de cuentas |
+| | **RBAC** | Asignar roles y vigencia de cuentas | Inclusión en Gestión de Usuarios (`include`) |
+| **Catálogos Maestros** | **Catálogos** | Administrar agencias y sedes multi-tenant | Mantenimiento de inquilinos, RUC, direcciones y teléfonos |
+| | **Catálogos** | Administrar marcas, modelos, categorías y pólizas | Catálogos globales de flota, tarifas base y seguros |
+| **Supervisión Operativa** | **Supervisión** | Supervisar operaciones globales de flota, clientes y contratos | Vista transversal del estado de la flota, cartera y contratos |
+| | **Supervisión** | Consultar y exportar reportes analíticos globales | Inclusión en Supervisión Operativa (`include`) |
