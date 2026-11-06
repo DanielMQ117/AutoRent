@@ -1,0 +1,54 @@
+---
+title: Diagrama Entidad-Relación (ERD) - Base de Datos AutoRent Pro (19 Tablas)
+---
+erDiagram
+    direction LR
+    %% =========================================================================
+    %% RELACIONES DE CARDINALIDAD Y CLAVES FORANEAS
+    %% =========================================================================
+
+    %% Multi-Tenancy y Seguridad
+    AGENCIA ||--o{ USUARIO : "emplea"
+    AGENCIA ||--o{ AUDITORIA : "registra_eventos"
+    ROL ||--o{ USUARIO : "asigna"
+    USUARIO |o--o{ AUDITORIA : "origina"
+
+    %% Flota y Clasificación
+    MARCA ||--|{ MODELO : "fabrica"
+    MODELO ||--o{ VEHICULO : "especifica"
+    CATEGORIA_VEHICULO ||--o{ VEHICULO : "clasifica"
+    VEHICULO ||--o{ MANTENIMIENTO : "recibe"
+    USUARIO ||--o{ MANTENIMIENTO : "supervisa"
+
+    %% Clientes y Documentación
+    CLIENTE ||--o| LICENCIA_CONDUCIR : "posee"
+
+    %% Operación Comercial: Reservas
+    CLIENTE ||--o{ RESERVA : "solicita"
+    CATEGORIA_VEHICULO ||--o{ RESERVA : "exige"
+    VEHICULO |o--o{ RESERVA : "preasigna"
+    USUARIO ||--o{ RESERVA : "registra"
+
+    %% Operación Comercial: Contratos
+    RESERVA |o--o| CONTRATO : "formaliza"
+    CLIENTE ||--o{ CONTRATO : "suscribe"
+    VEHICULO ||--o{ CONTRATO : "arrienda"
+    COBERTURA_SEGURO ||--o{ CONTRATO : "ampara"
+    USUARIO ||--o{ CONTRATO : "emite"
+    CONTRATO ||--o{ CONDUCTOR_ADICIONAL : "autoriza"
+
+    %% Inspección de Retorno y Daños
+    CONTRATO ||--o| DEVOLUCION : "recepciona"
+    USUARIO ||--o{ DEVOLUCION : "inspecciona"
+    DEVOLUCION ||--o{ DANIO : "constata"
+
+    %% Cierre Financiero y Liquidación
+    CONTRATO ||--o| LIQUIDACION : "liquida"
+    DEVOLUCION ||--o| LIQUIDACION : "sustenta"
+    USUARIO ||--o{ LIQUIDACION : "totaliza"
+
+    %% Caja y Pagos
+    CONTRATO |o--o{ PAGO : "abona"
+    RESERVA |o--o{ PAGO : "anticipa"
+    LIQUIDACION |o--o{ PAGO : "cancela"
+    USUARIO ||--o{ PAGO : "recauda"

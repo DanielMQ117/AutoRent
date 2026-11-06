@@ -1,0 +1,355 @@
+---
+title: Diagrama de Clases ORM - Sistema de Gestión de Alquiler de Autos (AutoRent Pro)
+---
+classDiagram
+  direction TB
+
+  %% =========================================================================
+  %% CLASE BASE DECLARATIVA SQLALCHEMY 2.0
+  %% =========================================================================
+  class Base {
+    <<DeclarativeBase>>
+    +metadata MetaData
+    +registry Registry
+  }
+
+  %% =========================================================================
+  %% 0. MÓDULO MULTI-TENANCY (AGENCIAS / SEDES)
+  %% =========================================================================
+  class AgenciaORM {
+    -int id_agencia
+    -String codigo_agencia
+    -String nombre_comercial
+    -String ruc_nit
+    -String telefono
+    -String email
+    -String direccion
+    -bool activo
+    -DateTime fecha_creacion
+    +to_domain() Agency
+  }
+  Base <|-- AgenciaORM : hereda
+
+  %% =========================================================================
+  %% 1. MÓDULO DE SEGURIDAD Y USUARIOS (RBAC)
+  %% =========================================================================
+  class RolORM {
+    -int id_rol
+    -String nombre
+    -String descripcion
+    +to_domain() Role
+  }
+  Base <|-- RolORM : hereda
+
+  class UsuarioORM {
+    -int id_usuario
+    -int tenant_id
+    -int id_rol
+    -String username
+    -String password_hash
+    -String nombre_completo
+    -String email
+    -bool activo
+    -DateTime fecha_creacion
+    +to_domain() User
+  }
+  Base <|-- UsuarioORM : hereda
+
+  class AuditoriaORM {
+    -int id_auditoria
+    -int tenant_id
+    -int id_usuario
+    -String username
+    -String accion
+    -String tabla_afectada
+    -int id_registro
+    -String detalles
+    -String ip_origen
+    -DateTime fecha_registro
+    +to_domain() AuditLog
+  }
+  Base <|-- AuditoriaORM : hereda
+
+  %% =========================================================================
+  %% 2. MÓDULO DE FLOTA Y VEHÍCULOS
+  %% =========================================================================
+  class MarcaORM {
+    -int id_marca
+    -String nombre
+    +to_domain() Brand
+  }
+  Base <|-- MarcaORM : hereda
+
+  class ModeloORM {
+    -int id_modelo
+    -int id_marca
+    -String nombre
+    -int anio
+    -String tipo_transmision
+    -int capacidad_pasajeros
+    +to_domain() VehicleModel
+  }
+  Base <|-- ModeloORM : hereda
+
+  class CategoriaVehiculoORM {
+    -int id_categoria
+    -int tenant_id
+    -String nombre
+    -String descripcion
+    -Decimal deposito_garantia_sugerido
+    -Decimal tarifa_base_diaria
+    +to_domain() VehicleCategory
+  }
+  Base <|-- CategoriaVehiculoORM : hereda
+
+  class VehiculoORM {
+    -int id_vehiculo
+    -int tenant_id
+    -int id_modelo
+    -int id_categoria
+    -String placa
+    -String vin
+    -String color
+    -int kilometraje_actual
+    -Decimal nivel_combustible_actual
+    -String estado
+    -int km_proximo_mantenimiento
+    -bool activo
+    +to_domain() Vehicle
+  }
+  Base <|-- VehiculoORM : hereda
+
+  %% =========================================================================
+  %% 3. MÓDULO DE CLIENTES Y CONDUCTORES
+  %% =========================================================================
+  class ClienteORM {
+    -int id_cliente
+    -int tenant_id
+    -String tipo_persona
+    -String identificacion
+    -String nombres
+    -String apellidos
+    -String telefono
+    -String email
+    -String direccion
+    -String estado_cliente
+    -DateTime fecha_registro
+    +to_domain() Client
+  }
+  Base <|-- ClienteORM : hereda
+
+  class LicenciaConducirORM {
+    -int id_licencia
+    -int tenant_id
+    -int id_cliente
+    -String numero_licencia
+    -String categoria_licencia
+    -Date fecha_emision
+    -Date fecha_vencimiento
+    -String pais_emision
+    +to_domain() DriverLicense
+  }
+  Base <|-- LicenciaConducirORM : hereda
+
+  class CoberturaSeguroORM {
+    -int id_cobertura
+    -int tenant_id
+    -String nombre
+    -String descripcion
+    -Decimal costo_diario
+    -Decimal porcentaje_deducible
+    +to_domain() InsuranceCoverage
+  }
+  Base <|-- CoberturaSeguroORM : hereda
+
+  %% =========================================================================
+  %% 4. MÓDULO DE RESERVAS
+  %% =========================================================================
+  class ReservaORM {
+    -int id_reserva
+    -int tenant_id
+    -String codigo_reserva
+    -int id_cliente
+    -int id_categoria
+    -int id_vehiculo
+    -DateTime fecha_hora_inicio
+    -DateTime fecha_hora_fin
+    -Decimal monto_anticipo
+    -String estado
+    -int id_usuario
+    -DateTime fecha_creacion
+    +to_domain() Reservation
+  }
+  Base <|-- ReservaORM : hereda
+
+  %% =========================================================================
+  %% 5. MÓDULO DE CONTRATOS Y OPERACIONES
+  %% =========================================================================
+  class ContratoORM {
+    -int id_contrato
+    -int tenant_id
+    -String codigo_contrato
+    -int id_reserva
+    -int id_cliente
+    -int id_vehiculo
+    -int id_cobertura
+    -DateTime fecha_hora_inicio_pactada
+    -DateTime fecha_hora_fin_pactada
+    -DateTime fecha_hora_salida_real
+    -int kilometraje_salida
+    -Decimal combustible_salida
+    -Decimal tarifa_diaria_aplicada
+    -Decimal monto_garantia
+    -bool kilometraje_ilimitado
+    -int limite_km_diario
+    -Decimal costo_km_excedente
+    -String estado
+    -int id_usuario
+    -DateTime fecha_creacion
+    +to_domain(bool include_collections) Contract
+  }
+  Base <|-- ContratoORM : hereda
+
+  class ConductorAdicionalORM {
+    -int id_conductor
+    -int tenant_id
+    -int id_contrato
+    -String nombre_completo
+    -String identificacion
+    -String numero_licencia
+    -Date fecha_vencimiento_licencia
+    +to_domain() AdditionalDriver
+  }
+  Base <|-- ConductorAdicionalORM : hereda
+
+  %% =========================================================================
+  %% 6. MÓDULO DE DEVOLUCIONES Y DAÑOS
+  %% =========================================================================
+  class DevolucionORM {
+    -int id_devolucion
+    -int tenant_id
+    -int id_contrato
+    -DateTime fecha_hora_retorno_real
+    -int kilometraje_retorno
+    -Decimal combustible_retorno
+    -int horas_retraso
+    -bool limpieza_aprobada
+    -bool accesorios_completos
+    -String observaciones
+    -int id_usuario
+    +to_domain() ReturnInspection
+  }
+  Base <|-- DevolucionORM : hereda
+
+  class DanioORM {
+    -int id_danio
+    -int tenant_id
+    -int id_devolucion
+    -String zona_carroceria
+    -String tipo_danio
+    -String gravedad
+    -String descripcion
+    -Decimal costo_reparacion
+    +to_domain() Damage
+  }
+  Base <|-- DanioORM : hereda
+
+  %% =========================================================================
+  %% 7. MÓDULO DE LIQUIDACIONES Y FINANZAS
+  %% =========================================================================
+  class LiquidacionORM {
+    -int id_liquidacion
+    -int tenant_id
+    -int id_contrato
+    -int id_devolucion
+    -DateTime fecha_liquidacion
+    -int dias_facturados
+    -Decimal subtotal_renta
+    -Decimal cargos_retraso
+    -Decimal cargos_combustible
+    -Decimal cargos_km_excedente
+    -Decimal cargos_danios
+    -Decimal total_bruto
+    -Decimal monto_garantia_aplicado
+    -Decimal saldo_cliente
+    -String estado_liquidacion
+    -int id_usuario
+    +to_domain(bool include_payments) Settlement
+  }
+  Base <|-- LiquidacionORM : hereda
+
+  class PagoORM {
+    -int id_pago
+    -int tenant_id
+    -String codigo_transaccion
+    -int id_contrato
+    -int id_reserva
+    -int id_liquidacion
+    -String tipo_movimiento
+    -String metodo_pago
+    -Decimal monto
+    -DateTime fecha_hora
+    -String referencia
+    -int id_usuario
+    +to_domain() Payment
+  }
+  Base <|-- PagoORM : hereda
+
+  %% =========================================================================
+  %% 8. MÓDULO DE MANTENIMIENTO Y TALLER
+  %% =========================================================================
+  class MantenimientoORM {
+    -int id_mantenimiento
+    -int tenant_id
+    -int id_vehiculo
+    -String tipo_mantenimiento
+    -DateTime fecha_ingreso
+    -Date fecha_salida_estimada
+    -DateTime fecha_salida_real
+    -int kilometraje_entrada
+    -String taller_servicio
+    -String descripcion_trabajo
+    -Decimal costo_total
+    -String estado
+    -int id_usuario
+    +to_domain() Maintenance
+  }
+  Base <|-- MantenimientoORM : hereda
+
+  %% =========================================================================
+  %% RELACIONES Y MULTIPLICIDADES ENTRE ENTIDADES
+  %% =========================================================================
+  AgenciaORM "1" *-- "*" UsuarioORM : administra
+  RolORM "1" --> "*" UsuarioORM : asigna
+  UsuarioORM "0..1" --> "*" AuditoriaORM : audita
+
+  MarcaORM "1" *-- "1..*" ModeloORM : cataloga
+  ModeloORM "1" --> "*" VehiculoORM : especifica
+  CategoriaVehiculoORM "1" --> "*" VehiculoORM : clasifica
+  VehiculoORM "1" *-- "*" MantenimientoORM : somete_a
+
+  ClienteORM "1" *-- "0..1" LicenciaConducirORM : posee
+  ClienteORM "1" --> "*" ReservaORM : solicita
+  ClienteORM "1" --> "*" ContratoORM : arrienda
+
+  CategoriaVehiculoORM "1" --> "*" ReservaORM : requiere
+  VehiculoORM "0..1" --> "*" ReservaORM : preasigna
+  ReservaORM "0..1" --> "0..1" ContratoORM : formaliza
+
+  VehiculoORM "1" --> "*" ContratoORM : asignado_a
+  CoberturaSeguroORM "1" --> "*" ContratoORM : protege
+  ContratoORM "1" *-- "*" ConductorAdicionalORM : incluye
+  ContratoORM "1" *-- "0..1" DevolucionORM : acta_retorno
+  DevolucionORM "1" *-- "*" DanioORM : evalua
+  ContratoORM "1" *-- "0..1" LiquidacionORM : totaliza
+  DevolucionORM "1" --> "1" LiquidacionORM : sustenta
+
+  ContratoORM "0..1" *-- "*" PagoORM : cobra_contrato
+  ReservaORM "0..1" --> "*" PagoORM : anticipo
+  LiquidacionORM "0..1" *-- "*" PagoORM : cobra_saldo
+  UsuarioORM "1" --> "*" PagoORM : procesa
+  UsuarioORM "1" --> "*" ContratoORM : gestiona
+  UsuarioORM "1" --> "*" ReservaORM : recepciona
+  UsuarioORM "1" --> "*" DevolucionORM : inspecciona
+  UsuarioORM "1" --> "*" LiquidacionORM : emite
+  UsuarioORM "1" --> "*" MantenimientoORM : supervisa

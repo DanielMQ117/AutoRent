@@ -1,0 +1,147 @@
+# Diagrama de Casos de Uso — Rol: Agente de Ventas (AutoRent Pro)
+
+El presente diagrama modela todas las interacciones, casos de uso, dependencias (`<<include>>`, `<<extend>>`), reglas de negocio y artefactos de datos correspondientes al rol de **Agente de Ventas** en el sistema **AutoRent Pro**.
+
+```mermaid
+usecase-beta
+direction LR
+accTitle: Diagrama de Casos de Uso - Rol Agente de Ventas (AutoRent Pro)
+accDescr {
+  Diagrama de casos de uso del sistema AutoRent Pro para el rol de Agente de Ventas.
+  Modela las operaciones de autenticación con aislamiento multi-tenant, gestión de
+  clientes, verificación de licencias y créditos, ciclo de reservas anti-overbooking,
+  apertura de contratos, inspección check-in, cobro de garantías, despacho físico,
+  emisión de contrato legal en PDF para firma, recepción física y liquidación financiera.
+}
+
+actor AgenteVentas("Agente de Ventas")@{ type: hollow, business: true } <<Empleado>>
+actor Cliente("Cliente / Arrendatario")@{ type: hollow } <<Externo>>
+
+systemBoundary moduloVentas["AutoRent Pro - Gestión Comercial y Ventas"]@{ type: package }:::sistema
+  %% Módulo 1: Seguridad y Tenencia
+  RF01_Login("RF-01: Autenticación e Inicio de Sesión Multi-Tenant") <<Acceso>>:::seguridad
+  RF02_Logout("RF-02: Cierre de Sesión (Logout)") <<Acceso>>
+  RF38_SeleccionAgencia("RF-38: Selección de Agencia y Aislamiento Multi-Tenant") <<Seguridad>>:::seguridad
+
+  %% Módulo 3: Gestión de Clientes y Verificaciones
+  RF10_GestionClientes("RF-10: Registro y Gestión de Clientes (Naturales y Jurídicos)") <<Comercial>>
+  RF11_VerificarLicencia("RF-11: Registro y Verificación de Licencia de Conducir") <<Validación>>
+  RF12_ValidarEstatusCrediticio("RF-12: Validación de Estatus Crediticio y Restricción de Vetados") <<Control>>
+
+  %% Módulo 4: Gestión de Reservas
+  RF14_CrearReserva("RF-14: Creación y Planificación de Reservas de Vehículos") <<Reserva>>
+  RF15_AntiOverbooking("RF-15: Verificación de Disponibilidad Temporal (Anti-Overbooking)") <<Validación>>
+  RF16_DepositoAnticipo("RF-16: Registro y Control de Depósito de Anticipo de Reserva") <<Financiero>>:::financiero
+  RF17_CicloVidaReserva("RF-17: Control de Estados del Ciclo de Vida de Reservas") <<Reserva>>
+
+  %% Módulo 5: Contratos y Despacho
+  RF18_AperturaContrato("RF-18: Formalización y Apertura de Contratos de Alquiler") <<Core>>:::transaccional
+  RF13_ConductoresAdicionales("RF-13: Registro y Vinculación de Conductores Adicionales") <<Contrato>>
+  RF19_SegurosGarantia("RF-19: Selección de Cobertura de Seguros y Cobro de Garantía") <<Financiero>>:::financiero
+  RF20_InspeccionCheckIn("RF-20: Inspección Física de Entrega (Check-in) y Acta Inicial") <<Operativo>>
+  RF21_DespachoVehiculo("RF-21: Despacho del Vehículo y Activación Atómica del Contrato") <<Transaccional>>:::transaccional
+  RF39_ImpresionContratoPDF("RF-39: Emisión, Descarga e Impresión de Contrato Legal en PDF") <<Documental>>
+
+  %% Módulo 6 y 7: Devolución y Liquidación Comercial
+  RF22_RecepcionRetorno("RF-22: Registro de Recepción Física y Hora Real de Retorno") <<Operativo>>
+  RF25_CalculoCostoBase("RF-25: Cálculo Automatizado de Costo Base de Alquiler") <<Cálculo>>
+  RF26_CalculoPenalizaciones("RF-26: Cálculo y Aplicación de Penalizaciones por Retraso, Combustible y Km") <<Cálculo>>
+  RF28_LiquidacionFinanciera("RF-28: Liquidación Financiera y Balance contra Depósito de Garantía") <<Core>>:::financiero
+  RF29_ComprobanteLiquidacion("RF-29: Emisión de Comprobante de Liquidación y Cierre de Contrato") <<Cierre>>:::financiero
+end
+
+json ExpedienteContrato@{
+  "contrato_id": "CTR-202611-0045",
+  "tenant_id": "SUCURSAL_CENTRAL",
+  "estado": "ACTIVO",
+  "vehiculo_placa": "M-289410",
+  "cobertura": "COBERTURA_AMPLIA",
+  "deposito_garantia": 500.00,
+  "firma_cliente": "FIRMADO_PDF"
+}:::datos
+
+note for RF21_DespachoVehiculo "`Transacción **ACID atómica**: activa contrato, asigna vehículo como ALQUILADO e ingresa fianza de garantía.`"
+note for RF15_AntiOverbooking "`Detección de solapamiento mediante **tstzrange** y exclusión btree_gist en PostgreSQL.`"
+note for RF39_ImpresionContratoPDF "`Generación con **QTextDocument/QPrinter** con cláusulas legales y casillas de firma autógrafa.`"
+note for RF28_LiquidacionFinanciera "`Balance contable: **(Renta + Seguros + Penalizaciones) - (Anticipo + Depósito)** para cobro o reembolso.`"
+
+%% Interacciones del Actor Principal (Agente de Ventas)
+AgenteVentas --> RF01_Login
+AgenteVentas --> RF02_Logout
+AgenteVentas --> RF10_GestionClientes
+AgenteVentas --> RF14_CrearReserva
+AgenteVentas --> RF17_CicloVidaReserva
+AgenteVentas iniciaContrato@-- "formaliza alquiler" ---> RF18_AperturaContrato
+AgenteVentas --> RF22_RecepcionRetorno
+AgenteVentas --> RF28_LiquidacionFinanciera
+
+%% Interacciones del Actor Secundario (Cliente / Arrendatario)
+Cliente --> RF14_CrearReserva
+Cliente --> RF39_ImpresionContratoPDF
+Cliente --> RF29_ComprobanteLiquidacion
+
+%% Relaciones de Inclusión (<<include>>)
+RF01_Login ..> : include RF38_SeleccionAgencia
+RF10_GestionClientes ..> : include RF11_VerificarLicencia
+RF14_CrearReserva ..> : include RF12_ValidarEstatusCrediticio
+RF14_CrearReserva ..> : include RF15_AntiOverbooking
+RF18_AperturaContrato ..> : include RF11_VerificarLicencia
+RF18_AperturaContrato ..> : include RF12_ValidarEstatusCrediticio
+RF18_AperturaContrato ..> : include RF15_AntiOverbooking
+RF18_AperturaContrato ..> : include RF19_SegurosGarantia
+RF18_AperturaContrato ..> : include RF20_InspeccionCheckIn
+RF18_AperturaContrato relDespacho@..> : include RF21_DespachoVehiculo
+RF18_AperturaContrato relPDF@..> : include RF39_ImpresionContratoPDF
+RF28_LiquidacionFinanciera ..> : include RF25_CalculoCostoBase
+RF28_LiquidacionFinanciera relCierre@..> : include RF29_ComprobanteLiquidacion
+
+%% Relaciones de Extensión (<<extend>>)
+RF16_DepositoAnticipo ..> : extend RF14_CrearReserva
+RF13_ConductoresAdicionales ..> : extend RF18_AperturaContrato
+RF17_CicloVidaReserva ..> : extend RF18_AperturaContrato
+RF26_CalculoPenalizaciones ..> : extend RF28_LiquidacionFinanciera
+
+%% Vinculación a artefacto de datos
+RF21_DespachoVehiculo --> ExpedienteContrato
+RF39_ImpresionContratoPDF --> ExpedienteContrato
+
+%% Estilos y Clases
+classDef sistema stroke:#2563eb,stroke-width:2px
+classDef transaccional stroke:#dc2626,stroke-width:2px
+classDef financiero stroke:#d97706,stroke-width:2px
+classDef seguridad stroke:#7c3aed,stroke-width:2px
+classDef datos stroke:#0284c7,stroke-width:2px
+
+%% Animaciones y Estilos de Enlaces
+iniciaContrato@{ animation: fast }
+relDespacho@{ animation: fast }
+style relDespacho stroke:#dc2626,stroke-width:2px
+style relPDF stroke:#059669,stroke-width:2px
+style relCierre stroke:#d97706,stroke-width:2px
+```
+
+## Requisitos Funcionales Cubiertos
+
+| Requisito | Denominación Funcional | Tipo / Rol |
+| :--- | :--- | :--- |
+| **RF-01** | Autenticación e Inicio de Sesión Multi-Tenant | Acceso directo / Seguridad |
+| **RF-02** | Cierre de Sesión (Logout) | Acceso directo / Cierre de jornada |
+| **RF-38** | Selección de Agencia y Aislamiento Multi-Tenant | Inclusión obligatoria en Login (`include`) |
+| **RF-10** | Registro y Gestión de Clientes (Naturales y Jurídicos) | Gestión comercial de clientes |
+| **RF-11** | Registro y Verificación de Licencia de Conducir | Inclusión en Clientes y Contratos (`include`) |
+| **RF-12** | Validación de Estatus Crediticio y Bloqueo de Vetados/Morosos | Inclusión de control en Reservas y Contratos (`include`) |
+| **RF-13** | Registro y Vinculación de Conductores Adicionales en Contrato | Extensión opcional de contrato (`extend`) |
+| **RF-14** | Creación y Planificación de Reservas de Vehículos | Planificación comercial de flota |
+| **RF-15** | Verificación de Disponibilidad Temporal y Anti-Overbooking | Inclusión en Reservas y Contratos (`include`) |
+| **RF-16** | Registro y Control de Depósito de Anticipo de Reserva | Extensión financiera en reserva (`extend`) |
+| **RF-17** | Control de Estados del Ciclo de Vida de Reservas | Gestión de estado y conversión a contrato |
+| **RF-18** | Formalización y Apertura de Contratos de Alquiler | Núcleo transaccional comercial (`Core`) |
+| **RF-19** | Selección de Pólizas de Seguros y Cobro de Garantía | Inclusión financiera en contrato (`include`) |
+| **RF-20** | Inspección Física de Entrega (Check-in) y Acta Inicial | Inclusión operativa en entrega (`include`) |
+| **RF-21** | Despacho del Vehículo y Activación Atómica del Contrato | Inclusión transaccional ACID (`include`) |
+| **RF-39** | Emisión, Descarga e Impresión de Contrato Legal en PDF para Firma | Inclusión documental para firma física/digital (`include`) |
+| **RF-22** | Registro de Recepción Física y Fecha/Hora Real de Retorno | Recepción técnica de retorno |
+| **RF-25** | Cálculo Automatizado de Costo Base de Alquiler | Inclusión de cálculo en liquidación (`include`) |
+| **RF-26** | Cálculo y Aplicación de Penalizaciones (Retraso, Gasolina, Km) | Extensión sancionatoria en liquidación (`extend`) |
+| **RF-28** | Liquidación Financiera y Balance contra Depósito de Garantía | Núcleo de balance contable (`Core`) |
+| **RF-29** | Emisión de Comprobante de Liquidación y Cierre de Contrato | Inclusión de cierre y comprobante (`include`) |

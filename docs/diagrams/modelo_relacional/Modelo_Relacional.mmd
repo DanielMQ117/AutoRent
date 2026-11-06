@@ -1,0 +1,319 @@
+---
+title: Modelo Relacional Físico - Base de Datos PostgreSQL 15+ (AutoRent Pro)
+---
+erDiagram
+    direction LR
+    %% =========================================================================
+    %% 0. MODULO MULTI-TENANCY (AGENCIAS / INQUILINOS)
+    %% =========================================================================
+    agencias {
+        bigint id_agencia PK
+        varchar codigo_agencia
+        varchar nombre_comercial
+        varchar ruc_nit
+        varchar telefono
+        varchar email
+        text direccion
+        boolean activo
+        timestamptz fecha_creacion
+    }
+
+    %% =========================================================================
+    %% 1. MODULO DE SEGURIDAD Y USUARIOS (RBAC)
+    %% =========================================================================
+    roles {
+        bigint id_rol PK
+        varchar nombre
+        varchar descripcion
+    }
+
+    usuarios {
+        bigint id_usuario PK
+        bigint tenant_id FK
+        bigint id_rol FK
+        varchar username
+        varchar password_hash
+        varchar nombre_completo
+        varchar email
+        boolean activo
+        timestamptz fecha_creacion
+    }
+
+    auditoria {
+        bigint id_auditoria PK
+        bigint tenant_id FK
+        bigint id_usuario FK
+        varchar username
+        varchar accion
+        varchar tabla_afectada
+        bigint id_registro
+        text detalles
+        varchar ip_origen
+        timestamptz fecha_registro
+    }
+
+    %% =========================================================================
+    %% 2. MODULO DE FLOTA Y VEHICULOS
+    %% =========================================================================
+    marcas {
+        bigint id_marca PK
+        varchar nombre
+    }
+
+    modelos {
+        bigint id_modelo PK
+        bigint id_marca FK
+        varchar nombre
+        integer anio
+        varchar tipo_transmision
+        integer capacidad_pasajeros
+    }
+
+    categorias_vehiculo {
+        bigint id_categoria PK
+        bigint tenant_id FK
+        varchar nombre
+        text descripcion
+        numeric deposito_garantia_sugerido
+        numeric tarifa_base_diaria
+    }
+
+    vehiculos {
+        bigint id_vehiculo PK
+        bigint tenant_id FK
+        bigint id_modelo FK
+        bigint id_categoria FK
+        varchar placa
+        varchar vin
+        varchar color
+        integer kilometraje_actual
+        numeric nivel_combustible_actual
+        varchar estado
+        integer km_proximo_mantenimiento
+        boolean activo
+    }
+
+    %% =========================================================================
+    %% 3. MODULO DE CLIENTES Y CONDUCTORES
+    %% =========================================================================
+    clientes {
+        bigint id_cliente PK
+        bigint tenant_id FK
+        varchar tipo_persona
+        varchar identificacion
+        varchar nombres
+        varchar apellidos
+        varchar telefono
+        varchar email
+        text direccion
+        varchar estado_cliente
+        timestamptz fecha_registro
+    }
+
+    licencias_conducir {
+        bigint id_licencia PK
+        bigint tenant_id FK
+        bigint id_cliente FK
+        varchar numero_licencia
+        varchar categoria_licencia
+        date fecha_emision
+        date fecha_vencimiento
+        varchar pais_emision
+    }
+
+    coberturas_seguro {
+        bigint id_cobertura PK
+        bigint tenant_id FK
+        varchar nombre
+        text descripcion
+        numeric costo_diario
+        numeric porcentaje_deducible
+    }
+
+    %% =========================================================================
+    %% 4. MODULO DE RESERVAS
+    %% =========================================================================
+    reservas {
+        bigint id_reserva PK
+        bigint tenant_id FK
+        varchar codigo_reserva
+        bigint id_cliente FK
+        bigint id_categoria FK
+        bigint id_vehiculo FK
+        timestamptz fecha_hora_inicio
+        timestamptz fecha_hora_fin
+        numeric monto_anticipo
+        varchar estado
+        bigint id_usuario FK
+        timestamptz fecha_creacion
+    }
+
+    %% =========================================================================
+    %% 5. MODULO DE CONTRATOS Y OPERACIONES
+    %% =========================================================================
+    contratos {
+        bigint id_contrato PK
+        bigint tenant_id FK
+        varchar codigo_contrato
+        bigint id_reserva FK
+        bigint id_cliente FK
+        bigint id_vehiculo FK
+        bigint id_cobertura FK
+        timestamptz fecha_hora_inicio_pactada
+        timestamptz fecha_hora_fin_pactada
+        timestamptz fecha_hora_salida_real
+        integer kilometraje_salida
+        numeric combustible_salida
+        numeric tarifa_diaria_aplicada
+        numeric monto_garantia
+        boolean kilometraje_ilimitado
+        integer limite_km_diario
+        numeric costo_km_excedente
+        varchar estado
+        bigint id_usuario FK
+        timestamptz fecha_creacion
+    }
+
+    conductores_adicionales {
+        bigint id_conductor PK
+        bigint tenant_id FK
+        bigint id_contrato FK
+        varchar nombre_completo
+        varchar identificacion
+        varchar numero_licencia
+        date fecha_vencimiento_licencia
+    }
+
+    %% =========================================================================
+    %% 6. MODULO DE DEVOLUCIONES Y DAÑOS
+    %% =========================================================================
+    devoluciones {
+        bigint id_devolucion PK
+        bigint tenant_id FK
+        bigint id_contrato FK
+        timestamptz fecha_hora_retorno_real
+        integer kilometraje_retorno
+        numeric combustible_retorno
+        integer horas_retraso
+        boolean limpieza_aprobada
+        boolean accesorios_completos
+        text observaciones
+        bigint id_usuario FK
+    }
+
+    danios {
+        bigint id_danio PK
+        bigint tenant_id FK
+        bigint id_devolucion FK
+        varchar zona_carroceria
+        varchar tipo_danio
+        varchar gravedad
+        text descripcion
+        numeric costo_reparacion
+    }
+
+    %% =========================================================================
+    %% 7. MODULO DE LIQUIDACIONES Y CONTROL FINANCIERO
+    %% =========================================================================
+    liquidaciones {
+        bigint id_liquidacion PK
+        bigint tenant_id FK
+        bigint id_contrato FK
+        bigint id_devolucion FK
+        timestamptz fecha_liquidacion
+        integer dias_facturados
+        numeric subtotal_renta
+        numeric cargos_retraso
+        numeric cargos_combustible
+        numeric cargos_km_excedente
+        numeric cargos_danios
+        numeric total_bruto
+        numeric monto_garantia_aplicado
+        numeric saldo_cliente
+        varchar estado_liquidacion
+        bigint id_usuario FK
+    }
+
+    pagos {
+        bigint id_pago PK
+        bigint tenant_id FK
+        varchar codigo_transaccion
+        bigint id_contrato FK
+        bigint id_reserva FK
+        bigint id_liquidacion FK
+        varchar tipo_movimiento
+        varchar metodo_pago
+        numeric monto
+        timestamptz fecha_hora
+        varchar referencia
+        bigint id_usuario FK
+    }
+
+    %% =========================================================================
+    %% 8. MODULO DE MANTENIMIENTO
+    %% =========================================================================
+    mantenimientos {
+        bigint id_mantenimiento PK
+        bigint tenant_id FK
+        bigint id_vehiculo FK
+        varchar tipo_mantenimiento
+        timestamptz fecha_ingreso
+        date fecha_salida_estimada
+        timestamptz fecha_salida_real
+        integer kilometraje_entrada
+        varchar taller_servicio
+        text descripcion_trabajo
+        numeric costo_total
+        varchar estado
+        bigint id_usuario FK
+    }
+
+    %% =========================================================================
+    %% RESTRICCIONES DE CLAVE FORANEA (FOREIGN KEYS) Y CARDINALIDAD FISICA
+    %% =========================================================================
+
+    %% Multi-Tenancy y Gobernanza
+    agencias ||--o{ usuarios : "fk_usuarios_agencias (tenant_id)"
+    agencias ||--o{ auditoria : "fk_auditoria_agencias (tenant_id)"
+    roles ||--o{ usuarios : "fk_usuarios_roles (id_rol)"
+    usuarios |o--o{ auditoria : "fk_auditoria_usuarios (id_usuario)"
+
+    %% Flota y Clasificación
+    marcas ||--|{ modelos : "fk_modelos_marcas (id_marca)"
+    modelos ||--o{ vehiculos : "fk_vehiculos_modelos (id_modelo)"
+    categorias_vehiculo ||--o{ vehiculos : "fk_vehiculos_categorias (id_categoria)"
+    vehiculos ||--o{ mantenimientos : "fk_mantenimientos_vehiculos (id_vehiculo)"
+    usuarios ||--o{ mantenimientos : "fk_mantenimientos_usuarios (id_usuario)"
+
+    %% Clientes y Documentación
+    clientes ||--o| licencias_conducir : "fk_licencias_clientes (id_cliente)"
+
+    %% Operación Comercial: Reservas
+    clientes ||--o{ reservas : "fk_reservas_clientes (id_cliente)"
+    categorias_vehiculo ||--o{ reservas : "fk_reservas_categorias (id_categoria)"
+    vehiculos |o--o{ reservas : "fk_reservas_vehiculos (id_vehiculo)"
+    usuarios ||--o{ reservas : "fk_reservas_usuarios (id_usuario)"
+
+    %% Operación Comercial: Contratos
+    reservas |o--o| contratos : "fk_contratos_reservas (id_reserva)"
+    clientes ||--o{ contratos : "fk_contratos_clientes (id_cliente)"
+    vehiculos ||--o{ contratos : "fk_contratos_vehiculos (id_vehiculo)"
+    coberturas_seguro ||--o{ contratos : "fk_contratos_coberturas (id_cobertura)"
+    usuarios ||--o{ contratos : "fk_contratos_usuarios (id_usuario)"
+    contratos ||--o{ conductores_adicionales : "fk_conductores_contratos (id_contrato)"
+
+    %% Inspección de Retorno y Daños
+    contratos ||--o| devoluciones : "fk_devoluciones_contratos (id_contrato)"
+    usuarios ||--o{ devoluciones : "fk_devoluciones_usuarios (id_usuario)"
+    devoluciones ||--o{ danios : "fk_danios_devoluciones (id_devolucion)"
+
+    %% Cierre Financiero y Liquidación
+    contratos ||--o| liquidaciones : "fk_liquidaciones_contratos (id_contrato)"
+    devoluciones ||--o| liquidaciones : "fk_liquidaciones_devoluciones (id_devolucion)"
+    usuarios ||--o{ liquidaciones : "fk_liquidaciones_usuarios (id_usuario)"
+
+    %% Caja y Pagos
+    contratos |o--o{ pagos : "fk_pagos_contratos (id_contrato)"
+    reservas |o--o{ pagos : "fk_pagos_reservas (id_reserva)"
+    liquidaciones |o--o{ pagos : "fk_pagos_liquidaciones (id_liquidacion)"
+    usuarios ||--o{ pagos : "fk_pagos_usuarios (id_usuario)"
