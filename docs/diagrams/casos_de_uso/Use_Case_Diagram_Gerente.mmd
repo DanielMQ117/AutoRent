@@ -21,20 +21,6 @@ systemBoundary sistemaAutoRent["AutoRent Pro - Gestión y Analítica Gerencial"]
   UC_RepClientes("RF-36: Reporte de Historial de Clientes, Siniestralidad y Morosidad") <<Analitica>>:::reporte
   UC_Exportar("RF-37: Exportación de Reportes a Formatos Estándar CSV, PDF y Excel") <<Utilidad>>:::export
 end
-json MetricasEjecutivas@{
-  "agencia": "Sucursal Central",
-  "kpis_monitoreados": {
-    "tasa_ocupacion": "78.5%",
-    "flota_activa": 42,
-    "ingresos_totales_usd": 128500.0,
-    "clientes_morosos": 3
-  },
-  "formatos_exportacion": ["PDF", "Excel", "CSV"]
-}:::data
-note for UC_Tenant "`Garantiza el **aislamiento estricto** de datos por sucursal mediante **Row Level Security (RLS)**`"
-note for UC_RepIngresos "`Consultas analíticas agregadas con filtros por **fecha**, **método de pago** y **concepto**`"
-note for UC_RepFlota "`Calcula la **tasa de ocupación** porcentual y el ranking del **vehículo más rentado**`"
-note for UC_Exportar "`Descarga archivos estructurados en **CSV**, **PDF** o **Excel** con formato institucional`"
 Gerente starts@-- "inicia sesión segura" ---> UC_Login
 Gerente --> UC_Logout
 Gerente kpiMon@-- "monitorea en tiempo real" ---> UC_Dashboard
@@ -43,7 +29,6 @@ Gerente repIng@-- "consulta recaudación" ---> UC_RepIngresos
 Gerente --> UC_RepFlota
 Gerente --> UC_RepClientes
 UC_Login incTenant@..> : include UC_Tenant
-UC_Dashboard --> MetricasEjecutivas
 UC_Exportar expIng@..> : extend UC_RepIngresos
 UC_Exportar expFlo@..> : extend UC_RepFlota
 UC_Exportar expCli@..> : extend UC_RepClientes
@@ -54,7 +39,6 @@ classDef kpi stroke:#2b6cb0,stroke-width:2px
 classDef supervision stroke:#dd6b20,stroke-width:2px
 classDef reporte stroke:#276749,stroke-width:2px
 classDef export stroke:#b7791f,stroke-width:2px
-classDef data stroke:#3182ce
 kpiMon@{ animation: fast }
 style incTenant stroke:#6b46c1,stroke-width:2px
 style expIng stroke:#b7791f,stroke-width:2px

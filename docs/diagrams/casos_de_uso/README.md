@@ -1,6 +1,6 @@
 # Catálogo de Diagramas de Casos de Uso - AutoRent Pro
 
-Diagramas de casos de uso modelados bajo la especificación **Mermaid `usecase-beta`** con soporte para metadatos de accesibilidad, límites de subsistema (`systemBoundary package`), estereotipos, notas técnicas, tablas de datos JSON y relaciones `<<include>>` / `<<extend>>`.
+Diagramas de casos de uso optimizados y estructurados bajo la especificación **Mermaid `usecase-beta`**, con límites de subsistema (`systemBoundary package`), estereotipos funcionales, alta legibilidad visual (sin tablas JSON ni notas invasivas) y relaciones formales de inclusión (`<<include>>`) y extensión (`<<extend>>`).
 
 ---
 

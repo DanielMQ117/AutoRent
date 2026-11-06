@@ -37,31 +37,6 @@ systemBoundary tallerSystem["AutoRent Pro - Subsistema de Inspección Técnica y
   RF33_FinalizarMantenimiento("RF-33: Finalización de Mantenimiento, Registro de Costos y Reactivación") <<Cierre Taller>>:::mantenimiento
 end
 
-%% Tabla JSON con datos técnicos de referencia de una inspección de retorno
-json FichaInspeccionRetorno@{
-  "placa": "M-289412",
-  "odometro_retorno_km": 54230,
-  "combustible_nivel": "3/4",
-  "accesorios_verificados": {
-    "llave_encendido": true,
-    "llanta_repuesto": true,
-    "gata_mecanica": true,
-    "llave_pernos": true,
-    "extintor": true
-  },
-  "danos_nuevos_detectados": 1,
-  "costo_reparacion_usd": 120.00,
-  "estado_resultante": "EN_MANTENIMIENTO"
-}:::data
-
-%% Notas explicativas de reglas de negocio
-note for RF38_SelectAgency "`Aislamiento operativo estricto por tenant_id garantizado en aplicación y PostgreSQL (RLS).`"
-note for RF07_ControlEstados "`Controla máquina de estados: DISPONIBLE, EN_INSPECCION, EN_MANTENIMIENTO y DE_BAJA.`"
-note for RF09_AlertasKm "`Disparador automático cuando: km_actual >= km_proximo_mantenimiento - 200 km.`"
-note for RF27_RegistrarDanos "`Registra zona carrocería, tipo de daño, gravedad y costo estimado imputable a liquidación.`"
-note for RF32_BloqueoOperativo "`Garantiza que ningún vehículo con estado EN_MANTENIMIENTO sea reservado o despachado comercialmente.`"
-note for RF33_FinalizarMantenimiento "`Registra costos reales de taller, reprograma odómetro de próximo servicio y reactiva a DISPONIBLE.`"
-
 %% Asociaciones directas del Actor Inspector de Taller
 Inspector auth@-- "inicia sesión" ---> RF01_Login
 Inspector --> RF02_Logout
@@ -85,9 +60,6 @@ RF33_FinalizarMantenimiento inc_react@..> : include RF07_ControlEstados
 RF27_RegistrarDanos ext_dano@..> : extend RF23_InspeccionRetorno
 RF09_AlertasKm ext_maint@..> : extend RF31_RegistrarMantenimiento
 
-%% Asociación con estructura de datos de inspección
-RF23_InspeccionRetorno --> FichaInspeccionRetorno
-
 %% Definición de estilos de clases
 classDef sistema stroke:#1e40af,stroke-width:2px,fill:#f8fafc
 classDef seguridad stroke:#4338ca,stroke-width:2px,fill:#eef2ff
@@ -97,7 +69,6 @@ classDef mantenimiento stroke:#d97706,stroke-width:2px,fill:#fffbeb
 classDef estado stroke:#059669,stroke-width:2px,fill:#ecfdf5
 classDef alerta stroke:#ea580c,stroke-width:2px,fill:#fff7ed
 classDef critico stroke:#dc2626,stroke-width:2px,fill:#fef2f2
-classDef data stroke:#0284c7,stroke-width:2px,fill:#f8fafc
 
 %% Animaciones de aristas
 auth@{ animation: fast }

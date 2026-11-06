@@ -60,21 +60,6 @@ systemBoundary autoRent["Sistema AutoRent Pro - Gestión y Administración"]@{ t
   UC_ReportesAnalitica("Consultar y Exportar Reportes Analíticos"):::supervision
 end
 
-json SesionAdministrador@{
-  "rol": "ADMINISTRADOR",
-  "tenant_id": 1,
-  "agencia_activa": "AutoRent Pro - Sede Central Managua",
-  "matriz_rbac": "ACCESO_TOTAL_SISTEMA",
-  "modulos_habilitados": 9,
-  "auditoria_activa": true
-}:::data
-
-note for UC_Login "`Autentica al Administrador validando su tenant y credenciales con **bcrypt**`"
-note for UC_RBAC "`Matriz de privilegios completa sin restricciones en todos los módulos operativos`"
-note for UC_Auditoria "`Fiscaliza eventos inmutables en PostgreSQL con usuario, IP, acción y timestamp (RF-05)`"
-note for UC_DesbloqueoAdmin "`Permite al Administrador reactivar usuarios bloqueados tras 3 intentos fallidos (RF-03)`"
-note for UC_Tenant "`Aislamiento operativo por agencia en PostgreSQL mediante Row Level Security (RLS)`"
-
 Admin admin_login@-- "inicia sesión" ---> UC_Login
 Admin --> UC_Logout
 Admin --> UC_GestionUsuarios
@@ -108,17 +93,13 @@ UC_SupervisionGlobal inc_sup_rep@..> : include UC_ReportesAnalitica
 
 UC_DesbloqueoAdmin inc_desb_aud@..> : include UC_RegAuditoria
 
-UC_Login --> SesionAdministrador
-SesionAdministrador --> UC_RBAC
-
 classDef system stroke:#1e3a8a,stroke-width:2px
 classDef critico stroke:#dc2626,stroke-width:2px
 classDef seguridad stroke:#0284c7,stroke-width:2px
-classDef core stroke:#15803d,stroke-width:2px
+classDef core stroke:#16a34a,stroke-width:2px
 classDef catalogos stroke:#d97706,stroke-width:2px
 classDef supervision stroke:#7c3aed,stroke-width:2px
 classDef auditoria stroke:#475569,stroke-width:2px
-classDef data stroke:#0d9488,stroke-width:2px
 
 admin_login@{ animation: fast }
 admin_sup@{ animation: fast }

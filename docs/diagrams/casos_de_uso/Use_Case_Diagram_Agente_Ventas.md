@@ -1,6 +1,6 @@
 # Diagrama de Casos de Uso — Rol: Agente de Ventas (AutoRent Pro)
 
-El presente diagrama modela todas las interacciones, casos de uso, dependencias (`<<include>>`, `<<extend>>`), reglas de negocio y artefactos de datos correspondientes al rol de **Agente de Ventas** en el sistema **AutoRent Pro**.
+El presente diagrama modela todas las interacciones, casos de uso y dependencias (`<<include>>`, `<<extend>>`) correspondientes al rol de **Agente de Ventas** en el sistema **AutoRent Pro**.
 
 ```mermaid
 usecase-beta
@@ -50,21 +50,6 @@ systemBoundary moduloVentas["AutoRent Pro - Gestión Comercial y Ventas"]@{ type
   RF29_ComprobanteLiquidacion("RF-29: Emisión de Comprobante de Liquidación y Cierre de Contrato") <<Cierre>>:::financiero
 end
 
-json ExpedienteContrato@{
-  "contrato_id": "CTR-202611-0045",
-  "tenant_id": "SUCURSAL_CENTRAL",
-  "estado": "ACTIVO",
-  "vehiculo_placa": "M-289410",
-  "cobertura": "COBERTURA_AMPLIA",
-  "deposito_garantia": 500.00,
-  "firma_cliente": "FIRMADO_PDF"
-}:::datos
-
-note for RF21_DespachoVehiculo "`Transacción **ACID atómica**: activa contrato, asigna vehículo como ALQUILADO e ingresa fianza de garantía.`"
-note for RF15_AntiOverbooking "`Detección de solapamiento mediante **tstzrange** y exclusión btree_gist en PostgreSQL.`"
-note for RF39_ImpresionContratoPDF "`Generación con **QTextDocument/QPrinter** con cláusulas legales y casillas de firma autógrafa.`"
-note for RF28_LiquidacionFinanciera "`Balance contable: **(Renta + Seguros + Penalizaciones) - (Anticipo + Depósito)** para cobro o reembolso.`"
-
 %% Interacciones del Actor Principal (Agente de Ventas)
 AgenteVentas --> RF01_Login
 AgenteVentas --> RF02_Logout
@@ -101,16 +86,11 @@ RF13_ConductoresAdicionales ..> : extend RF18_AperturaContrato
 RF17_CicloVidaReserva ..> : extend RF18_AperturaContrato
 RF26_CalculoPenalizaciones ..> : extend RF28_LiquidacionFinanciera
 
-%% Vinculación a artefacto de datos
-RF21_DespachoVehiculo --> ExpedienteContrato
-RF39_ImpresionContratoPDF --> ExpedienteContrato
-
 %% Estilos y Clases
 classDef sistema stroke:#2563eb,stroke-width:2px
 classDef transaccional stroke:#dc2626,stroke-width:2px
 classDef financiero stroke:#d97706,stroke-width:2px
 classDef seguridad stroke:#7c3aed,stroke-width:2px
-classDef datos stroke:#0284c7,stroke-width:2px
 
 %% Animaciones y Estilos de Enlaces
 iniciaContrato@{ animation: fast }
